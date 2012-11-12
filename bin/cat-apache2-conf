@@ -20,6 +20,7 @@ my $indent_level = 0;
 sub cat_apache2_conf {
 	my @files = @_;
 	if (!scalar(@files)) { @files = ("-"); }
+	local $_;
 	foreach my $file (@files) {
 		my $fh;
 		if (!open($fh, "<", $file)) {
@@ -48,7 +49,6 @@ sub cat_apache2_conf {
 				cat_apache2_conf(@glob);
 				$print = 0;
 			} 
-
 			if (/^\s*<\s*\//) {
 				if ($indent_level >= 1) {
 					$indent_level -= 1;
