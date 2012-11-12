@@ -38,10 +38,11 @@ sub cat_apache2_conf {
 			next unless m{\S};
 			my $print = 1;
 			s{^\s*}{};
-			if (m{^serverroot\s*(\"[^\"]*\"|\S+)}i) {
+			if (m{^serverroot\s*(?:\"([^\"]*)\"|(\S+))}i) {
 				$serverroot = $1;
-			} elsif (m{^include\s*(\"[^\"]*\"|\S+)}i) {
-				my $glob = rel2abs($1, $serverroot);
+			} elsif (m{^include\s*(?:\"([^\"]*)\"|(\S+))}i) {
+				my $path = $1 // $2;
+				my $glob = rel2abs($path, $serverroot);
 				if (-d $glob || $glob =~ m{/$}) {
 					$glob = "$glob/*";
 				}
