@@ -2,6 +2,14 @@
 use warnings;
 use strict;
 use File::Basename qw(dirname);
+use Getopt::Long;
+
+our $verbose = 0;
+
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions("v|verbose" => \$verbose,
+			 "h|help" => sub { usage(); exit(0); }) ||
+	die("Type '$0 --help' for help.\n");
 
 cat_apache2_conf(@ARGV);
 
@@ -19,7 +27,7 @@ sub cat_apache2_conf {
 		if (!defined $dirname) {
 			$dirname = dirname($file);
 		}
-		print("### BEGIN $file ###\n");
+		print("### BEGIN $file ###\n") if $verbose;
 		while (<$fh>) {
 			chomp();
 			next if /^\s*\#/;
@@ -34,13 +42,13 @@ sub cat_apache2_conf {
 					$glob = "$glob/*";
 				}
 				my @glob = glob($glob);
-				print("### $_ => glob($glob) => @glob\n");
+				print("### $_ => glob($glob) => @glob\n") if $verbose;
 				cat_apache2_conf(@glob);
 				$print = 0;
 			}
 			print($_, "\n") if $print;
 		}
-		print("### END $file ###\n");
+		print("### END $file ###\n") if $verbose;
 	}
 }
 
