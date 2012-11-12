@@ -47,14 +47,17 @@ sub cat_apache2_conf {
 				print("### $_ => glob($glob) => @glob\n") if $verbose;
 				cat_apache2_conf(@glob);
 				$print = 0;
-			} elsif (/^\s*<\s*\//) {
+			} 
+
+			if (/^\s*<\s*\//) {
 				if ($indent_level >= 1) {
 					$indent_level -= 1;
 				}
-			} elsif (/^\s*</) {
-				$indent_level += 1;
 			}
 			print(($indent_string x $indent_level), $_, "\n") if $print;
+			if (/^\s*<(?!\s*\/)/) {
+				$indent_level += 1;
+			}
 		}
 		print("### END $file ###\n") if $verbose;
 	}
