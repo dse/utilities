@@ -8,10 +8,12 @@ use File::Spec::Functions qw(rel2abs);
 our $verbose = 0;
 our $indent_string = "\t";
 our $reorder = 0;
+our $line_numbers = 0;
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
-Getopt::Long::GetOptions("v|verbose+" => \$verbose,
-			 "reorder+"=> \$reorder,
+Getopt::Long::GetOptions("v|verbose+"      => \$verbose,
+			 "reorder+"        => \$reorder,
+			 "n|line-numbers+" => \$line_numbers,
 			 "h|help" => sub { usage(); exit(0); }) ||
 	die("Type '$0 --help' for help.\n");
 
@@ -44,6 +46,7 @@ sub cat_apache2_conf {
 			my $print = 1;
 			s{^\s*}{};
 			my $list = \@primary;
+			my $command = (m{^\s*(\S+)});
 			if (m{^serverroot\s*(?:\"([^\"]*)\"|(\S+))}i) {
 				$serverroot = $1;
 			} elsif (m{^include\s*(?:\"([^\"]*)\"|(\S+))}i) {
@@ -64,6 +67,9 @@ sub cat_apache2_conf {
 				}
 			}
 			my $out = ($indent_string x $indent_level) . $_;
+			if ($line_numbers) {
+				$out = $. . "\t" . $out;
+			}
 			$list = \@secondary if $indent_level;
 			if (m{^\s*<(?!\s*/)}) {
 				$list = \@secondary;
@@ -71,7 +77,7 @@ sub cat_apache2_conf {
 			}
 
 			if ($reorder) {
-				push(@$list, $out);
+				push(@$list, [$., $command, $out]);
 			} else {
 				print($out, "\n");
 			}
