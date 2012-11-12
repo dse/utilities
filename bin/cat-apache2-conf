@@ -26,9 +26,9 @@ sub cat_apache2_conf {
 			next unless /\S/;
 			my $print = 1;
 			s/^\s*//;
-			if (m{^serverroot\s*\"?(\S+?)\"?}i) {
+			if (m{^serverroot\s*(\"[^\"]*\"|\S+)}i) {
 				$dirname = $1;
-			} elsif (m{^include\s*\"?(\S+?)\"?}i) {
+			} elsif (m{^include\s*(\"[^\"]*\"|\S+)}i) {
 				my $glob = "$dirname/$1";
 				my @glob = glob($glob);
 				print("### $_ => glob($glob) => @glob\n");
