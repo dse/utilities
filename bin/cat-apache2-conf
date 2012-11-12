@@ -77,13 +77,15 @@ sub cat_apache2_conf {
 				$list = \@secondary;
 				$indent_level += 1;
 			}
-			
-			if ($reorder) {
-				push(@$list, { line => $out,
-					       line_number => $line_number,
-					       command => $command });
-			} else {
-				print($out, "\n");
+
+			if ($print) {
+				if ($reorder) {
+					push(@$list, { line => $out,
+						       line_number => $line_number,
+						       command => $command });
+				} else {
+					print($out, "\n");
+				}
 			}
 		}
 		print("### END $file ###\n") if $verbose;
