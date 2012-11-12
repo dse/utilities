@@ -29,8 +29,10 @@ sub cat_apache2_conf {
 			if (m{^serverroot\s*\"?(\S+?)\"?}i) {
 				$dirname = $1;
 			} elsif (m{^include\s*\"?(\S+?)\"?}i) {
-				print("### $_\n");
-				cat_apache2_conf(glob($dirname . "/" . $1));
+				my $glob = "$dirname/$1";
+				my @glob = glob($glob);
+				print("### $_ => glob($glob) => @glob\n");
+				cat_apache2_conf(@glob);
 				$print = 0;
 			}
 			print($_, "\n") if $print;
