@@ -54,7 +54,7 @@ sub cat_apache2_conf {
 			} elsif (/^\s*</) {
 				$indent_level += 1;
 			}
-			print(($indent_string * $indent_level), $_, "\n") if $print;
+			print(($indent_string x $indent_level), $_, "\n") if $print;
 		}
 		print("### END $file ###\n") if $verbose;
 	}
