@@ -1,8 +1,11 @@
 #!/usr/bin/perl
 use warnings;
 use strict;
+use File::Basename qw(dirname);
 
 cat_apache2_conf(@ARGV);
+
+my $dirname;
 
 sub cat_apache2_conf {
 	my @files = @ARGV;
@@ -13,12 +16,23 @@ sub cat_apache2_conf {
 			warn("$0: $file: not found");
 			next;
 		}
+		if (!defined $dirname) {
+			$dirname = dirname($file);
+		}
 		while (<$fh>) {
 			chomp();
 			next if /^\s*\#/;
 			next unless /\S/;
+			my $print = 1;
 			s/^\s*//;
-			print($_, "\n");
+			if (m{^serverroot\s*\"?(\S+?)\"?}i) {
+				$dirname = $1;
+			} elsif (m{^include\s*\"?(\S+?)\"?}i) {
+				cat_apache2_conf(glob($dirname . "/" . $1));
+				$print = 0;
+			}
+			print($_, "\n") if $print;
 		}
 	}
 }
+
