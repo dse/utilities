@@ -19,6 +19,7 @@ Getopt::Long::GetOptions("v|verbose+"      => \$verbose,
 
 my $serverroot;
 my $indent_level = 0;
+my $line_number = 0;
 
 cat_apache2_conf(@ARGV);
 
@@ -40,6 +41,7 @@ sub cat_apache2_conf {
 		}
 		print("### BEGIN $file ###\n") if $verbose;
 		while (<$fh>) {
+			++$line_number;
 			chomp();
 			next if m{^\s*\#};
 			next unless m{\S};
@@ -68,7 +70,7 @@ sub cat_apache2_conf {
 			}
 			my $out = ($indent_string x $indent_level) . $_;
 			if ($line_numbers) {
-				$out = $. . "\t" . $out;
+				$out = $line_number . "\t" . $out;
 			}
 			$list = \@secondary if $indent_level;
 			if (m{^\s*<(?!\s*/)}) {
@@ -78,7 +80,7 @@ sub cat_apache2_conf {
 			
 			if ($reorder) {
 				push(@$list, { line => $out,
-					       line_number => $.,
+					       line_number => $line_number,
 					       command => $command });
 			} else {
 				print($out, "\n");
