@@ -5,6 +5,7 @@ use File::Basename qw(dirname);
 use Getopt::Long;
 
 our $verbose = 0;
+our $indent_string = "\t";
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions("v|verbose" => \$verbose,
@@ -14,6 +15,7 @@ Getopt::Long::GetOptions("v|verbose" => \$verbose,
 cat_apache2_conf(@ARGV);
 
 my $dirname;
+my $indent_level = 0;
 
 sub cat_apache2_conf {
 	my @files = @_;
@@ -45,8 +47,14 @@ sub cat_apache2_conf {
 				print("### $_ => glob($glob) => @glob\n") if $verbose;
 				cat_apache2_conf(@glob);
 				$print = 0;
+			} elsif (/^\s*<\s*\//) {
+				if ($indent_level >= 1) {
+					$indent_level -= 1;
+				}
+			} elsif (/^\s*</) {
+				$indent_level += 1;
 			}
-			print($_, "\n") if $print;
+			print($indent_string * $indent_level, $_, "\n") if $print;
 		}
 		print("### END $file ###\n") if $verbose;
 	}
