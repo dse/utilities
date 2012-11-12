@@ -7,9 +7,11 @@ use File::Spec::Functions qw(rel2abs);
 
 our $verbose = 0;
 our $indent_string = "\t";
+our $reorder = 0;
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
-Getopt::Long::GetOptions("v|verbose" => \$verbose,
+Getopt::Long::GetOptions("v|verbose+" => \$verbose,
+			 "reorder+"=> \$reorder,
 			 "h|help" => sub { usage(); exit(0); }) ||
 	die("Type '$0 --help' for help.\n");
 
@@ -17,6 +19,9 @@ my $serverroot;
 my $indent_level = 0;
 
 cat_apache2_conf(@ARGV);
+
+my @primary;
+my @secondary;
 
 sub cat_apache2_conf {
 	my @files = @_;
@@ -38,6 +43,7 @@ sub cat_apache2_conf {
 			next unless m{\S};
 			my $print = 1;
 			s{^\s*}{};
+			my $list = \@primary;
 			if (m{^serverroot\s*(?:\"([^\"]*)\"|(\S+))}i) {
 				$serverroot = $1;
 			} elsif (m{^include\s*(?:\"([^\"]*)\"|(\S+))}i) {
@@ -52,16 +58,29 @@ sub cat_apache2_conf {
 				$print = 0;
 			} 
 			if (m{^\s*<\s*/}) {
+				$list = \@secondary;
 				if ($indent_level >= 1) {
 					$indent_level -= 1;
 				}
 			}
-			print(($indent_string x $indent_level), $_, "\n") if $print;
+			my $out = ($indent_string x $indent_level) . $_;
+			$list = \@secondary if $indent_level;
 			if (m{^\s*<(?!\s*/)}) {
+				$list = \@secondary;
 				$indent_level += 1;
+			}
+
+			if ($reorder) {
+				push(@$list, $out);
+			} else {
+				print($out, "\n");
 			}
 		}
 		print("### END $file ###\n") if $verbose;
 	}
 }
 
+if ($reorder) {
+	print("$_\n") for @primary;
+	print("$_\n") for @secondary;
+}
