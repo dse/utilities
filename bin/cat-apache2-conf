@@ -8,7 +8,7 @@ cat_apache2_conf(@ARGV);
 my $dirname;
 
 sub cat_apache2_conf {
-	my @files = @ARGV;
+	my @files = @_;
 	if (!scalar(@files)) { @files = ("-"); }
 	foreach my $file (@files) {
 		my $fh;
