@@ -75,9 +75,11 @@ sub cat_apache2_conf {
 				$list = \@secondary;
 				$indent_level += 1;
 			}
-
+			
 			if ($reorder) {
-				push(@$list, [$., $command, $out]);
+				push(@$list, { line => $out,
+					       line_number => $.,
+					       command => $command });
 			} else {
 				print($out, "\n");
 			}
@@ -87,6 +89,6 @@ sub cat_apache2_conf {
 }
 
 if ($reorder) {
-	print("$_\n") for @primary;
-	print("$_\n") for @secondary;
+	print($_->{line} . "\n") for @primary;
+	print($_->{line} . "\n") for @secondary;
 }
