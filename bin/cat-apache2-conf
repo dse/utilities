@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+
+cat_apache2_conf(@ARGV);
+
+sub cat_apache2_conf {
+	my @files = @ARGV;
+	if (!scalar(@files)) { @files = ("-"); }
+	foreach my $file (@files) {
+		my $fh;
+		if (!open($fh, "<", $file)) {
+			warn("$0: $file: not found");
+			next;
+		}
+		while (<$fh>) {
+			chomp();
+			next if /^\s*\#/;
+			next unless /\S/;
+			s/^\s*//;
+			print($_, "\n");
+		}
+	}
+}
