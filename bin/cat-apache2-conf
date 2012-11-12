@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use File::Basename qw(dirname);
 use Getopt::Long;
+use File::Spec::Functions qw(rel2abs);
 
 our $verbose = 0;
 our $indent_string = "\t";
@@ -14,7 +15,7 @@ Getopt::Long::GetOptions("v|verbose" => \$verbose,
 
 cat_apache2_conf(@ARGV);
 
-my $dirname;
+my $serverroot;
 my $indent_level = 0;
 
 sub cat_apache2_conf {
@@ -27,21 +28,21 @@ sub cat_apache2_conf {
 			warn("$0: $file: not found");
 			next;
 		}
-		if (!defined $dirname) {
-			$dirname = dirname($file);
+		if (!defined $serverroot) {
+			$serverroot = dirname($file);
 		}
 		print("### BEGIN $file ###\n") if $verbose;
 		while (<$fh>) {
 			chomp();
-			next if /^\s*\#/;
-			next unless /\S/;
+			next if m{^\s*\#};
+			next unless m{\S};
 			my $print = 1;
-			s/^\s*//;
+			s{^\s*}{};
 			if (m{^serverroot\s*(\"[^\"]*\"|\S+)}i) {
-				$dirname = $1;
+				$serverroot = $1;
 			} elsif (m{^include\s*(\"[^\"]*\"|\S+)}i) {
-				my $glob = "$dirname/$1";
-				if (-d $glob) {
+				my $glob = rel2abs($1, $serverroot);
+				if (-d $glob || $glob =~ m{/$}) {
 					$glob = "$glob/*";
 				}
 				my @glob = glob($glob);
@@ -49,13 +50,13 @@ sub cat_apache2_conf {
 				cat_apache2_conf(@glob);
 				$print = 0;
 			} 
-			if (/^\s*<\s*\//) {
+			if (m{^\s*<\s*/}) {
 				if ($indent_level >= 1) {
 					$indent_level -= 1;
 				}
 			}
 			print(($indent_string x $indent_level), $_, "\n") if $print;
-			if (/^\s*<(?!\s*\/)/) {
+			if (m{^\s*<(?!\s*/)}) {
 				$indent_level += 1;
 			}
 		}
