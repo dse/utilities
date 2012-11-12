@@ -13,10 +13,10 @@ Getopt::Long::GetOptions("v|verbose" => \$verbose,
 			 "h|help" => sub { usage(); exit(0); }) ||
 	die("Type '$0 --help' for help.\n");
 
-cat_apache2_conf(@ARGV);
-
 my $serverroot;
 my $indent_level = 0;
+
+cat_apache2_conf(@ARGV);
 
 sub cat_apache2_conf {
 	my @files = @_;
