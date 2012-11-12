@@ -30,6 +30,9 @@ sub cat_apache2_conf {
 				$dirname = $1;
 			} elsif (m{^include\s*(\"[^\"]*\"|\S+)}i) {
 				my $glob = "$dirname/$1";
+				if (-d $glob) {
+					$glob = "$glob/*";
+				}
 				my @glob = glob($glob);
 				print("### $_ => glob($glob) => @glob\n");
 				cat_apache2_conf(@glob);
