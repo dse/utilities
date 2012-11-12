@@ -19,6 +19,7 @@ sub cat_apache2_conf {
 		if (!defined $dirname) {
 			$dirname = dirname($file);
 		}
+		print("### BEGIN $file ###\n");
 		while (<$fh>) {
 			chomp();
 			next if /^\s*\#/;
@@ -33,6 +34,7 @@ sub cat_apache2_conf {
 			}
 			print($_, "\n") if $print;
 		}
+		print("### END $file ###\n");
 	}
 }
 
