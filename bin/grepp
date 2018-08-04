@@ -1,0 +1,354 @@
+#!/usr/bin/env bash
+
+declare -a directory_excludes
+declare -a file_excludes
+declare -a grep_options
+declare -a grep_patterns        # -e <arg> or -f <arg>
+
+grep_options=()
+grep_patterns=()
+
+read_pattern_arg=1
+has_pattern=0
+use_find=0
+
+maxdepth=""
+mindepth=""
+
+verbose=0
+dry_run=0
+
+# shellcheck disable=SC2191
+directory_excludes=(
+    vendor
+    node_modules
+    .git
+    .svn
+)
+
+# shellcheck disable=SC2191
+file_excludes=(
+    '*~'
+    '*.gif'
+    '*.jpg'
+    '*.jpeg'
+    '*.png'
+    '*.ttf'
+    '*.woff'
+    '*.eot'
+    '*.zip'
+    '*.gz'
+    '*.min'
+    '*.min.*'
+    '*.css.map'
+    '*.js.map'
+    '*.min.map'
+    'composer.lock'
+)
+
+declare -a grep_directory_excludes
+declare -a find_directory_excludes
+declare -a grep_file_excludes
+declare -a find_file_excludes
+
+set_excludes () {
+    grep_directory_excludes=()
+    find_directory_excludes=()
+    grep_file_excludes=()
+    find_file_excludes=()
+    for exclude in "${directory_excludes[@]}" ; do
+        if (( ${#find_directory_excludes[@]} )) ; then
+            find_directory_excludes+=("-o")
+        fi
+        find_directory_excludes+=("-iname" "${exclude}")
+        grep_directory_excludes+=("--exclude-dir=${exclude}")
+    done
+    for exclude in "${file_excludes[@]}" ; do
+        if (( ${#find_file_excludes[@]} )) ; then
+            find_file_excludes+=("-o")
+        fi
+        find_file_excludes+=("-iname" "${exclude}")
+        grep_file_excludes+=("--exclude=${exclude}")
+    done
+}
+
+usage () {
+    grep --help
+    echo
+    echo "grepp - additional options:"
+    echo "  --verbose"
+    echo "  --dry-run"
+    echo "  --no-excludes"
+    echo "  --min-depth=DEPTH"
+    echo "  --max-depth=DEPTH"
+    echo "grepp does not accept -NUM; must use -C or --context=NUM"
+}
+
+sourcefirst () {
+    local i
+    for i ; do
+        if [[ -r "$i" ]] ; then
+            # shellcheck disable=SC1090
+            source "$i"
+            return $?
+        fi
+    done
+    return 1
+}
+
+sourcefirst \
+    "${HOME}/git/dse.d/getlongopts-bash/getlongopts.sh" \
+    "/c/cygwin64/home/501475791/git/dse.d/getlongopts-bash/getlongopts.sh" ||
+    exit 1
+
+declare -a longopts
+longopts=(
+    help                   no
+    version                no
+    extended-regexp        no
+    fixed-strings          no
+    basic-regexp           no
+    perl-regexp            no
+    regexp                 yes
+    file                   yes
+    ignore-case            no
+    invert-match           no
+    word-regexp            no
+    line-regexp            no
+    count                  no
+    color                  optional
+    colour                 optional
+    files-without-match    no
+    files-with-matches     no
+    max-count              yes
+    only-matching          no
+    quiet                  no
+    silent                 no
+    no-messages            no
+    byte-offset            no
+    with-filename          no
+    no-filename            no
+    label                  yes
+    line-number            no
+    initial-tab            no
+    unix-byte-offsets      no
+    null                   no
+    after-context          yes
+    before-context         yes
+    context                yes
+    text                   no
+    binary-files           yes
+    devices                yes
+    directories            yes
+    exclude                yes
+    exclude-from           yes
+    exclude-dir            yes
+    include                yes
+    recursive              no
+    dereference-recursive  no
+    line-buffered          no
+    binary                 no
+    null-data              no
+    verbose                no
+    dry-run                no
+    no-excludes            no
+    max-depth              yes
+    maxdepth               yes
+    min-depth              yes
+    mindepth               yes
+)
+
+while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${longopts[@]}" -- "$@" ; do
+    case "${OPTION}" in
+
+        "?")
+            exit 1
+            ;;
+
+        # takes no arguments
+        V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|r|R|U|z)
+            eval "opt_${OPTION}=1" # sets opt_V=1 for example
+            grep_options+=(
+                -"${OPTION}"
+            )
+            ;;
+
+        # takes an argument
+        e|f)
+            read_pattern_arg=0
+            has_pattern=1
+            grep_patterns+=(
+                -"${OPTION}"
+                "${OPTARG}"
+            )
+            ;;
+
+        # takes an argument
+        m|A|B|C|D|d)
+            eval "opt_${OPTION}=${OPTARG@Q}" # sets opt_m=<arg> for example
+            grep_options+=(
+                -"${OPTION}"
+                "${OPTARG}"
+            )
+            ;;
+
+        "help")
+            usage
+            exit 0
+            ;;
+        "version")
+            exec grep --version
+            ;;
+        "verbose")
+            verbose=$((verbose + 1))
+            ;;
+        "dry-run")
+            dry_run=1
+            ;;
+        "no-excludes")
+            directory_excludes=()
+            file_excludes=()
+            ;;
+        "regexp"|"file")
+            read_pattern_arg=0
+            has_pattern=1
+            grep_patterns+=(
+                "${LONGOPTARGS[@]}"
+            )
+            ;;
+        "recursive")
+            opt_r=1
+            grep_options+=(
+                "${LONGOPTARGS[@]}"
+            )
+            ;;
+        "dereference-recursive")
+            opt_R=1
+            grep_options+=(
+                "${LONGOPTARGS[@]}"
+            )
+            ;;
+        "maxdepth"|"max-depth")
+            maxdepth="${OPTARG}"
+            use_find=1
+            ;;
+        "mindepth"|"min-depth")
+            mindepth="${OPTARG}"
+            use_find=1
+            ;;
+
+        # other long option
+        ??*)
+            grep_options+=(
+                "${LONGOPTARGS[@]}"
+            )
+            ;;
+
+        # other short option
+        *)
+            >&2 echo "grepp: UNEXPECTED short option: -$OPTION"
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if (( verbose >= 2 )) ; then
+    >&2 echo "after option processing"
+    # shellcheck disable=SC2145
+    >&2 echo "  grep_options=(${grep_options[@]@Q})"
+    # shellcheck disable=SC2145
+    >&2 echo "  grep_patterns=(${grep_patterns[@]@Q})"
+    # shellcheck disable=SC2145
+    >&2 echo "  @=(${@@Q})"
+fi
+
+if (( read_pattern_arg )) ; then
+    if (( $# )) ; then
+        has_pattern=1
+        grep_patterns+=(
+            "-e"
+            "$1"
+        )
+        shift
+    else
+        >&2 echo "grepp: missing pattern argument"
+        exit 1
+    fi
+fi
+
+if (( ! has_pattern )) ; then
+    >&2 echo "grepp: missing pattern argument"
+    exit 1
+fi
+
+if (( ! $# )) ; then
+    set -- .
+    if (( ! opt_r && ! opt_R )) ; then
+        if (( ! use_find )) ; then
+            grep_options+=(
+                -r
+            )
+        fi
+    fi
+fi
+
+if (( verbose >= 2 )) ; then
+    >&2 echo "after additional option processing"
+    # shellcheck disable=SC2145
+    >&2 echo "  grep_options=(${grep_options[@]@Q})"
+    # shellcheck disable=SC2145
+    >&2 echo "  grep_patterns=(${grep_patterns[@]@Q})"
+    # shellcheck disable=SC2145
+    >&2 echo "  @=(${@@Q})"
+fi
+
+set_excludes
+
+if (( use_find )) ; then
+    declare -a find_command
+    find_command=(
+        find
+        "$@"
+        ${mindepth:+-mindepth "${mindepth}"}
+        ${maxdepth:+-maxdepth "${maxdepth}"}
+        \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+        -type f
+        \! \( "${find_file_excludes[@]}" \)
+        -exec
+        grep
+        "${grep_options[@]}"
+        "${grep_patterns[@]}"
+        {} +
+    )
+
+    if (( verbose >= 1 || dry_run )) ; then
+        >&2 echo "${find_command[@]@Q}"
+    fi
+
+    if (( dry_run )) ; then
+        exit 0
+    fi
+
+    exec "${find_command[@]}"
+else
+    declare -a grep_command
+    grep_command=(
+        grep
+        "${grep_options[@]}"
+        "${grep_directory_excludes[@]}"
+        "${grep_file_excludes[@]}"
+        "${grep_patterns[@]}"
+        "$@"
+    )
+
+    if (( verbose >= 1 || dry_run )) ; then
+        >&2 echo "${grep_command[@]@Q}"
+    fi
+
+    if (( dry_run )) ; then
+        exit 0
+    fi
+
+    exec "${grep_command[@]}"
+fi

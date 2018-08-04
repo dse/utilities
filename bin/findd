@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+
+declare -a global_options
+declare -a starting_points
+declare -a directory_excludes
+declare -a file_excludes
+
+while (( $# )) ; do
+    case "$1" in
+        # options that can be specified as `-D <whatever>` or
+        # `-D<whatever>`
+        "-D")
+            optname="$1"
+            global_options+=("$1")
+            shift
+            if (( $# )) ; then
+                global_options+=("$1")
+                shift
+            else
+                >&2 echo "findd: ${optname} requires an argument"
+                exit 1
+            fi
+            ;;
+
+        # options that *must* be specified as `-O<whatever>`,
+        # not `-O <whatever>`
+        "-O")
+            optname="$1"
+            if (( $# >= 2 )) ; then
+                global_options+=("$1$2")
+                shift 2
+            else
+                >&2 echo "findd: ${optname} requires an argument"
+                exit 1
+            fi
+            ;;
+
+        # options that can be specified as `-D<whatever>`
+        "-D"*|"-O"*)
+            global_options+=("$1")
+            shift
+            ;;
+
+        # options taking no arguments
+        "-H"|"-L"|"-P")
+            global_options+=("$1")
+            shift
+            ;;
+
+        # anything that starts an expression (or action)
+        "!"|"("|"-"*)
+            break
+            ;;
+
+        # anything else is likely to be a pathname [or
+        # "starting-point" in the parlance of find(1)]
+        *)
+            starting_points+=("$1")
+            shift
+            ;;
+    esac
+done
+
+directory_excludes=(
+    vendor
+    node_modules
+    .git
+    .svn
+)
+
+file_excludes=(
+    '*~'
+    '*.gif'
+    '*.jpg'
+    '*.jpeg'
+    '*.png'
+    '*.ttf'
+    '*.woff'
+    '*.eot'
+    '*.zip'
+    '*.gz'
+    '*.min'
+    '*.min.*'
+    '*.css.map'
+    '*.js.map'
+    '*.min.map'
+    'composer.lock'
+)
+
+declare -a find_directory_excludes
+declare -a find_file_excludes
+
+set_excludes () {
+    find_directory_excludes=()
+    find_file_excludes=()
+    for exclude in "${directory_excludes[@]}" ; do
+        if (( ${#find_directory_excludes[@]} )) ; then
+            find_directory_excludes+=("-o")
+        fi
+        find_directory_excludes+=("-iname" "${exclude}")
+    done
+    for exclude in "${file_excludes[@]}" ; do
+        if (( ${#find_file_excludes[@]} )) ; then
+            find_file_excludes+=("-o")
+        fi
+        find_file_excludes+=("-iname" "${exclude}")
+    done
+}
+
+set_excludes
+
+exec find \
+     "${global_options[@]}" \
+     "${starting_points[@]}" \
+     \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \) \
+     \! \( "${find_file_excludes[@]}" \) \
+     "$@"
