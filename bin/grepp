@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-declare -a directory_excludes
-declare -a file_excludes
+dirname="$(dirname "$0")"
+
+# shellcheck disable=SC1090
+. "${dirname}/../share/utilities/findd-grepp.bash"
+
 declare -a grep_options
 declare -a grep_patterns        # -e <arg> or -f <arg>
 
@@ -18,59 +21,8 @@ mindepth=""
 verbose=0
 dry_run=0
 
-# shellcheck disable=SC2191
-directory_excludes=(
-    vendor
-    node_modules
-    .git
-    .svn
-)
-
-# shellcheck disable=SC2191
-file_excludes=(
-    '*~'
-    '*.gif'
-    '*.jpg'
-    '*.jpeg'
-    '*.png'
-    '*.ttf'
-    '*.woff'
-    '*.eot'
-    '*.zip'
-    '*.gz'
-    '*.min'
-    '*.min.*'
-    '*.css.map'
-    '*.js.map'
-    '*.min.map'
-    'composer.lock'
-)
-
-declare -a grep_directory_excludes
 declare -a find_directory_excludes
-declare -a grep_file_excludes
 declare -a find_file_excludes
-
-set_excludes () {
-    grep_directory_excludes=()
-    find_directory_excludes=()
-    grep_file_excludes=()
-    find_file_excludes=()
-    for exclude in "${directory_excludes[@]}" ; do
-        if (( ${#find_directory_excludes[@]} )) ; then
-            find_directory_excludes+=("-o")
-        fi
-        find_directory_excludes+=("-iname" "${exclude}")
-        grep_directory_excludes+=("--exclude-dir=${exclude}")
-    done
-    for exclude in "${file_excludes[@]}" ; do
-        if (( ${#find_file_excludes[@]} )) ; then
-            find_file_excludes+=("-o")
-        fi
-        find_file_excludes+=("-iname" "${exclude}")
-        grep_file_excludes+=("--exclude=${exclude}")
-    done
-}
 
 usage () {
     grep --help
@@ -206,7 +158,9 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             dry_run=1
             ;;
         "no-excludes")
+            # shellcheck disable=SC2034
             directory_excludes=()
+            # shellcheck disable=SC2034
             file_excludes=()
             ;;
         "regexp"|"file")
@@ -303,9 +257,8 @@ if (( verbose >= 2 )) ; then
     >&2 echo "  @=(${@@Q})"
 fi
 
-set_excludes
-
 if (( use_find )) ; then
+    set_find_excludes
     declare -a find_command
     find_command=(
         find
@@ -332,6 +285,8 @@ if (( use_find )) ; then
 
     exec "${find_command[@]}"
 else
+    set_grep_excludes
+
     declare -a grep_command
     grep_command=(
         grep
