@@ -5,8 +5,24 @@ declare -a starting_points
 declare -a directory_excludes
 declare -a file_excludes
 
+verbose=0
+dry_run=0
+
 while (( $# )) ; do
     case "$1" in
+        "--verbose")
+            verbose=$((verbose + 1))
+            shift
+            ;;
+        "--dry-run")
+            dry_run=1
+            shift
+            ;;
+        "--"*)
+            >&2 echo "findd: invalid option: $1"
+            exit 1
+            ;;
+
         # options that can be specified as `-D <whatever>` or
         # `-D<whatever>`
         "-D")
@@ -107,11 +123,28 @@ set_excludes () {
     done
 }
 
+if (( ! ${#starting_points[@]} )) ; then
+    starting_points=(".")
+fi
+
 set_excludes
 
-exec find \
-     "${global_options[@]}" \
-     "${starting_points[@]}" \
-     \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \) \
-     \! \( "${find_file_excludes[@]}" \) \
-     "$@"
+declare -a find_command
+find_command=(
+    find
+    "${global_options[@]}"
+    "${starting_points[@]}"
+    \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+    \! \( "${find_file_excludes[@]}" \)
+    "$@"
+)
+
+if (( verbose >= 1 || dry_run )) ; then
+    >&2 echo "${find_command[@]@Q}"
+fi
+
+if (( dry_run )) ; then
+    exit 0
+fi
+
+exec "${find_command[@]}"
