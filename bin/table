@@ -1,0 +1,278 @@
+#!/usr/bin/env perl
+use utf8;
+use warnings;
+use strict;
+use v5.10.0;
+
+use open IO => ":locale";
+
+our $opt_tabs;
+our $opt_excel_header;
+our $opt_unicode;
+our $opt_borders;
+our $opt_row_borders;
+
+use Getopt::Long;
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions(
+    "t|tabs"         => \$opt_tabs,
+    "x|excel-header" => \$opt_excel_header,
+    "u|unicode"      => \$opt_unicode,
+    "b|borders"      => \$opt_borders,
+    "r|row-borders"  => \$opt_row_borders,
+    "h|help" => sub { usage(); exit(0); }
+) or die("Type '$0 --help' for help.\n");
+
+my $t = My::Text::Table->new();
+
+$t->{excel_header} = $opt_excel_header if defined $opt_excel_header;
+$t->{unicode}      = $opt_unicode      if defined $opt_unicode;
+$t->{vertical_borders} = 1             if $opt_borders;
+$t->{row_borders}      = 1             if $opt_row_borders;
+# $t->{solid_horizontal_borders} = 1;
+
+while (<>) {
+    s{\R\z}{};
+    if ($opt_tabs) {
+        $t->add(split("\t"));
+    } else {
+        $t->add(split);
+    }
+}
+print $t->as_string;
+
+package My::Text::Table;
+use utf8;
+use warnings;
+use strict;
+use v5.10.0;
+
+use List::Util qw(max);
+use Data::Dumper;
+use Text::Tabs;
+
+sub new {
+    my ($class, %args) = @_;
+    my $self = bless(\%args, $class);
+    $self->init() if $self->can("init");
+    return $self;
+}
+
+sub init {
+    my ($self) = @_;
+    $self->{header} = undef;
+    $self->{rows}   = [];
+    $self->{footer} = undef;
+    $self->{solid_horizontal_borders} //= 0;
+    $self->{row_borders} //= 0;
+    $self->{vertical_borders} //= 0;
+}
+
+sub header {
+    my ($self, @header) = @_;
+    $self->{header} = \@header;
+}
+
+sub footer {
+    my ($self, @footer) = @_;
+    $self->{footer} = \@footer;
+}
+
+sub no_header {
+    my ($self) = @_;
+    $self->{header} = undef;
+}
+
+sub no_footer {
+    my ($self) = @_;
+    $self->{footer} = undef;
+}
+
+sub add {
+    my ($self, @data) = @_;
+    push(@{$self->{rows}}, \@data);
+}
+
+sub add_rows {
+    my ($self, @rows) = @_;
+    push(@{$self->{rows}}, grep { ref($_) eq "ARRAY" } @rows);
+}
+
+sub reset_data {
+    my ($self) = @_;
+    $self->{header} = undef;
+    $self->{rows}   = [];
+    $self->{footer} = undef;
+}
+
+sub as_string {
+    my ($self) = @_;
+    my $num_columns = $self->num_columns();
+
+    local $self->{header} = $self->{header};
+
+    if ($self->{excel_header}) {
+        my @header = ("A" .. "Z");
+        if ($num_columns > 26) {
+            push(@header, "AA" .. "ZZ");
+        }
+        if ($num_columns > (26 + 26 * 26)) {
+            push(@header, "AAA" .. "ZZZ");
+        }
+        splice(@header, $num_columns);
+        $self->{header} = \@header;
+    }
+
+    my @column_widths = $self->column_widths();
+    my @rows = (($self->{header} || ()), @{$self->{rows}}, ($self->{footer} || ()));
+    my $first_data_row = $self->{header} ? 1 : 0;
+    my $last_data_row  = $self->{footer} ? (scalar(@rows) - 2) : (scalar(@rows) - 1);
+    my $result = "";
+    if ($self->{vertical_borders}) {
+        $result .= $self->top_border();
+    }
+    for (my $j = 0; $j < scalar @rows; $j += 1) {
+        my $row = $rows[$j];
+        if (defined $self->{footer} && $row eq $self->{footer}) {
+            $result .= $self->header_footer_border();
+        }
+        my @row = map { [expand(split(qr{\R}, $_))] } @$row;
+        my $lines = max map { scalar @$_ } @row;
+        if (!$lines) {
+            @row = ([" "]);
+            $lines = 1;
+        }
+        for (my $i = 0; $i < $lines; $i += 1) {
+            my ($join, $left, $right);
+            if ($self->{unicode}) {
+                $join  = $self->{vertical_borders} ? " │ " : "  ";
+                $left  = $self->{vertical_borders} ? "│ " : "";
+                $right = $self->{vertical_borders} ? " │" : "";
+            } else {
+                $join  = $self->{vertical_borders} ? " | " : "  ";
+                $left  = $self->{vertical_borders} ? "| " : "";
+                $right = $self->{vertical_borders} ? " |" : "";
+            }
+            $result .= $left . join($join, map { sprintf("%-*s", $column_widths[$_], $row[$_][$i] // "") } (0 .. ($num_columns - 1))) . $right . "\n";
+        }
+        if ($self->{row_borders} && $j >= $first_data_row && $j < $last_data_row) {
+            $result .= $self->row_border();
+        }
+        if (defined $self->{header} && $row eq $self->{header}) {
+            $result .= $self->header_footer_border();
+        }
+    }
+    if ($self->{vertical_borders}) {
+        $result .= $self->bottom_border();
+    }
+    return $result;
+}
+
+sub top_border {
+    my ($self) = @_;
+    my $result = "";
+    my @column_widths = $self->column_widths();
+    my ($join, $left, $right, $h);
+    if ($self->{unicode}) {
+        $join  = "─┬─";
+        $left  = "┌─";
+        $right = "─┐";
+        $h     = "─";
+    } else {
+        $join  = "-.-";
+        $left  = ".-";
+        $right = "-.";
+        $h     = "-";
+    }
+    $result .= $left . join($join, map { $h x $_ } @column_widths) . $right . "\n";
+    return $result;
+}
+
+sub bottom_border {
+    my ($self) = @_;
+    my $result = "";
+    my @column_widths = $self->column_widths();
+    my ($join, $left, $right, $h);
+    if ($self->{unicode}) {
+        $join  = "─┴─";
+        $left  = "└─";
+        $right = "─┘";
+        $h     = "─";
+    } else {
+        $join  = "-'-";
+        $left  = "'-";
+        $right = "-'";
+        $h     = "-";
+    }
+    $result .= $left . join($join, map { $h x $_ } @column_widths) . $right . "\n";
+    return $result;
+}
+
+sub header_footer_border {
+    my ($self) = @_;
+    my $result = "";
+    my @column_widths = $self->column_widths();
+    my ($join, $left, $right, $h);
+    if ($self->{unicode}) {
+        $join  = $self->{vertical_borders} ? "═╪═" : $self->{solid_horizontal_borders} ? "══" : "  ";
+        $left  = $self->{vertical_borders} ? "╞═" : "";
+        $right = $self->{vertical_borders} ? "═╡" : "";
+        $h     = "═";
+    } else {
+        $join  = $self->{vertical_borders} ? "=|=" : $self->{solid_horizontal_borders} ? "==" : "  ";
+        $left  = $self->{vertical_borders} ? "|=" : "";
+        $right = $self->{vertical_borders} ? "=|" : "";
+        $h     = "=";
+    }
+    $result .= $left . join($join, map { $h x $_ } @column_widths) . $right . "\n";
+    return $result;
+}
+
+sub row_border {
+    my ($self) = @_;
+    my $result = "";
+    my @column_widths = $self->column_widths();
+    my ($join, $left, $right, $h);
+    if ($self->{unicode}) {
+        $join  = $self->{vertical_borders} ? "─┼─" : $self->{solid_horizontal_borders} ? "──" : "  ";
+        $left  = $self->{vertical_borders} ? "├─" : "";
+        $right = $self->{vertical_borders} ? "─┤" : "";
+        $h     = "─";
+    } else {
+        $join  = $self->{vertical_borders} ? "-|-" : $self->{solid_horizontal_borders} ? "--" : "  ";
+        $left  = $self->{vertical_borders} ? "|-" : "";
+        $right = $self->{vertical_borders} ? "-|" : "";
+        $h     = "-";
+    }
+    $result .= $left . join($join, map { $h x $_ } @column_widths) . $right . "\n";
+    return $result;
+}
+
+sub num_columns {
+    my ($self) = @_;
+    return
+        max map { scalar @$_ }
+        (($self->{header} || ()), @{$self->{rows}}, ($self->{footer} || ()));
+}
+
+sub column_widths {
+    my ($self) = @_;
+    return map { $self->column_width($_) } (0 .. ($self->num_columns() - 1));
+}
+
+sub column_width {
+    my ($self, $column) = @_;
+    my @column =
+        map { (scalar @$_ > $column) ? $_->[$column] : () }
+        (($self->{header} || ()), @{$self->{rows}}, ($self->{footer} || ()));
+    @column = map { $_ =~ m{\R} ? split(qr{\R}, $_) : $_ } @column;
+    @column = expand(@column);
+    return max map { length $_ } @column;
+}
+
+sub split {
+    my ($self, $data) = @_;
+    return split(qr{\R}, $data);
+}
+
+1;
