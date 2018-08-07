@@ -25,10 +25,10 @@ Getopt::Long::GetOptions(
 
 my $t = My::Text::Table->new();
 
-$t->{excel_header} = $opt_excel_header if defined $opt_excel_header;
-$t->{unicode}      = $opt_unicode      if defined $opt_unicode;
-$t->{vertical_borders} = 1             if $opt_borders;
-$t->{row_borders}      = 1             if $opt_row_borders;
+$t->{excel_header}      = $opt_excel_header if defined $opt_excel_header;
+$t->{unicode}           = $opt_unicode      if defined $opt_unicode;
+$t->{vertical_borders}  = 1                 if $opt_borders;
+$t->{row_borders}       = 1                 if $opt_row_borders;
 # $t->{solid_horizontal_borders} = 1;
 
 while (<>) {
