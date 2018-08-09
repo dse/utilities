@@ -11,6 +11,8 @@ our $opt_excel_header;
 our $opt_unicode;
 our $opt_borders;
 our $opt_row_borders;
+our $ifs;
+our $ofs;
 
 use Getopt::Long;
 Getopt::Long::Configure("bundling", "gnu_compat");
@@ -20,6 +22,11 @@ Getopt::Long::GetOptions(
     "u|unicode"      => \$opt_unicode,
     "b|borders"      => \$opt_borders,
     "r|row-borders"  => \$opt_row_borders,
+    "ifs|input-field-separator=s"  => \$ifs,
+    "ofs|output-field-separator=s" => \$ofs,
+    "ofs-regexp|output-field-separator-regexp=s" => sub {
+        $ofs = qr{$ofs};
+    },
     "h|help" => sub { usage(); exit(0); }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -29,11 +36,15 @@ $t->{excel_header}      = $opt_excel_header if defined $opt_excel_header;
 $t->{unicode}           = $opt_unicode      if defined $opt_unicode;
 $t->{vertical_borders}  = 1                 if $opt_borders;
 $t->{row_borders}       = 1                 if $opt_row_borders;
+$t->{ifs}               = $ifs              if defined $ifs;
+$t->{ofs}               = $ofs              if defined $ofs;
 # $t->{solid_horizontal_borders} = 1;
 
 while (<>) {
     s{\R\z}{};
-    if ($opt_tabs) {
+    if (defined $ifs) {
+        $t->add(split($ifs));
+    } elsif ($opt_tabs) {
         $t->add(split("\t"));
     } else {
         $t->add(split);
@@ -144,7 +155,11 @@ sub as_string {
         }
         for (my $i = 0; $i < $lines; $i += 1) {
             my ($join, $left, $right);
-            if ($self->{unicode}) {
+            if (defined $self->{ofs}) {
+                $join  = $self->{ofs};
+                $left  = "";
+                $right = "";
+            } elsif ($self->{unicode}) {
                 $join  = $self->{vertical_borders} ? " │ " : "  ";
                 $left  = $self->{vertical_borders} ? "│ " : "";
                 $right = $self->{vertical_borders} ? " │" : "";
@@ -173,7 +188,12 @@ sub top_border {
     my $result = "";
     my @column_widths = $self->column_widths();
     my ($join, $left, $right, $h);
-    if ($self->{unicode}) {
+    if (defined $self->{ofs}) {
+        $join  = "-" x length $self->{ofs};
+        $left  = "";
+        $right = "";
+        $h     = "-";
+    } elsif ($self->{unicode}) {
         $join  = "─┬─";
         $left  = "┌─";
         $right = "─┐";
@@ -193,7 +213,12 @@ sub bottom_border {
     my $result = "";
     my @column_widths = $self->column_widths();
     my ($join, $left, $right, $h);
-    if ($self->{unicode}) {
+    if (defined $self->{ofs}) {
+        $join  = "-" x length $self->{ofs};
+        $left  = "";
+        $right = "";
+        $h     = "-";
+    } elsif ($self->{unicode}) {
         $join  = "─┴─";
         $left  = "└─";
         $right = "─┘";
@@ -213,7 +238,12 @@ sub header_footer_border {
     my $result = "";
     my @column_widths = $self->column_widths();
     my ($join, $left, $right, $h);
-    if ($self->{unicode}) {
+    if (defined $self->{ofs}) {
+        $join  = "=" x length $self->{ofs};
+        $left  = "";
+        $right = "";
+        $h     = "=";
+    } elsif ($self->{unicode}) {
         $join  = $self->{vertical_borders} ? "═╪═" : $self->{solid_horizontal_borders} ? "══" : "  ";
         $left  = $self->{vertical_borders} ? "╞═" : "";
         $right = $self->{vertical_borders} ? "═╡" : "";
@@ -233,7 +263,12 @@ sub row_border {
     my $result = "";
     my @column_widths = $self->column_widths();
     my ($join, $left, $right, $h);
-    if ($self->{unicode}) {
+    if (defined $self->{ofs}) {
+        $join  = "-" x length $self->{ofs};
+        $left  = "";
+        $right = "";
+        $h     = "-";
+    } elsif ($self->{unicode}) {
         $join  = $self->{vertical_borders} ? "─┼─" : $self->{solid_horizontal_borders} ? "──" : "  ";
         $left  = $self->{vertical_borders} ? "├─" : "";
         $right = $self->{vertical_borders} ? "─┤" : "";
