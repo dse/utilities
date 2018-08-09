@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+for arg ; do
+    perldoc -lm "${arg}"
+done

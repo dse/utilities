@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+foreach my $arg (@ARGV) {
+    $arg =~ s{::}{/};
+    $arg =~ s{(\.pm)?$}{.pm};
+    require $arg;
+}
+
+foreach my $inc (@INC) {
+    say $inc;
+}

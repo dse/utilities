@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+foreach my $arg (@ARGV) {
+    $arg =~ s{::}{/};
+    $arg =~ s{(\.pm)?$}{.pm};
+    require $arg;
+}
+
+foreach my $key (sort { $a cmp $b } keys %INC) {
+    printf("%-32s %s\n", $key, $INC{$key});
+}
