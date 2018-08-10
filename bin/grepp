@@ -49,8 +49,8 @@ sourcefirst () {
 }
 
 sourcefirst \
-    "${HOME}/git/dse.d/getlongopts-bash/getlongopts.sh" \
-    "/c/cygwin64/home/501475791/git/dse.d/getlongopts-bash/getlongopts.sh" ||
+    "${HOME}/git/dse.d/bash-getlongopts/getlongopts.sh" \
+    "/c/cygwin64/home/501475791/git/dse.d/bash-getlongopts/getlongopts.sh" ||
     exit 1
 
 declare -a longopts
