@@ -1,5 +1,19 @@
 #!/usr/bin/env bash
 
+# # NOTES FOR EVENTUAL DOCUMENTATION
+#
+# `-r` is specified for grep(1) if ALL of the following are true:
+#
+#   - there are no filename arguments
+#   - `-r` is not already specified
+#   - `-R` is not already specified
+#   - no options triggering the use of find(1) are specified.
+#
+# These are the options that trigger the use of find(1):
+#
+#   - `--mindepth`
+#   - `--maxdepth`
+
 dirname="$(dirname "$0")"
 progname="$(basename "$0")"
 
