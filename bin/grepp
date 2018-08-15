@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 dirname="$(dirname "$0")"
+progname="$(basename "$0")"
 
 # shellcheck disable=SC1090
 . "${dirname}/../share/utilities/findd-grepp.bash"
@@ -17,6 +18,8 @@ use_find=0
 
 maxdepth=""
 mindepth=""
+matcher=""                      # "", "-E", "-F", "-G", or "-P"
+matcher_conflict=""
 
 verbose=0
 dry_run=0
@@ -108,7 +111,59 @@ longopts=(
     maxdepth               yes
     min-depth              yes
     mindepth               yes
+    css-class              yes
 )
+
+opt_css_class () {
+    local classname="$1"
+    local q2="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*\"(?:[^\"]*[[:space:]])?${classname}(?:[[:space:]][^\"]*)?\""
+    local q1="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*\'(?:[^\']*[[:space:]])?${classname}(?:[[:space:]][^\']*)?\'"
+    local q0="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*${classname}(?:[[:space:]>])"
+    local rx="(?i:${q0}|${q1}|${q2})"
+    read_pattern_arg=0
+    has_pattern=1
+    grep_patterns+=(
+        "-e"
+        "${rx}"
+    )
+    case "${matcher}" in
+        "")
+            matcher="-P"
+            grep_options+=(-P)
+            ;;
+        "-P")
+            ;;
+        *)
+            if [[ -n "${matcher_conflict}" ]] ; then
+                >&2 echo "${progname}: --css-class conflicts with ${matcher_conflict}"
+            else
+                >&2 echo "${progname}: --css-class conflicts with ${matcher}"
+            fi
+            exit 1
+            ;;
+    esac
+    matcher_conflict="--css-class"
+}
+
+opt_matcher () {
+    local new_matcher="$1"
+    case "${matcher}" in
+        "")
+            matcher="${new_matcher}"
+            grep_options+=("${new_matcher}")
+            ;;
+        "${new_matcher}")
+            ;;
+        *)
+            if [[ -n "${matcher_conflict}" ]] ; then
+                >&2 echo "${progname}: ${new_matcher} conflicts with ${matcher_conflict}"
+            else
+                >&2 echo "${progname}: conflicting matchers specified"
+            fi
+            exit 1
+            ;;
+    esac
+}
 
 while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${longopts[@]}" -- "$@" ; do
     case "${OPTION}" in
@@ -116,6 +171,12 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         "?")
             exit 1
             ;;
+
+        # takes no arguments; specifies a matcher
+        E|extended-regexp) opt_matcher "-E";;
+        F|fixed-strings)   opt_matcher "-F";;
+        G|basic-regexp)    opt_matcher "-F";;
+        P|perl-regexp)     opt_matcher "-P";;
 
         # takes no arguments
         V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|r|R|U|z)
@@ -189,6 +250,10 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         "mindepth"|"min-depth")
             mindepth="${OPTARG}"
             use_find=1
+            ;;
+
+        "css-class")
+            opt_css_class "${OPTARG}"
             ;;
 
         # other long option
