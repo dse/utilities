@@ -217,7 +217,7 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         # takes no arguments; specifies a matcher
         E|extended-regexp) opt_matcher "-E";;
         F|fixed-strings)   opt_matcher "-F";;
-        G|basic-regexp)    opt_matcher "-F";;
+        G|basic-regexp)    opt_matcher "-G";;
         P|perl-regexp)     opt_matcher "-P";;
 
         # takes no arguments
