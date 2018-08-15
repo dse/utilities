@@ -126,7 +126,31 @@ longopts=(
     min-depth              yes
     mindepth               yes
     css-class              yes
+    non-ascii              no
+    non-ascii-printable    no
 )
+
+require_matcher () {
+    local new_matcher="$1"
+    local new_matcher_conflict="$2"
+    case "${matcher}" in
+        "")
+            matcher="${new_matcher}"
+            grep_options+=("${new_matcher}")
+            ;;
+        "-P")
+            ;;
+        *)
+            if [[ -n "${matcher_conflict}" ]] ; then
+                >&2 echo "${progname}: ${new_matcher} conflicts with ${matcher_conflict}"
+            else
+                >&2 echo "${progname}: ${new_matcher} conflicts with ${matcher}"
+            fi
+            exit 1
+            ;;
+    esac
+    matcher_conflict="${new_matcher_conflict}"
+}
 
 opt_css_class () {
     local classname="$1"
@@ -140,23 +164,27 @@ opt_css_class () {
         "-e"
         "${rx}"
     )
-    case "${matcher}" in
-        "")
-            matcher="-P"
-            grep_options+=(-P)
-            ;;
-        "-P")
-            ;;
-        *)
-            if [[ -n "${matcher_conflict}" ]] ; then
-                >&2 echo "${progname}: --css-class conflicts with ${matcher_conflict}"
-            else
-                >&2 echo "${progname}: --css-class conflicts with ${matcher}"
-            fi
-            exit 1
-            ;;
-    esac
-    matcher_conflict="--css-class"
+    require_matcher "-P" "--css-class"
+}
+
+opt_non_ascii () {
+    read_pattern_arg=0
+    has_pattern=1
+    grep_patterns+=(
+        "-e"
+        "[^[:ascii:]]"
+    )
+    require_matcher "-P" "--non-ascii"
+}
+
+opt_non_ascii_printable () {
+    read_pattern_arg=0
+    has_pattern=1
+    grep_patterns+=(
+        '-e'
+        $'[^[:print:]\r\t]'     # can't specify \n here, triggers grep(1) error
+    )
+    require_matcher "-P" "--non-ascii-printable"
 }
 
 opt_matcher () {
@@ -268,6 +296,12 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
 
         "css-class")
             opt_css_class "${OPTARG}"
+            ;;
+        "non-ascii")
+            opt_non_ascii
+            ;;
+        "non-ascii-printable")
+            opt_non_ascii_printable
             ;;
 
         # other long option
