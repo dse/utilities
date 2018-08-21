@@ -38,9 +38,6 @@ matcher_conflict=""
 verbose=0
 dry_run=0
 
-declare -a find_directory_excludes
-declare -a find_file_excludes
-
 usage () {
     grep --help
     echo
