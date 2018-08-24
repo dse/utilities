@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# 1. This program is part of my pattern of writing wrapper programs
+#    that exclude stuff that I usually want to exclude, and naming
+#    them by taking the name of the underlying command and repeating
+#    its last letter:
+#
+#        findd
+#        grepp
+#        tidyy
+#
+# 2. This program is also an example of using GNU Bash 4's `corpoc`
+#    builtin to filter stderr and write its results back out to
+#    stderr.
+
 coproc TIDYSTDERR {
     if [[ -r "${HOME}/.tidyy-excludes" ]] ; then
         grep ':[0-9]\+:[0-9]\+:' | grep -v -f "${HOME}/.tidyy-excludes"
