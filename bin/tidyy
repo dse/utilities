@@ -13,14 +13,22 @@
 #    builtin to filter stderr and write its results back out to
 #    stderr.
 
+create_sample_file () {
+    cat <<EOF >~/.tidyy-excludes
+<nobr> is not approved
+trimming empty
+<img> lacks "alt" attribute
+EOF
+}
+
 coproc TIDYSTDERR {
     if [[ -r "${HOME}/.tidyy-excludes" ]] ; then
-        grep ':[0-9]\+:[0-9]\+:' | grep -v -f "${HOME}/.tidyy-excludes"
+        grep -v -f "${HOME}/.tidyy-excludes"
     else
-        grep ':[0-9]\+:[0-9]\+:' | grep -v \
-                                        -e '<nobr> is not approved' \
-                                        -e 'trimming empty' \
-                                        -e '<img> lacks "alt" attribute'
+        grep -v \
+             -e '<nobr> is not approved' \
+             -e 'trimming empty' \
+             -e '<img> lacks "alt" attribute'
     fi
 } >&2
 
