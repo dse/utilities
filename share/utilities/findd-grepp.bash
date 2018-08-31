@@ -27,6 +27,11 @@ file_excludes=(
     '*.js.map'
     '*.min.map'
     'composer.lock'
+    '*.exe'
+    '*.a'
+    '*.o'
+    '*.so'
+    '*.dll'
 )
 
 declare -a find_directory_excludes
