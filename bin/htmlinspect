@@ -1,0 +1,38 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use HTML::TreeBuilder;
+
+local $/ = undef;
+while (<>) {
+    my $tree = HTML::TreeBuilder->new();
+    $tree->parse($_);
+    $tree->eof();
+    $tree->elementify();
+    htmlinspect($tree, $ARGV);
+}
+
+sub htmlinspect {
+    my ($element, $filename, %args) = @_;
+    my $tagname = eval { $element->tag };
+    if (defined $tagname) {
+        my $class = $element->attr('class');
+        my $id    = $element->attr('id');
+        my @class = defined $class ? split(' ', $class) : ();
+
+        my $suffix = "";
+        $suffix .= ".$_" foreach @class;
+        $suffix .= "#$id" if defined $id;
+
+        my $parents = $args{parents} // [];
+        my @parents = @$parents;
+        my $parents_string = join("", map { "$_ " } @$parents);
+        say sprintf("%s: %s%s", $filename, $parents_string, $tagname . $suffix);
+        my @children = $element->content_list();
+        foreach my $child (@children) {
+            htmlinspect($child, $filename, parents => [@parents, $tagname . $suffix]);
+        }
+    }
+}
