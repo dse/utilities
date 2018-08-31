@@ -1,0 +1,87 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use HTML::Tagset;
+use Data::Dumper;
+
+our @variables = (
+    { full_name => '%HTML::Tagset::emptyElement'                 },
+    { full_name => '%HTML::Tagset::optionalEndTag'               },
+    { full_name => '%HTML::Tagset::linkElements'                 },
+    { full_name => '%HTML::Tagset::boolean_attr'                 },
+    { full_name => '%HTML::Tagset::isPhraseMarkup'               },
+    { full_name => '%HTML::Tagset::is_Possible_Strict_P_Content' },
+    { full_name => '%HTML::Tagset::isHeadElement'                },
+    { full_name => '%HTML::Tagset::isList'                       },
+    { full_name => '%HTML::Tagset::isTableElement'               },
+    { full_name => '%HTML::Tagset::isFormElement'                },
+    { full_name => '%HTML::Tagset::isBodyMarkup'                 },
+    { full_name => '%HTML::Tagset::isHeadOrBodyElement'          },
+    { full_name => '%HTML::Tagset::isKnown'                      },
+    { full_name => '%HTML::Tagset::canTighten'                   },
+    { full_name => '@HTML::Tagset::p_closure_barriers'           },
+    { full_name => '%HTML::Tagset::isCDATA_Parent'               },
+);
+
+my %variables;
+
+foreach my $variable (@variables) {
+    $variable->{short_name}       = short_name($variable->{full_name});
+    $variable->{short_name_kebab} = kebab_case($variable->{short_name});
+    $variables{$variable->{short_name}}       = $variable;
+    $variables{$variable->{short_name_kebab}} = $variable;
+}
+
+sub short_name {
+    my $name = shift;
+    my $sigil = ($name =~ m{^[\$\&\%\@\*]}) ? $& : undef;
+    $name =~ s{^.*::}{};
+    return ($name, $sigil) if wantarray;
+    return $name;
+}
+
+sub kebab_case {
+    my $name = shift;
+    # aBC => a-BC
+    # aBc => a-bc
+    # aB  => a-b
+    $name =~ s{([[:lower:]])([[:upper:]])([[:upper:]]?)}
+              {$1 . "-" . ($3 eq "" ? lc($2) : $2) . $3}gex;
+    $name =~ s{[-_]+}
+              {-}gx;
+    $name = lc $name;
+    return $name;
+}
+
+sub dumper {
+    my $variable = shift;
+    my $full_name = $variable->{full_name};
+    my $expr = "\\" . $full_name;
+    my $value = eval {
+        eval $expr;
+    };
+    if ($@) {
+        return;
+    }
+    local $Data::Dumper::Indent = 1;
+    local $Data::Dumper::Sortkeys = 1;
+    my $dumper = Data::Dumper->Dump([$value], [$expr]);
+    $dumper =~ s{^(\s+)}{$1$1}gm;
+    print $dumper;
+}
+
+if (!scalar @ARGV) {
+    @ARGV = qw(all);
+}
+
+foreach my $arg (@ARGV) {
+    if (exists $variables{$arg}) {
+        dumper($variables{$arg});
+    } elsif ($arg eq "all") {
+        foreach my $variable (@variables) {
+            dumper($variable);
+        }
+    }
+}
