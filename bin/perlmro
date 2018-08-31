@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use mro;
+
+foreach my $arg (@ARGV) {
+    my $classname = classname($arg);
+    my $filename = filename($arg);
+    require $filename;
+    my $mro = mro::get_linear_isa($classname);
+    my @mro = @$mro;
+    say "$classname:";
+    foreach my $mro (@mro) {
+        say "    $mro";
+    }
+}
+
+sub classname {
+    my $string = shift;
+    $string =~ s{[/\\+]}{::}g;
+    $string =~ s{(\.pm)?$}{};
+    return $string;
+}
+
+sub filename {
+    my $string = shift;
+    $string =~ s{::}{/}g;
+    $string =~ s{(\.pm)?$}{.pm};
+    return $string;
+}
+
