@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+dirname="$(dirname "$0")"
+progname="$(basename "$0")"
+
+# /usr/share/dict/words
+
+sourcefirst () {
+    local i
+    for i ; do
+        if [[ -r "$i" ]] ; then
+            # shellcheck disable=SC1090
+            source "$i"
+            return $?
+        fi
+    done
+    return 1
+}
+
+sourcefirst \
+    "${HOME}/git/dse.d/bash-getlongopts/getlongopts.sh" \
+    "/c/cygwin64/home/501475791/git/dse.d/bash-getlongopts/getlongopts.sh" ||
+    exit 1
+
+usage () { >&2 cat <<EOF; }
+usage:
+  ${progname} [<option> ...] <word> ...
+EOF
+
+main () {
+    if [[ -z "${dict}" ]] ; then
+        if [[ -r "/usr/share/dict/words" ]] ; then
+            dict=/usr/share/dict/words
+        else
+            >&2 echo "No dictionary specified; none found."
+            exit 1
+        fi
+    fi
+    for word ; do
+        check "${word}"
+    done
+    # apt-cyg install words gnome-dictionary
+}
+
+check () {
+    local word="$1"
+    local pattern
+    local -a patterns
+    local -a grepargs
+    local length="${#word}"
+    local prefix
+    local char
+    local suffix
+
+    # change one letter
+    for i in $(seq 0 $((length - 1))) ; do
+        prefix="${word:0:$i}"
+        char="${word:$i:1}"
+        suffix="${word:$((i + 1))}"
+        pattern="${prefix}[^${char}]${suffix}"
+        patterns+=("${pattern}")
+        grepargs+=(-e "^${pattern}\$")
+    done
+
+    # remove one letter
+    for i in $(seq 0 $((length - 1))) ; do
+        prefix="${word:0:$i}"
+        suffix="${word:$((i + 1))}"
+        pattern="${prefix}${suffix}"
+        patterns+=("${pattern}")
+        grepargs+=(-e "^${pattern}\$")
+    done
+
+    # add one letter
+    for i in $(seq 0 $length) ; do
+        prefix="${word:0:$i}"
+        suffix="${word:$i}"
+        pattern="${prefix}.${suffix}"
+        patterns+=("${pattern}")
+        grepargs+=(-e "^${pattern}\$")
+    done
+
+    echo "# ${word}"
+    grep -E -i "${grepargs[@]}" "${dict}" || true
+}
+
+verbose=0
+dict=""
+
+check_options () {
+    declare -a longopts
+    longopts=(
+        dictionary yes
+        dict       yes
+        help       no
+        verbose    no
+    )
+    while getlongopts 'd:hv' OPTION "${longopts[@]}" -- "$@" ; do
+        case "${OPTION}" in
+            "?")
+                exit 1;;
+            h|help)
+                usage; exit 0;;
+            v|verbose)
+                verbose=$((verbose + 1));;
+            d|dict|dictionary)
+                dict="${OPTARG}";;
+            *)
+                >&2 echo "${progname}: unexpected option: ${OPTION}"; exit 1;;
+        esac
+    done
+}
+
+###############################################################################
+check_options "$@"
+shift $((OPTIND - 1))
+main "$@"
