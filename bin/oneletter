@@ -74,7 +74,7 @@ check () {
     done
 
     # add one letter
-    for i in $(seq 0 $length) ; do
+    for i in $(seq 0 "$length") ; do
         prefix="${word:0:$i}"
         suffix="${word:$i}"
         pattern="${prefix}.${suffix}"
@@ -83,7 +83,15 @@ check () {
     done
 
     echo "# ${word}"
-    grep -E -i "${grepargs[@]}" "${dict}" || true
+
+    local -a cmd
+    local grep
+
+    if which ggrep >/dev/null 2>/dev/null ; then grep="ggrep" ; else grep="grep" ; fi
+    cmd=(
+        "${grep}" -i "${grepargs[@]}" "${dict}"
+    )
+    "${cmd[@]}" || true
 }
 
 verbose=0
