@@ -42,11 +42,15 @@ usage () {
     grep --help
     echo
     echo "grepp - additional options:"
-    echo "  --verbose"
-    echo "  --dry-run"
-    echo "  --no-excludes"
-    echo "  --min-depth=DEPTH"
-    echo "  --max-depth=DEPTH"
+    echo "      --verbose"
+    echo "      --dry-run"
+    echo "      --no-excludes"
+    echo "      --min-depth=DEPTH    causes grepp to use find instead of grep to recurse"
+    echo "      --max-depth=DEPTH    \""
+    echo "grep options having no effect if grepp uses find to recurse:"
+    echo "      --directories=ACTION"
+    echo "  -r, --recursive"
+    echo "  -R, --dereference-recursive"
     echo "grepp does not accept -NUM; must use -C or --context=NUM"
 }
 
@@ -224,6 +228,9 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         # takes no arguments
         V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|r|R|U|z)
             eval "opt_${OPTION}=1" # sets opt_V=1 for example
+
+            # NOTE: There is no need to pass -r to grep when using
+            # find, but it's also harmless.
             grep_options+=(
                 -"${OPTION}"
             )
@@ -358,6 +365,7 @@ fi
 
 # Why would you *not* use this tool to recurse?
 if (( ! opt_r && ! opt_R )) ; then
+    # There is no need to pass -r to grep when using find.
     if (( ! use_find )) ; then
         grep_options+=(
             -r
