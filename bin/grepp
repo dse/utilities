@@ -276,11 +276,13 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             ;;
         "recursive")
             opt_r=1
+            opt_R=0
             grep_options+=(
                 "${LONGOPTARGS[@]}"
             )
             ;;
         "dereference-recursive")
+            opt_r=0
             opt_R=1
             grep_options+=(
                 "${LONGOPTARGS[@]}"
@@ -352,12 +354,14 @@ fi
 
 if (( ! $# )) ; then
     set -- .
-    if (( ! opt_r && ! opt_R )) ; then
-        if (( ! use_find )) ; then
-            grep_options+=(
-                -r
-            )
-        fi
+fi
+
+# Why would you *not* use this tool to recurse?
+if (( ! opt_r && ! opt_R )) ; then
+    if (( ! use_find )) ; then
+        grep_options+=(
+            -r
+        )
     fi
 fi
 
