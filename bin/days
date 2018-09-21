@@ -72,9 +72,13 @@ sub between {
 
 sub usage { print <<"EOF"; }
 usage:
-    $0 [since|until] '<date>'
-    $0 [between] '<date>' '<date>'
+    days [since|until] '<date>'
+    days [between] '<date>' '<date>'
 <date>:
-    recommended format is: '2015-01-31'
-    other formats: perldoc Time::ParseDate
+    recommended unambiguous format is: '2015-01-31'
+    for other formats: perldoc Time::ParseDate
+examples:
+    days '2015-01-01'                 days since '2015-01-01'
+    days '2055-12-31'                 days until '2055-12-31'
+    days '2015-01-01' '2055-12-31'    days between '2015-01-01' '2055-12-31'
 EOF
