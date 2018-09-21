@@ -19,6 +19,7 @@ if (!scalar @ARGV || scalar @ARGV > 2) {
     exit 1;
 }
 
+# needed in all cases, in case relative dates are specified
 our $now = parsedate("midnight");
 
 my @date = @ARGV;
