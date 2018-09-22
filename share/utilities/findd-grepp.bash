@@ -11,27 +11,54 @@ directory_excludes=(
 )
 
 file_excludes=(
+    # backups
     '*~'
+    '#*#'
+    '.*~'
+    '.#*#'
+
+    # images
     '*.gif'
     '*.jpg'
     '*.jpeg'
     '*.png'
+    '*.webp'
+
+    # fonts
     '*.ttf'
+    '*.otf'
+    '*.ttc'
     '*.woff'
     '*.eot'
+
+    # archives
     '*.zip'
+    '*.jar'
+    '*.sym'
+
+    # compressed files
     '*.gz'
+
+    # minified/map files
     '*.min'
     '*.min.*'
     '*.css.map'
     '*.js.map'
     '*.min.map'
     'composer.lock'
+
+    # executables and libraries
     '*.exe'
     '*.a'
     '*.o'
     '*.so'
     '*.dll'
+    '*.dylib'
+
+    # Legacy Microsoft Office
+    '*.doc'
+    '*.ppt'
+    '*.xls'
 )
 
 declare -a find_directory_excludes
