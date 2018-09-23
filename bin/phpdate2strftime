@@ -1,0 +1,125 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our @phpformats = (
+    { name => "ATOM",             value => "Y-m-d\\TH:i:sP" }, # P not supported
+    { name => "COOKIE",           value => "l, d-M-Y H:i:s T" },
+    { name => "ISO8601",          value => "Y-m-d\\TH:i:sO" },
+    { name => "RFC822",           value => "D, d M y H:i:s O" },
+    { name => "RFC850",           value => "l, d-M-y H:i:s T" },
+    { name => "RFC1036",          value => "D, d M y H:i:s O" },
+    { name => "RFC1123",          value => "D, d M Y H:i:s O" },
+    { name => "RFC2822",          value => "D, d M Y H:i:s O" },
+    { name => "RFC3339",          value => "Y-m-d\\TH:i:sP" }, # P not supported
+    { name => "RFC3339_EXTENDED", value => "Y-m-d\\TH:i:s.vP" },
+    { name => "RSS",              value => "D, d M Y H:i:s O" },
+    { name => "W3C",              value => "Y-m-d\\TH:i:sP" },
+);
+
+our %phpdate = (
+    # Day
+    'd' => { strftime => '%d',  description => '01 to 31' },
+    'D' => { strftime => '%a',  description => 'Mon through Sun' },
+    'j' => { strftime => '%-e', description => '1 to 31' },
+    'l' => { strftime => '%A',  description => 'Sunday through Saturday' },
+    'N' => { strftime => '%u',  description => '1 (for Monday) through 7 (for Sunday)' },
+    'S' => {                    description => 'st, nd, rd or th. Works well with j' },
+    'w' => { strftime => '%w',  description => '0 (for Sunday) through 6 (for Saturday)' },
+    'z' => {                    description => '0 through 365 [starting from zero]' },
+    # Week
+    'W' => {                    description => 'e.g., 42 (the 42nd week in the year) [ISO-8601 week number]' },
+    # Month
+    'F' => { strftime => '%B',  description => 'January through December' },
+    'm' => { strftime => '%m',  description => '01 through 12' },
+    'M' => { strftime => '%b',  description => 'Jan through Dec' },
+    'n' => { strftime => '%-m', description => '1 through 12' },
+    't' => {                    description => '28 through 31' },
+    # Year
+    'L' => {                    description => '1 if it is a leap year, 0 otherwise.' },
+    'o' => {                    description => 'e.g., 1999 or 2003 [ISO-8601 week-numbering year]' },
+    'Y' => { strftime => '%Y',  description => 'e.g., 1999 or 2003' },
+    'y' => { strftime => '%y',  description => 'e.g., 99 or 03' },
+    # Time
+    'a' => {                    description => 'am or pm' },
+    'A' => {                    description => 'AM or PM' },
+    'B' => {                    description => '000 through 999 [swatch internet time]' },
+    'g' => { strftime => '%-l', description => '1 through 12' },
+    'G' => { strftime => '%-k', description => '0 through 23' },
+    'h' => { strftime => '%I',  description => '01 through 12' },
+    'H' => { strftime => '%H',  description => '00 through 23' },
+    'i' => { strftime => '%M',  description => '00 to 59 [minutes]' },
+    's' => { strftime => '%S',  description => '00 through 59 [seconds]' },
+    'u' => {                    description => 'e.g., 654321' },
+    'v' => {                    description => 'e.g., 654' }, # common
+    # Timezone
+    'e' => {                    description => 'e.g., UTC, GMT, Atlantic/Azores' },
+    'I' => {                    description => '1 if Daylight Saving Time, 0 otherwise.' },
+    'O' => { strftime => '%z',  description => 'e.g., +0200' },
+    'P' => {                    description => 'e.g., +02:00' }, # common
+    'T' => { strftime => '%Z',  description => 'e.g., EST, MDT ...' },
+    'Z' => {                    description => '-43200 through 50400' },
+    # Full Date/Time
+    'c' => {                    description => '2004-02-12T15:19:21+00:00' },
+    'r' => {                    description => 'e.g., Thu, 21 Dec 2000 16:01:07 +0200' },
+    'U' => { strftime => '%s',  description => '[seconds since the epoch]' },
+);
+
+if (!@ARGV) {
+    @ARGV = @phpformats;
+}
+
+foreach my $arg (@ARGV) {
+    my $name;
+    my $phpdate;
+    if (ref $arg eq "HASH") {
+        $phpdate = $arg->{value};
+        $name    = $arg->{name};
+    } else {
+        $phpdate = $arg;
+    }
+    warn "foo\n" if !defined $phpdate;
+    my $strftime = eval {
+        phpdate_to_strftime($phpdate);
+    };
+    if ($@) {
+        warn $@;
+    }
+    my $left = $phpdate;
+    if (defined $name) {
+        $left = "$name: $phpdate";
+    }
+    printf("%-40s => %s\n", $left, $strftime // "<undef>");
+}
+
+sub phpdate_to_strftime {
+    my ($php_fmt) = @_;
+    my $strftime = $php_fmt;
+    my @errors = ();
+    $strftime =~ s{[^\\]|\\.}{phpdate_char_to_strftime($&, \@errors)}ge;
+    if (scalar @errors) {
+        die join('', @errors);
+    }
+    return $strftime;
+}
+
+sub phpdate_char_to_strftime {
+    my ($char, $error_array_ref) = @_;
+    if (length $char == 2 && substr($char, 0, 1) eq '\\') {
+        return substr($char, 1);
+    }
+    my $hash = $phpdate{$char};
+    return $char if !defined $hash;
+    my $strftime = $hash->{strftime};
+    if (!defined $strftime || $strftime eq '') {
+        my $error = "PHP date/time sequence '${char}' does not convert to strftime.";
+        if ($error_array_ref) {
+            push @$error_array_ref, "$error\n";
+            return '';
+        } else {
+            die "$error\n";
+        }
+    }
+    return $strftime;
+}
