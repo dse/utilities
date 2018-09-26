@@ -1,0 +1,156 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Getopt::Long;
+use IPC::Run qw(run);
+use POSIX qw(round);
+
+my $x = 124;                    # mm
+my $y = 88;                     # mm
+my $res = 300;                  # dpi
+my $quality = 100;              # jpg quality 0 to 100
+my $mode = "Color";             # Color/Gray/Lineart
+my $format = "scan%04d.jpg";
+my $dry_run = 0;
+
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions("x=f" => \$x,
+                         "y=f" => \$y,
+                         "resolution=f" => \$res,
+                         "quality=f" => \$quality,
+                         "n|dry-run" => \$dry_run,
+                         "h|help" => sub { usage(); exit 0; })
+    or die("Type '$0 --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+  scanjpg OPTION ... [ARGUMENT ...]
+options:
+  -x FLOAT
+  -y FLOAT 
+      --resolution=FLOAT
+      --quality=FLOAT
+  -n, --dry-run
+  -h, --help
+arguments:
+  res: <INTEGER>dpi
+  mode: grayscale, lineart, color
+  format: <FILENAME>.jpg, becomes <FILENAME>%04d.jpg if <FILENAME> contains no %d
+  quality: 0% to 100%
+  size: 5.5x3.5in, 124x88mm, 12.4x8.8mm
+defaults:
+  size = 124mm x 88mm
+  res = 300dpi
+  quality = 100%
+  mode = Color
+  format = scan%04d.jpg
+END
+
+sub getfilename {
+    my ($format) = @_;
+    my $count = 1;
+    my $filename;
+    while (1) {
+        $filename = sprintf($format, $count);
+        if (!-e $filename) {
+            return $filename;
+        }
+        $count += 1;
+    }
+}
+
+read_dot_scanjpg_file();
+
+foreach my $arg (@ARGV) {
+    process_arg($arg);
+}
+
+my $imgfilename = getfilename($format);
+my $tmpfilename = $imgfilename . ".tmp";
+
+my @scanimage = ("scanimage",
+                 "-vvv",
+                 "-x", $x,
+                 "-y", $y,
+                 "--mode", $mode,
+                 "--resolution", "${res}dpi");
+my @pnmtojpeg = ("pnmtojpeg",
+                 "--quality=$quality");
+
+if ($dry_run) {
+    printf("%s | %s > %s\n",
+           join(" ", @scanimage),
+           join(" ", @pnmtojpeg),
+           $tmpfilename);
+    printf("mv %s %s\n",
+           $tmpfilename, $imgfilename);
+    exit(0);
+}
+
+warn("Scanning to $tmpfilename ...\n");
+if (!run(\@scanimage, '|', \@pnmtojpeg, '>', $tmpfilename)) {
+    die("scanimage|pnmtojpeg failed\n");
+}
+if (!rename($tmpfilename, $imgfilename)) {
+    die("rename failed\n");
+}
+warn("Saved as $imgfilename.\n");
+
+sub read_dot_scanjpg_file {
+    my $fh;
+    open($fh, "<", "$ENV{HOME}/.scanjpg") or do {
+        return
+    };
+    local $_;
+    while (<$fh>) {
+        next if /^\s*\#/;
+        my @args = split();
+        foreach my $arg (@args) {
+            process_arg($arg);
+        }
+    }
+}
+
+sub process_arg {
+    my ($arg) = @_;
+    if ($arg =~ m{^(\d+)dpi$}i) {
+        $res = $1;
+    } elsif ($arg =~ m{^gr[ae]y(scale)?$}i) {
+        $mode = "Gray";
+    } elsif ($arg =~ m{^line(art)?$}i) {
+        $mode = "Lineart";
+    } elsif ($arg =~ m{^colou?r$}i) {
+        $mode = "Color";
+    } elsif ($arg =~ m{\.jpg$}i) {
+        $format = $arg;
+        if ($format !~ m{%\d*d}) {
+            $format =~ s{\.[^\.]+$}{%04d$&};
+        }
+    } elsif ($arg =~ m{^(\d+)\%$}) {
+        $quality = $1;
+        if ($quality < 0) {
+            $quality = 0;
+        } elsif ($quality > 100) {
+            $quality = 100;
+        }
+    } elsif ($arg =~ m{^(\d+|\d*\.\d*)[x\*](\d+|\d*\.\d*)mm}) {
+        ($x, $y) = ($1, $2);
+    } elsif ($arg =~ m{^(\d+|\d*\.\d*)[x\*](\d+|\d*\.\d*)cm}) {
+        ($x, $y) = ($1, $2);
+        $x = $x * 10;
+        $y = $y * 10;
+    } elsif ($arg =~ m{^(\d+|\d*\.\d*)[x\*](\d+|\d*\.\d*)in}) {
+        ($x, $y) = ($1, $2);
+        $x = round($x * 25.4);
+        $y = round($y * 25.4);
+    } elsif ($arg eq "extra") {
+        $res = 150;
+        $mode = "Gray";
+        $quality = 75;
+        $format = "extra%04d.jpg";
+    } else {
+        warn("'$arg' ?\n");
+    }
+}
+
