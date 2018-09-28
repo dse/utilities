@@ -4,6 +4,23 @@ use strict;
 use v5.10.0;
 
 use HTML::TreeBuilder;
+use Getopt::Long;
+
+our $show_attributes;
+
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions(
+    "a|show-attributes" => \$show_attributes,
+    "h|help" => sub { usage(); exit 0; }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+  htmlinspect [<option> ...] [<file> ...]
+options:
+  -h, --help
+  -a, --show-attributes
+END
 
 local $/ = undef;
 while (<>) {
@@ -25,6 +42,13 @@ sub htmlinspect {
         my $suffix = "";
         $suffix .= ".$_" foreach @class;
         $suffix .= "#$id" if defined $id;
+
+        if ($show_attributes) {
+            my @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" } $element->all_external_attr_names;
+            foreach my $attr_name (@attr_names) {
+                $suffix .= sprintf("[%s]", $attr_name);
+            }
+        }
 
         my $parents = $args{parents} // [];
         my @parents = @$parents;
