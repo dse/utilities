@@ -6,12 +6,13 @@ use Getopt::Long;
 use IPC::Run qw(run);
 use POSIX qw(round);
 
-my $x = 124;                    # mm
-my $y = 88;                     # mm
+my $x = 124;                    # mm --- 124mm = 4 7/8 in
+my $y = 88;                     # mm --- 88mm = just under 3 1/2 in
 my $res = 300;                  # dpi
 my $quality = 100;              # jpg quality 0 to 100
 my $mode = "Color";             # Color/Gray/Lineart
 my $format = "scan%04d.jpg";
+my $imagetype = "image/jpeg";
 my $dry_run = 0;
 
 Getopt::Long::Configure("bundling", "gnu_compat");
@@ -25,12 +26,16 @@ Getopt::Long::GetOptions("x=f" => \$x,
 
 sub usage { print <<"END"; }
 usage:
-  scanjpg OPTION ... [ARGUMENT ...]
+  scan [OPTION ...] [ARGUMENT ...]
+  scan <res>  <mode>    <fname>  <qu> <papersize> <orient>
+       300dpi grayscale scan.jpg  0%  letter|a4   landscape
+       ...    lineart   scan.png  to  8.5x11in    portrait
+              color              100% 210x297mm
 options:
-  -x FLOAT
-  -y FLOAT 
-      --resolution=FLOAT
-      --quality=FLOAT
+  -x FLOAT                  width
+  -y FLOAT                  height
+      --resolution=FLOAT    dpi
+      --quality=FLOAT       0 to 100
   -n, --dry-run
   -h, --help
 arguments:
@@ -39,6 +44,7 @@ arguments:
   format: <FILENAME>.jpg, becomes <FILENAME>%04d.jpg if <FILENAME> contains no %d
   quality: 0% to 100%
   size: 5.5x3.5in, 124x88mm, 12.4x8.8mm
+  orientation: landscape, portrait
 defaults:
   size = 124mm x 88mm
   res = 300dpi
@@ -60,7 +66,7 @@ sub getfilename {
     }
 }
 
-read_dot_scanjpg_file();
+read_dot_scan_file();
 
 foreach my $arg (@ARGV) {
     process_arg($arg);
@@ -69,19 +75,26 @@ foreach my $arg (@ARGV) {
 my $imgfilename = getfilename($format);
 my $tmpfilename = $imgfilename . ".tmp";
 
-my @scanimage = ("scanimage",
-                 "-vvv",
-                 "-x", $x,
-                 "-y", $y,
-                 "--mode", $mode,
-                 "--resolution", "${res}dpi");
-my @pnmtojpeg = ("pnmtojpeg",
-                 "--quality=$quality");
+my @scanimage_cmd = ("scanimage",
+                     "-vvv",
+                     "-x", $x,
+                     "-y", $y,
+                     "--mode", $mode,
+                     "--resolution", "${res}dpi");
+my @pnmtojpeg = ("pnmtojpeg", "--quality=$quality");
+my @pnmtopng  = ("pnmtopng");
+
+my @convert_cmd;
+if ($imagetype eq "image/jpeg") {
+    @convert_cmd = @pnmtojpeg;
+} elsif ($imagetype eq "image/png") {
+    @convert_cmd = @pnmtopng;
+}
 
 if ($dry_run) {
     printf("%s | %s > %s\n",
-           join(" ", @scanimage),
-           join(" ", @pnmtojpeg),
+           join(" ", @scanimage_cmd),
+           join(" ", @convert_cmd),
            $tmpfilename);
     printf("mv %s %s\n",
            $tmpfilename, $imgfilename);
@@ -89,7 +102,7 @@ if ($dry_run) {
 }
 
 warn("Scanning to $tmpfilename ...\n");
-if (!run(\@scanimage, '|', \@pnmtojpeg, '>', $tmpfilename)) {
+if (!run(\@scanimage_cmd, '|', \@convert_cmd, '>', $tmpfilename)) {
     die("scanimage|pnmtojpeg failed\n");
 }
 if (!rename($tmpfilename, $imgfilename)) {
@@ -97,9 +110,9 @@ if (!rename($tmpfilename, $imgfilename)) {
 }
 warn("Saved as $imgfilename.\n");
 
-sub read_dot_scanjpg_file {
+sub read_dot_scan_file {
     my $fh;
-    open($fh, "<", "$ENV{HOME}/.scanjpg") or do {
+    open($fh, "<", "$ENV{HOME}/.scan") or do {
         return
     };
     local $_;
@@ -122,10 +135,17 @@ sub process_arg {
         $mode = "Lineart";
     } elsif ($arg =~ m{^colou?r$}i) {
         $mode = "Color";
-    } elsif ($arg =~ m{\.jpg$}i) {
+    } elsif ($arg =~ m{\.(jpe?g|png)$}i) {
         $format = $arg;
         if ($format !~ m{%\d*d}) {
             $format =~ s{\.[^\.]+$}{%04d$&};
+        }
+        if ($format =~ m{\.jpe?g$}i) {
+            $imagetype = "image/jpeg";
+        } elsif ($format =~ m{\.png$}i) {
+            $imagetype = "image/png";
+        } else {
+            die("Unsupported format for filename: $format\n");
         }
     } elsif ($arg =~ m{^(\d+)\%$}) {
         $quality = $1;
@@ -144,6 +164,18 @@ sub process_arg {
         ($x, $y) = ($1, $2);
         $x = round($x * 25.4);
         $y = round($y * 25.4);
+    } elsif ($arg eq "letter") {
+        ($x, $y) = (8.5 * 25.4, 11 * 25.4);
+    } elsif ($arg eq "a4") {
+        ($x, $y) = (210, 297);
+    } elsif ($arg eq "portrait" || $arg eq "vertical") {
+        if ($x > $y) {
+            ($x, $y) = ($y, $x);
+        }
+    } elsif ($arg eq "landscape" || $arg eq "horizontal") {
+        if ($x < $y) {
+            ($x, $y) = ($y, $x);
+        }
     } elsif ($arg eq "extra") {
         $res = 150;
         $mode = "Gray";
@@ -153,4 +185,3 @@ sub process_arg {
         warn("'$arg' ?\n");
     }
 }
-
