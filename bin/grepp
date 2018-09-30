@@ -123,6 +123,7 @@ longopts=(
     line-buffered          no
     binary                 no
     null-data              no
+
     verbose                no
     dry-run                no
     no-excludes            no
@@ -133,6 +134,13 @@ longopts=(
     css-class              yes
     non-ascii              no
     non-ascii-printable    no
+
+    exclude-binaries       no
+    exclude-binary         no
+    exclude-binary-files   no
+    include-binaries       no
+    include-binary         no
+    include-binary-files   no
 )
 
 require_matcher () {
@@ -273,6 +281,14 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             directory_excludes=()
             # shellcheck disable=SC2034
             file_excludes=()
+            # shellcheck disable=SC2034
+            file_excludes_binary=()
+            ;;
+        "exclude-binaries"|"exclude-binary"|"exclude-binary-files")
+            grepp_exclude_binary_files=1
+            ;;
+        "include-binaries"|"include-binary"|"include-binary-files")
+            grepp_exclude_binary_files=0
             ;;
         "regexp"|"file")
             read_pattern_arg=0

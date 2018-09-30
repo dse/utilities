@@ -21,6 +21,12 @@ while (( $# )) ; do
             dry_run=1
             shift
             ;;
+        "--exclude-binaries"|"--exclude-binary"|"--exclude-binary-files")
+            grepp_exclude_binary_files=1
+            ;;
+        "--include-binaries"|"--include-binary"|"--include-binary-files")
+            grepp_exclude_binary_files=0
+            ;;
         "--"*)
             >&2 echo "findd: invalid option: $1"
             exit 1
