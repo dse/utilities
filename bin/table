@@ -17,7 +17,7 @@ our $ofs;
 use Getopt::Long;
 Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions(
-    "t|tabs"         => \$opt_tabs,
+    "t|tabs|tab-separated-values|tsv" => \$opt_tabs,
     "x|excel-header" => \$opt_excel_header,
     "u|unicode"      => \$opt_unicode,
     "b|borders"      => \$opt_borders,
@@ -286,9 +286,10 @@ sub row_border {
 
 sub num_columns {
     my ($self) = @_;
-    return
-        max map { scalar @$_ }
+    my @num_columns = map { scalar @$_ }
         (($self->{header} || ()), @{$self->{rows}}, ($self->{footer} || ()));
+    my $num_columns = max @num_columns;
+    return $num_columns;
 }
 
 sub column_widths {
