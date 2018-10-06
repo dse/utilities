@@ -1,0 +1,195 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use utf8;
+use open IO => ":locale";
+use Getopt::Long;
+
+our $format;
+our $curly_brackets_only;
+our $files;
+
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions(
+    "c|curly|curly-brackets-only" => \$curly_brackets_only,
+    "p|printf|format=s"           => \$format,
+    "f|files"                     => \$files,
+    "h|help" => sub { usage(); exit 0; }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+  $0 [<option> ...] [<expr> ...]
+  $0 [<option> ...] --files [<filename> ...]
+options:
+  -p, --printf, --format=FORMAT         e.g., %d, %.3f
+  -f, --files
+  -c, --curly, --curly-brackets-only
+  -h, --help
+END
+
+sub result_of($);
+
+if ($files) {
+    magic_filehandle();
+} else {
+    if (scalar @ARGV) {
+        foreach my $arg (@ARGV) {
+            say result_of $arg;
+        }
+    } else {
+        magic_filehandle();
+    }
+}
+
+sub magic_filehandle {
+    if ($curly_brackets_only) {
+        # Only replace {...} expressions.
+        while (<>) {
+            curly_brackets();
+        }
+    } else {
+        # Magic behavior goes here.
+        my $first_line = <>;
+        while (<>) {
+            # If we've reached this point, there's more than one line.
+            # Only replace {...} expressions.
+            if (defined $first_line) {
+                for ($first_line) {
+                    curly_brackets();
+                }
+                $first_line = undef;
+            }
+            curly_brackets();
+        }
+        if (defined $first_line) {
+            # If we've reached this point, there's only one line.
+            for ($first_line) {
+                if (m{[\{\}]}) {
+                    # If any {...} expressions are found, replace them.
+                    curly_brackets();
+                } else {
+                    # Treat the whole line as an expression.
+                    whole_line();
+                }
+            }
+        }
+    }
+}
+
+sub curly_brackets {
+    s{\{([^\{\}\r\n]*)\}}
+     {result_of $1}ge;
+    print $_;
+}
+
+sub whole_line {
+    s{\R\z}{};                  # safer chomp
+    my $chewed = $& // "";
+    $_ = result_of $_;
+    print $_ . $chewed;
+}
+
+sub result_of($) {
+    my ($result) = @_;
+    $result =~ s{−}{-}g;
+    $result =~ s{×}{*}g;
+    $result =~ s{÷}{/}g;
+    $result = eval $result;
+    if (defined $result && defined $format) {
+        $result = sprintf($format, $result);
+    }
+    return $result;
+}
+
+=head1 NAME
+
+perlcalc - A command line calculator that uses Perl.
+
+=head1 SYNOPSIS
+
+    perlcalc [<option> ...] [<expr> ...]
+    perlcalc [<option> ...] --files [<filename> ...]
+
+=head1 DESCRIPTION
+
+perlcalc is a utility program that uses Perl to evaluate expressions
+and print the resultant values.  Its primary purpose is to be a
+quick-and-dirty command line accessible calculator.
+
+Running perlcalc with no arguments reads lines from standard input,
+and replaces any expressions in curly brackets with their values:
+
+    $ cat expressions.txt
+    5 miles is {5 * 5280} feet, or {5 * 1.609344} kilometers.
+
+    $ perlcalc < expressions.txt
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+If standard input contains no more than one line, and no expressions
+in curly brackets are found, the contents in their entirety are
+treated as an expression:
+
+    $ echo '5 * 5280' | perlcalc
+    26400
+
+Running perlcalc with one or more non-option arguments evaluates each
+argument as an expression in Perl and prints its result.  This causes
+standard input to not be read.
+
+    $ perlcalc '5 * 5280' '5 * 1.609344'
+    26400
+    8.04672
+
+Use the C<--files> option to treat any non-option argument(s) as
+filename(s) instead of expression(s):
+
+    $ perlcalc --files expressions.txt
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+=head1 OPTIONS
+
+=over 4
+
+=item -c, --curly, --curly-brackets-only
+
+Only evaluate expressions inside curly bracket pairs, even if there's
+only one line of standard input.
+
+    $ echo '5 * 5280' | perlcalc -c
+    5 * 5280
+
+=item -p, --printf, --format=<format>
+
+Format each expression's value using sprintf, with the specified
+format string.
+
+    $ echo '5 * 1.609344' | perlcalc -p '%d'
+    8
+
+    $ echo '5 * 1.609344' | perlcalc -p '%.3f'
+    8.047
+
+    $ echo '<{5 * 1.609344}>' | perlcalc -p '%8.3f'
+    <   8.047>
+
+    $ echo '{5 * 1.609344}' | perlcalc -p '<%8.3f>'
+    <   8.047>
+
+=item -f, --files
+
+Interpret each non-option argument as a filename whose contents to
+read.
+
+    $ perlcalc --files expressions.txt
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+=back
+
+=item AUTHOR
+
+Darren Embry, C<dse at webonastick dot com>
+
+=cut
