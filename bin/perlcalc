@@ -67,9 +67,18 @@ if ($files) {
     magic_filehandle();
 } else {
     if (scalar @ARGV) {
-        foreach my $arg (@ARGV) {
-            say result_of $arg;
-        }
+        foreach (@ARGV) {
+            if ($curly_brackets_only) {
+                curly_brackets();
+            } elsif (m{[\{\}]}) {
+                # If any {...} expressions are found, replace them.
+                curly_brackets();
+            } else {
+                # Treat the whole line as an expression.
+                whole_line();
+            }
+            print "\n";
+         }
     } else {
         magic_filehandle();
     }
@@ -181,6 +190,12 @@ standard input to not be read.
     $ perlcalc '5 * 5280' '5 * 1.609344'
     26400
     8.04672
+
+Each argument containing a pair of curly braces has its
+curly-bracketed subexpressions evaluated:
+
+    $ perlcalc '5 miles is {5 * 5280} feet, or {5 * 1.609344} kilometers.'
+    5 miles is 26400 feet, or 8.04672 kilometers.
 
 Use the C<--files> option to treat any non-option argument(s) as
 filename(s) instead of expression(s):
