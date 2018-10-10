@@ -1,36 +1,67 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use v5.10.0;
+use v5.14.0;                # required for srand() to return the seed.
 
 use utf8;
 use open IO => ":locale";
 use Getopt::Long;
 
+use POSIX qw(acos acosh asin asinh atan atanh cbrt ceil cosh copysign
+             expm1 floor fdim fma fmax fmin fmod frexp hypot ilogb Inf
+             j0 j1 jn y0 y1 yn ldexp lgamma log1p log2 logb log10 modf
+             NaN nan nextafter nexttoward pow remainder remquo round
+             scalbn sinh tan tanh tgamma trunc);
+use Math::Trig;
+use Math::Trig qw(:pi);
+
 our $format;
 our $curly_brackets_only;
 our $files;
 
-Getopt::Long::Configure("bundling", "gnu_compat");
+sub opt_module {
+    # -m<module>              => use <module> ();
+    # -m-<module>             => no  <module> ();
+    # -m<module>=arg[,arg]... => use <module> split(/,/,q{arg,arg});
+    # -M<module>              => use <module>;
+    # -M-<module>             => no  <module>;
+    # -M<module>=arg[,arg]... => use <module> split(/,/,q{arg,arg});
+    my ($option, $module) = @_;
+    my $use = ($module =~ s{^-}{}) ? "no" : "use";
+    if ($module =~ s{=(.*)$}{}) {
+        my $args = $1;
+        eval "$use ${module} split(/,/, q{${args}};";
+    } elsif ($option eq "M") {
+        eval "$use ${module};";
+    } else {
+        eval "$use ${module} ();";
+    }
+}
+
+Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
     "c|curly|curly-brackets-only" => \$curly_brackets_only,
     "p|printf|format=s"           => \$format,
     "f|files"                     => \$files,
+    "m=s"                         => \&opt_module,
+    "M=s"                         => \&opt_module,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
 sub usage { print <<"END"; }
 usage:
-  $0 [<option> ...] [<expr> ...]
-  $0 [<option> ...] --files [<filename> ...]
+  $0 [<option> ...]                             read from stdin
+  $0 [<option> ...] <expr> ...                  evaluate expressions
+  $0 [<option> ...] --files [<filename> ...]    read from specified files
 options:
-  -p, --printf, --format=FORMAT         e.g., %d, %.3f
+  -p, --printf, --format=<format>               examples:    %d    %.3f
   -f, --files
   -c, --curly, --curly-brackets-only
   -h, --help
+  -m<module>, -M<module>                        same as in Perl itself
 END
 
-sub result_of($);
+sub result_of($);               # prototype
 
 if ($files) {
     magic_filehandle();
@@ -93,12 +124,20 @@ sub whole_line {
 }
 
 sub result_of($) {
-    my ($result) = @_;
-    $result =~ s{−}{-}g;
-    $result =~ s{×}{*}g;
-    $result =~ s{÷}{/}g;
-    $result = eval $result;
-    if (defined $result && defined $format) {
+    my ($string) = @_;
+    my $orig_string = $string;
+    $string =~ s{\N{MINUS SIGN}}{-}g;
+    $string =~ s{\N{MULTIPLICATION SIGN}}{*}g;
+    $string =~ s{\N{DIVISION SIGN}}{/}g;
+    my $result = eval $string;
+    if ($@) {
+        warn $@;
+        return $string;
+    }
+    if (!defined $result) {
+        return $string;
+    }
+    if (defined $format) {
         $result = sprintf($format, $result);
     }
     return $result;
@@ -149,6 +188,107 @@ filename(s) instead of expression(s):
     $ perlcalc --files expressions.txt
     5 miles is 26400 feet, or 8.04672 kilometers.
 
+=head1 ADDED BONUSES
+
+Within expressions it is about to evaluate, perlcalc converts the
+following characters to their respective ASCII character counterparts
+before evaluating them:
+
+    From                          To
+    --------------------------    ------------------------
+    U+2212 MINUS SIGN             -    U+002D HYPHEN-MINUS
+    U+00D7 MULTIPLICATION SIGN    *    U+002A ASTERISK
+    U+00F7 DIVISION SIGN          /    U+002F SOLIDUS
+
+=head1 MATHEMATICAL FUNCTIONS
+
+Because perlcalc was primarily built for doing quick mathematical
+calculations, while any built-in Perl function can be used I will
+provide a list of built-in Perl mathematical functions as a
+convenience.  See perlfunc for details.
+
+    abs            Returns the absolute value of its argument.
+    atan2(Y, X)    Returns the arctangent of Y/X.  (from -PI to PI)
+    cos            Returns the cosine of its argument in radians.
+    exp            Returns e to the power of its argument.
+    hex            Converts its hexadecimal string argument to decimal,
+                   returning the result.
+    int            Returns the integer portion of its argument.
+                   Use floor, ceil, or --format instead.  See perlcalc.
+    log            Returns the natural logarithm of its argument.
+    oct            Converts its octal string argument to decimal, returning
+                   the result.
+    rand           Returns a pseudorandom fractional nubmer >= 0 and less than
+                   its argument (or less than 1).
+    sin            Returns the sine of its argument in radians.
+    sqrt           Returns the positive square root of its argument.
+    srand          Sets or returns the random seed for the rand() function.
+
+The following functions from the POSIX module are imported:
+
+    acos           The arcus cosine.
+    acosh          The hyperbolic arcus cosine.
+    asin           The arcus sine.
+    asinh          The hyperbolic arcus sine.
+    atan           The arcus tangent.
+    atanh          The hyperbolic arcus tangent.
+    cbrt           The cube root.
+    ceil           The smallest integer value >= to its argument.
+    cosh           The hyperbolic cosine.
+    copysign       Returns x, but with the sign of y.
+    expm1          Equivalent to exp(x) - 1, but more precise for small args.
+    floor          The largest integer value <= to its argument.
+    fdim           Positive difference.  x > y ? x - y : 0.
+    fma            Fused multiply-add.  x * y + z.
+    fmax           Maximum of x and y, but if either is NaN returns the other.
+    fmin           Minimum of x and y, but if either is NaN returns the other.
+    fmod           Remainder:  x - trunc(x / y) * y
+    frexp          Return the mantissa and exponent of a fp number.
+    hypot          sqrt(x*x + y*y), more stable on large or small args.
+    ilogb          Integer binary logarithm.
+    Inf            infinity, as a constant.
+    j0, j1, jn,
+    y0, y1, yn     The Bessel function of the first kind of the order zero.
+    ldexp          Multiply fp number with a power of two.
+    lgamma         The logarithm of the gamma function.
+    log1p          log(1 + x) but more stable for small arguments.
+    log2           Base 2 logarithm.
+    logb           Integer binary logarithm.
+    log10          Base 10 logarithm.
+    modf           Integer and fractional parts of a fp number.
+    NaN            not-a-number, as a constant.
+    nan            The function that returns NaN.
+    nextafter      Next representable fp number after x in the direction of y.
+    nexttoward     Same as nextafter, but potentially more accurate.
+    pow            Computes x raised to the power of y.  (Same as the ** op.)
+    remainder      Remainder:  x - closest-integer(x / y) * y
+    remquo         Like remainder, also returns low-order bits of the quotient.
+    round          Return the integer nearest its argument, but as a fp.
+    scalbn         Returns x * 2 ** y.
+    sinh           The hyperbolic sine.
+    tan            The tangent of its argument, in radians.
+    tanh           The hyperbolic tangent.
+    tgamma         The Gamma function.
+    trunc          Returns the integer toward zero from its argument.
+
+The following functions and constants from the Math::Trig module are
+imported:
+
+    csc, cosec, sec, cot, cotan              Cofunctions of sin, cos, tan
+    acsc, acosec, asec, acot, acotan         Arcus cofunctions of sin, cos, tan
+    csch, cosech, sech, coth, cotanh         Cofunctions of sinh, cosh, tanh
+    asinh, acosh, atanh                      Area functions of sinh, cosh, tanh
+    acsch, acosech, asech, acoth, acotanh    Area cofunctions of "
+    pi, pi2, pi4, pip2, pip4                 pi, pi * 2, pi * 4, pi / 2, pi / 4
+    deg2rad, grad2rad, rad2deg,
+    grad2deg, deg2grad, rad2grad             Conversions between deg, rad, grad
+    rad2rad, deg2deg, grad2grad              Wrapping functions
+
+Math::Trig's C<:radial> convesions between cartesian, spherical, and
+cylindrical coordinates are not imported by default; neither are its
+C<:great_circle> functions.  Use C<-MMath::Trig=:radial> and/or
+C<-MMath::Trig=:great_circle> to import them.
+
 =head1 OPTIONS
 
 =over 4
@@ -181,14 +321,22 @@ format string.
 =item -f, --files
 
 Interpret each non-option argument as a filename whose contents to
-read.
+read, instead of as an expression to evaluate.
 
     $ perlcalc --files expressions.txt
     5 miles is 26400 feet, or 8.04672 kilometers.
 
+=item -mE<lt>moduleE<gt>
+
+Execute C<use E<lt>moduleE<gt> ();> before evaluating expressions.
+
+=item -ME<lt>moduleE<gt>
+
+Execute C<use E<lt>moduleE<gt>;> before evaluating expressions.
+
 =back
 
-=item AUTHOR
+=head1 AUTHOR
 
 Darren Embry, C<dse at webonastick dot com>
 
