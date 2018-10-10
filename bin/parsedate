@@ -61,24 +61,39 @@ our $STRFTIME = {
             s{\b(\d\d)(\d\d)$}{$1:$2};
         },
     },
+    "epoch" => { format => "%s" },
 };
 our $NOW;
 
+our %parsedate_options;
+
 Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
-    "f|format|strftime" => \$format,
-    "php-iso-8601" => sub { $format = 'php-iso-8601'; },
-    "atom"         => sub { $format = 'atom'; },
-    "iso-8601"     => sub { $format = 'iso-8601'; },
-    "cookie"       => sub { $format = 'cookie'; },
-    "rfc-822"      => sub { $format = 'rfc-822'; },
-    "rfc-850"      => sub { $format = 'rfc-850'; },
-    "rfc-1036"     => sub { $format = 'rfc-1036'; },
-    "rfc-1123"     => sub { $format = 'rfc-1123'; },
-    "rfc-2822"     => sub { $format = 'rfc-2822'; },
-    "rfc-3339"     => sub { $format = 'rfc-3339'; },
-    "rss"          => sub { $format = 'rss'; },
-    "w3c"          => sub { $format = 'w3c'; },
+    "f|format|strftime"    => \$format,
+    "php-iso-8601"         => sub { $format = 'php-iso-8601'; },
+    "atom"                 => sub { $format = 'atom'; },
+    "iso-8601"             => sub { $format = 'iso-8601'; },
+    "cookie"               => sub { $format = 'cookie'; },
+    "rfc-822"              => sub { $format = 'rfc-822'; },
+    "rfc-850"              => sub { $format = 'rfc-850'; },
+    "rfc-1036"             => sub { $format = 'rfc-1036'; },
+    "rfc-1123"             => sub { $format = 'rfc-1123'; },
+    "rfc-2822"             => sub { $format = 'rfc-2822'; },
+    "rfc-3339"             => sub { $format = 'rfc-3339'; },
+    "rss"                  => sub { $format = 'rss'; },
+    "w3c"                  => sub { $format = 'w3c'; },
+    "epoch"                => sub { $format = 'epoch'; },
+    "fuzzy"                => sub { $parsedate_options{FUZZY}         = 1; delete $parsedate_options{WHOLE}; },
+    "whole"                => sub { $parsedate_options{WHOLE}         = 1; delete $parsedate_options{FUZZY}; },
+    "gmt"                  => sub { $parsedate_options{GMT}           = 1; },
+    "uk"                   => sub { $parsedate_options{UK}            = 1; },
+    "date-required"        => sub { $parsedate_options{DATE_REQUIRED} = 1; },
+    "time-required"        => sub { $parsedate_options{TIME_REQUIRED} = 1; },
+    "no-relative"          => sub { $parsedate_options{NO_RELATIVE}   = 1; },
+    "timefirst|time-first" => sub { $parsedate_options{TIMEFIRST}     = 1; },
+    "prefer-past"          => sub { $parsedate_options{PREFER_PAST}   = 1; delete $parsedate_options{PREFER_FUTURE}; },
+    "prefer-future"        => sub { $parsedate_options{PREFER_FUTURE} = 1; delete $parsedate_options{PREFER_PAST}; },
+    "validate"             => sub { $parsedate_options{VALIDATE}      = 1; },
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -92,18 +107,33 @@ usage:
   $0 [<option> ...] '<timestamp>' ...
 options:
   -h, --help
-      --atom        Atom            $NOW->{'atom'}
-      --iso-8601    ISO-8601        $NOW->{'iso-8601'}
-      --cookie      HTTP Cookies    $NOW->{'cookie'}
-      --rfc-822     RFC 822         $NOW->{'rfc-822'}
-      --rfc-850     RFC 850         $NOW->{'rfc-850'}
-      --rfc-1036    RFC 1036        $NOW->{'rfc-1036'}
-      --rfc-1123    RFC 1123        $NOW->{'rfc-1123'}
-      --rfc-2822    RFC 2822        $NOW->{'rfc-2822'}
-      --rfc-3339    RFC 3339        $NOW->{'rfc-3339'}
-      --rss         RSS             $NOW->{'rss'}
-      --w3c         W3C             $NOW->{'w3c'}
-      --php-iso-8601                $NOW->{'php-iso-8601'}
+date parsing options:
+      --fuzzy            Okay to not parse entire string
+      --whole            Entire string must be parsed
+      --gmt              Input times are GMT, not local
+      --uuk              Prefer DD/MM dates over MM/DD
+      --date-required    Do not default the date
+      --time-required    Do not default the time
+      --no-relative      Input time is not relative to now
+      --time-first       Try parsing time before date
+      --prefer-past      When year or day of week is ambiguous, assume past
+      --prefer-future    "    "    "  "   "  "    "  "        , assume future
+      --subsecond        Parse fraction seconds.
+      --validate         See Time::ParseDate.
+predefined formats and examples:
+      --atom             Atom            $NOW->{'atom'}
+      --iso-8601         ISO-8601        $NOW->{'iso-8601'}
+      --cookie           HTTP Cookies    $NOW->{'cookie'}
+      --rfc-822          RFC 822         $NOW->{'rfc-822'}
+      --rfc-850          RFC 850         $NOW->{'rfc-850'}
+      --rfc-1036         RFC 1036        $NOW->{'rfc-1036'}
+      --rfc-1123         RFC 1123        $NOW->{'rfc-1123'}
+      --rfc-2822         RFC 2822        $NOW->{'rfc-2822'}
+      --rfc-3339         RFC 3339        $NOW->{'rfc-3339'}
+      --rss              RSS             $NOW->{'rss'}
+      --w3c              W3C             $NOW->{'w3c'}
+      --php-iso-8601                     $NOW->{'php-iso-8601'}
+      --epoch            Unix time       $NOW->{'epoch'}
 END
 }
 
@@ -113,13 +143,19 @@ if (!scalar @ARGV) {
     @ARGV = ('now');
 }
 
+our $exit = 0;
+
 foreach my $arg (@ARGV) {
-    my $time_t = parsedate($arg);
+    my $time_t = parsedate($arg, %parsedate_options);
     if (!defined $time_t) {
         warn("Invalid date/time specification: $arg\n");
+        $exit = 1;
+    } else {
+        say format_time($format, $time_t);
     }
-    say format_time($format, $time_t);
 }
+
+exit $exit;
 
 sub format_time {
     my ($format, $time_t) = @_;
