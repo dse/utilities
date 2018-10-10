@@ -161,6 +161,42 @@ perlcalc - A command line calculator that uses Perl.
     perlcalc [<option> ...] [<expr> ...]
     perlcalc [<option> ...] --files [<filename> ...]
 
+=head1 EXAMPLES
+
+Expression arguments:
+
+    $ perlcalc '5 * 5280' '5 * 1.609344'
+    26400
+    8.04672
+
+Expressions in curly braces:
+
+    $ perlcalc '5 miles is {5 * 5280} feet, or {5 * 1.609344} kilometers.'
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+Sample file:
+
+    $ cat expressions.txt
+    5 miles is {5 * 5280} feet, or {5 * 1.609344} kilometers.
+
+Standard input:
+
+    $ perlcalc < expressions.txt
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+    $ echo '5 * 5280' | perlcalc
+    26400
+
+Interpret arguments as files:
+
+    $ perlcalc --files expressions.txt
+    5 miles is 26400 feet, or 8.04672 kilometers.
+
+printf-style formatting:
+
+    $ echo '<{5 * 1.609344}>' | perlcalc -p '%8.3f'
+    <   8.047>
+
 =head1 DESCRIPTION
 
 perlcalc is a utility program that uses Perl to evaluate expressions
