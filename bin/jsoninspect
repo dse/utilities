@@ -1,0 +1,130 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use open IO => ":locale";
+
+use JSON;
+use Getopt::Long;
+
+our $opt_tabs = 0;
+
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+    "tabs" => \$opt_tabs
+) or die();
+
+###############################################################################
+
+local $/ = undef;
+
+my $json = JSON->new()->allow_nonref(1)->ascii(1);
+my $i = My::JSON::Inspector->new();
+$i->{tabs} = $opt_tabs;
+if (scalar @ARGV) {
+    foreach my $arg (@ARGV) {
+        $i->inspect_file($arg);
+    }
+} else {
+    $i->inspect_file("-");
+}
+
+package My::JSON::Inspector;
+use warnings;
+use strict;
+use v5.10.0;
+
+use List::MoreUtils;
+use JSON;
+use List::Util qw(max);
+
+sub new {
+    my ($class, %args) = @_;
+    my $self = bless(\%args, $class);
+    $self->init if $self->can("init");
+    $self->{json} //= JSON->new()->allow_nonref(1)->ascii(1);
+    $self->{tabs} //= 0;
+    return $self;
+}
+
+sub inspect_file {
+    my ($self, @file) = @_;
+    foreach my $file (@file) {
+        if ($file =~ m{^https?://}) {
+            $self->inspect_url($file);
+        } else {
+            local @ARGV = ($file);
+            while (<>) {
+                my $o = $json->decode($_);
+                $self->inspect($o);
+            }
+        }
+    }
+}
+
+sub inspect_url {
+    my ($self, $url) = @_;
+
+    require LWP::UserAgent;
+    import LWP::UserAgent qw();
+
+    $self->{ua} //= LWP::UserAgent->new();
+    my $request = HTTP::Request->new("GET", $url);
+    my $response = $self->{ua}->request($request);
+    my $o = $json->decode($response->decoded_content);
+    $self->inspect($o);
+}
+
+sub inspect {
+    my ($self, $o, $prefix) = @_;
+    my $is_top_level = !defined $prefix;
+    $prefix //= "o";
+    my @result;
+    if (ref $o) {
+        if (ref $o eq "ARRAY") {
+            for (my $i = 0; $i < scalar @$o; $i += 1) {
+                push(@result, $self->inspect($o->[$i], $prefix . "[" . $i . "]"));
+            }
+        } elsif (ref $o eq "HASH") {
+            my @keys = sort keys %$o;
+            foreach my $key (@keys) {
+                push(@result, $self->inspect($o->{$key}, $prefix . $self->accessor($key)));
+            }
+        }
+    } else {
+        if ($is_top_level) {
+            say $self->{json}->encode($o);
+        } else {
+            push(@result, [$prefix, $o]);
+        }
+    }
+    if ($is_top_level) {
+        my $max_prefix_len = max map { length $_->[0] } @result;
+        foreach my $result (@result) {
+            if ($self->{tabs}) {
+                print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
+            } else {
+                printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+            }
+        }
+    }
+    if (defined wantarray) {
+        if (wantarray) {
+            return @result;
+        } else {
+            return \@result;
+        }
+    } else {
+        return;
+    }
+}
+
+sub accessor {
+    my ($self, $key) = @_;
+    if ($key =~ m{^[A-Za-z_\$][0-9A-Za-z_\$]*$}) {
+        return "." . $key;
+    } else {
+        return "[" . $self->{json}->encode($key) . "]";
+    }
+}
