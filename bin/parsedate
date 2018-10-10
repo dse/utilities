@@ -1,0 +1,144 @@
+#!/usr/bin/perl -w
+use warnings;
+use strict;
+use v5.10.0;
+
+use Getopt::Long;
+use Time::ParseDate qw(parsedate);
+use Time::Local qw(timelocal timegm);
+use POSIX qw(strftime);
+
+our $format;
+
+our $STRFTIME = {
+    # Formats listed in http://php.net/manual/en/class.datetime.php
+    # that can be converted to strftime do not need a sub.
+    "atom" => {
+        format => '%Y-%m-%dT%H:%M:%S%z',
+        sub => sub {
+            s{\b(\d\d)(\d\d)$}{$1:$2};
+        },
+    },
+    "iso-8601" => {
+        format => '%Y-%m-%dT%H:%M:%S%z',
+        sub => sub {
+            s{\b(\d\d)(\d\d)$}{$1:$2};
+        },
+    },
+    "php-iso-8601" => {
+        format => '%Y-%m-%dT%H:%M:%S%z',
+    },
+    "cookie"   => {
+        format => '%A, %d-%b-%Y %H:%M:%S %Z',
+    },
+    "rfc-822"  => {
+        format => '%a, %d %b %y %H:%M:%S %z',
+    },
+    "rfc-850"  => {
+        format => '%A, %d-%b-%y %H:%M:%S %Z',
+    },
+    "rfc-1036" => {
+        format => '%a, %d %b %y %H:%M:%S %z',
+    },
+    "rfc-1123" => {
+        format => '%a, %d %b %Y %H:%M:%S %z',
+    },
+    "rfc-2822" => {
+        format => '%a, %d %b %Y %H:%M:%S %z',
+    },
+    "rfc-3339" => {
+        format => '%Y-%m-%dT%H:%M:%S%z',
+        sub => sub {
+            s{\b(\d\d)(\d\d)$}{$1:$2};
+        },
+    },
+    "rss"      => {
+        format => '%a, %d %b %Y %H:%M:%S %z',
+    },
+    "w3c" => {
+        format => '%Y-%m-%dT%H:%M:%S%z',
+        sub => sub {
+            s{\b(\d\d)(\d\d)$}{$1:$2};
+        },
+    },
+};
+our $NOW;
+
+Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
+Getopt::Long::GetOptions(
+    "f|format|strftime" => \$format,
+    "php-iso-8601" => sub { $format = 'php-iso-8601'; },
+    "atom"         => sub { $format = 'atom'; },
+    "iso-8601"     => sub { $format = 'iso-8601'; },
+    "cookie"       => sub { $format = 'cookie'; },
+    "rfc-822"      => sub { $format = 'rfc-822'; },
+    "rfc-850"      => sub { $format = 'rfc-850'; },
+    "rfc-1036"     => sub { $format = 'rfc-1036'; },
+    "rfc-1123"     => sub { $format = 'rfc-1123'; },
+    "rfc-2822"     => sub { $format = 'rfc-2822'; },
+    "rfc-3339"     => sub { $format = 'rfc-3339'; },
+    "rss"          => sub { $format = 'rss'; },
+    "w3c"          => sub { $format = 'w3c'; },
+    "h|help" => sub { usage(); exit 0; }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage {
+    my $time_t = time();
+    foreach my $key (keys %$STRFTIME) {
+        $NOW->{$key} = format_time($key, $time_t);
+    }
+    print <<"END";
+usage:
+  $0 [<option> ...] '<timestamp>' ...
+options:
+  -h, --help
+      --atom        Atom            $NOW->{'atom'}
+      --iso-8601    ISO-8601        $NOW->{'iso-8601'}
+      --cookie      HTTP Cookies    $NOW->{'cookie'}
+      --rfc-822     RFC 822         $NOW->{'rfc-822'}
+      --rfc-850     RFC 850         $NOW->{'rfc-850'}
+      --rfc-1036    RFC 1036        $NOW->{'rfc-1036'}
+      --rfc-1123    RFC 1123        $NOW->{'rfc-1123'}
+      --rfc-2822    RFC 2822        $NOW->{'rfc-2822'}
+      --rfc-3339    RFC 3339        $NOW->{'rfc-3339'}
+      --rss         RSS             $NOW->{'rss'}
+      --w3c         W3C             $NOW->{'w3c'}
+      --php-iso-8601                $NOW->{'php-iso-8601'}
+END
+}
+
+###############################################################################
+
+if (!scalar @ARGV) {
+    @ARGV = ('now');
+}
+
+foreach my $arg (@ARGV) {
+    my $time_t = parsedate($arg);
+    if (!defined $time_t) {
+        warn("Invalid date/time specification: $arg\n");
+    }
+    say format_time($format, $time_t);
+}
+
+sub format_time {
+    my ($format, $time_t) = @_;
+
+    my $strftime = $format;
+    if (defined $format && $STRFTIME->{$format}->{format}) {
+        $strftime = $STRFTIME->{$format}->{format};
+    }
+
+    my $string;
+    if (!defined $strftime) {
+        $string = scalar(localtime($time_t));
+    } else {
+        $string = strftime($strftime, localtime($time_t));
+    }
+    if (defined $format && $STRFTIME->{$format}->{sub}) {
+        for ($string) {
+            $STRFTIME->{$format}->{sub}->();
+        }
+    }
+    return $string;
+}
