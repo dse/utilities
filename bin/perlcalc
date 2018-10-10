@@ -380,10 +380,12 @@ read, instead of as an expression to evaluate.
 =item -mE<lt>moduleE<gt>
 
 Execute C<use E<lt>moduleE<gt> ();> before evaluating expressions.
+Same as Perl itself.
 
 =item -ME<lt>moduleE<gt>
 
 Execute C<use E<lt>moduleE<gt>;> before evaluating expressions.
+Same as Perl itself.
 
 =back
 
