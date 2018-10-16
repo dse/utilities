@@ -1,0 +1,109 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use HTML::TreeBuilder;
+use Getopt::Long;
+
+our @search;
+
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions(
+    "s|search=s" => \@search,
+    "h|help" => sub { usage(); exit 0; }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+  htmlstructure [<option> ...] [<file> ...]
+options:
+  -h, --help
+  -s, --search='<tag>.<class>#<id>'
+END
+
+local $/ = undef;
+while (<>) {
+    my $tree = HTML::TreeBuilder->new();
+    $tree->parse($_);
+    $tree->eof();
+    $tree->elementify();
+    if (scalar @search) {
+        my @elements = search($tree, @search);
+        foreach my $element (@elements) {
+            htmlstructure($element, $ARGV);
+        }
+    } else {
+        htmlstructure($tree, $ARGV);
+    }
+}
+
+sub search {
+    my ($tree, @search) = @_;
+    my @or;
+    foreach my $search (@search) {
+        my @and;
+        while ($search =~ s{(?:([\.\#])([A-Za-z][A-Za-z0-9\-\_\:\.]*))$}{}x) {
+            my ($prefix, $token) = ($1, $2);
+            if ($prefix eq ".") {
+                push(@and, sub {
+                         my $class = $_[0]->attr('class');
+                         return defined $class && $class =~ m{(^|\s)\Q$token\E($|\s)};
+                     });
+            } else {
+                push(@and, sub {
+                         my $id = $_[0]->attr('id');
+                         return defined $id && $id eq $token;
+                     });
+            }
+        }
+        if ($search ne '') {
+            push(@and, sub {
+                     my $tagname = $_[0]->tag;
+                     return defined $tagname && $tagname eq $search;
+                 });
+        }
+        push(@or, \@and);
+    }
+    my $sub = sub {
+        my $element = $_[0];
+      orr:
+        foreach my $or (@or) {
+            foreach my $and (@$or) {
+                if (!$and->($element)) {
+                    next orr;
+                }
+            }
+            return 1;
+        }
+        return 0;
+    };
+    return $tree->look_down($sub);
+}
+
+sub htmlstructure {
+    my ($element, $filename, %args) = @_;
+    my $tagname = eval { $element->tag };
+    my $level = (delete $args{level}) // 0;
+    if (defined $tagname) {
+        my $class = $element->attr('class');
+        my $id    = $element->attr('id');
+        my @class = defined $class ? split(' ', $class) : ();
+
+        my $suffix = "";
+        $suffix .= ".$_" foreach @class;
+        $suffix .= "#$id" if defined $id;
+
+        print "$filename: ";
+        print "    " x $level;
+        print $tagname;
+        print $suffix;
+        print "\n";
+
+        my @children = $element->content_list();
+        foreach my $child (@children) {
+            htmlstructure($child, $filename,
+                          level => $level + 1);
+        }
+    }
+}
