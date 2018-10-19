@@ -1,0 +1,23 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use open IO => ":locale";
+
+use HTML::TreeBuilder;
+
+local $/ = undef;
+while (<>) {
+    my $tree = HTML::TreeBuilder->new();
+    $tree->parse($_);
+    $tree->eof();
+    $tree->elementify();
+    $tree->dump();
+    for (@{$tree->{_content}}) {
+        print $_->tag;
+    }
+
+
+    # print $tree->as_HTML(undef, '  ');
+}
