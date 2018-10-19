@@ -6,8 +6,13 @@ use utf8;
 
 use open IO => ":locale";
 
+use strictures;
+
 use HTML::TreeBuilder;
 use Getopt::Long;
+use Data::Dumper;
+
+our $use_xml = 1;
 
 our $opt_show_attributes;
 our $opt_show_first_child;
@@ -16,6 +21,8 @@ our @opt_search;
 our $opt_fancy;
 our $opt_tree;
 our $opt_theme = 'blank';
+
+###############################################################################
 
 # gnu_compat disables ":s" options if a value is not supplied.
 
@@ -55,18 +62,39 @@ options:
   -T, --tree-theme=<theme>    blank, ascii, light, heavy
 END
 
+###############################################################################
+
+if (scalar @opt_search) {
+    $use_xml = 1;
+}
+
+if ($use_xml) {
+    eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
+    eval 'use HTML::TreeBuilder::XPath;';
+}
+
 local $/ = undef;
 while (<>) {
-    my $tree = HTML::TreeBuilder->new();
-    $tree->parse($_);
-    $tree->eof();
-    $tree->elementify();
-    if (scalar @opt_search) {
-        my @elements = search($tree, @opt_search);
-        foreach my $element (@elements) {
-            htmlinspect($element, $ARGV);
+    if ($use_xml) {
+        my $tree = HTML::TreeBuilder::XPath->new();
+        $tree->parse($_);
+        $tree->eof();
+        if (scalar @opt_search) {
+            foreach my $search (@opt_search) {
+                my $xpath = selector_to_xpath($search, './');
+                my @results = $tree->findnodes($xpath);
+                foreach my $result (@results) {
+                    htmlinspect($result, $ARGV);
+                }
+            }
+        } else {
+            htmlinspect($tree, $ARGV);
         }
     } else {
+        my $tree = HTML::TreeBuilder->new();
+        $tree->parse($_);
+        $tree->eof();
+        $tree->elementify();
         htmlinspect($tree, $ARGV);
     }
 }
@@ -129,7 +157,8 @@ sub htmlinspect {
     $suffix .= "#$id" if defined $id;
 
     if ($opt_show_attributes) {
-        my @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" && $_ ne "/" } $element->all_external_attr_names;
+        my @attr_names = $element->all_external_attr_names;
+        @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" && $_ ne "/" } @attr_names;
         # bug: attributes named / show up for <.../> empty tags
         foreach my $attr_name (@attr_names) {
             $suffix .= sprintf("[%s]", $attr_name);
@@ -206,11 +235,13 @@ sub search {
             my ($prefix, $token) = ($1, $2);
             if ($prefix eq ".") {
                 push(@and, sub {
+                         return 0 unless ref $_[0];
                          my $class = $_[0]->attr('class');
                          return defined $class && $class =~ m{(^|\s)\Q$token\E($|\s)};
                      });
             } else {
                 push(@and, sub {
+                         return 0 unless ref $_[0];
                          my $id = $_[0]->attr('id');
                          return defined $id && $id eq $token;
                      });
@@ -218,6 +249,7 @@ sub search {
         }
         if ($search ne '') {
             push(@and, sub {
+                     return 0 unless ref $_[0];
                      my $tagname = $_[0]->tag;
                      return defined $tagname && $tagname eq $search;
                  });
