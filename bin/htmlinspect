@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 use warnings;
 use strict;
 use v5.10.0;
@@ -7,10 +7,14 @@ use HTML::TreeBuilder;
 use Getopt::Long;
 
 our $show_attributes;
+our $show_first_child;
+our $show_last_child;
 
 Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions(
-    "a|show-attributes" => \$show_attributes,
+    "a|attributes|show-attributes" => \$show_attributes,
+    "first-child|show-first-child" => \$show_first_child,
+    "last-child|show-last-child"   => \$show_last_child,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -34,6 +38,8 @@ while (<>) {
 sub htmlinspect {
     my ($element, $filename, %args) = @_;
     my $tagname = eval { $element->tag };
+    my $index     = $args{index};
+    my $nchildren = $args{nchildren};
     if (defined $tagname) {
         my $class = $element->attr('class');
         my $id    = $element->attr('id');
@@ -49,14 +55,29 @@ sub htmlinspect {
                 $suffix .= sprintf("[%s]", $attr_name);
             }
         }
+        if (defined $index) {
+            if ($show_first_child && $index == 0) {
+                $suffix .= ":first-child";
+            }
+            if ($show_last_child && $index == $nchildren - 1) {
+                $suffix .= ":last-child";
+            }
+        }
 
         my $parents = $args{parents} // [];
         my @parents = @$parents;
         my $parents_string = join("", map { "$_ " } @$parents);
         say sprintf("%s: %s%s", $filename, $parents_string, $tagname . $suffix);
         my @children = $element->content_list();
+
+        my $index = 0;
+        my $nchildren = scalar @children;
         foreach my $child (@children) {
-            htmlinspect($child, $filename, parents => [@parents, $tagname . $suffix]);
+            htmlinspect($child, $filename,
+                        parents => [@parents, $tagname . $suffix],
+                        index => $index,
+                        nchildren => $nchildren);
+            $index += 1;
         }
     }
 }

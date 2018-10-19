@@ -7,10 +7,12 @@ use HTML::TreeBuilder;
 use Getopt::Long;
 
 our @search;
+our $fancy;
 
 Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions(
     "s|search=s" => \@search,
+    "f|fancy" => \$fancy,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -31,10 +33,10 @@ while (<>) {
     if (scalar @search) {
         my @elements = search($tree, @search);
         foreach my $element (@elements) {
-            htmlstructure($element, $ARGV);
+            htmlstructure($element, $ARGV, fancy => $fancy);
         }
     } else {
-        htmlstructure($tree, $ARGV);
+        htmlstructure($tree, $ARGV, fancy => $fancy);
     }
 }
 
@@ -81,6 +83,8 @@ sub search {
     return $tree->look_down($sub);
 }
 
+our %filename_printed;
+
 sub htmlstructure {
     my ($element, $filename, %args) = @_;
     my $tagname = eval { $element->tag };
@@ -94,16 +98,23 @@ sub htmlstructure {
         $suffix .= ".$_" foreach @class;
         $suffix .= "#$id" if defined $id;
 
-        print "$filename: ";
-        print "    " x $level;
+        if ($args{fancy}) {
+            if (!$filename_printed{$filename}) {
+                print "$filename:\n";
+                $filename_printed{$filename} = 1;
+            }
+            print "    " x ($level + 1);
+        } else {
+            print "$filename: ";
+            print "    " x $level;
+        }
         print $tagname;
         print $suffix;
         print "\n";
 
         my @children = $element->content_list();
         foreach my $child (@children) {
-            htmlstructure($child, $filename,
-                          level => $level + 1);
+            htmlstructure($child, $filename, %args, level => $level + 1);
         }
     }
 }
