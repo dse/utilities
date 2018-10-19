@@ -23,6 +23,7 @@ our $opt_theme = 'blank';
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
+        # This does nothing during regular runtime.
         require Carp::Always;
         import Carp::Always;
     }
