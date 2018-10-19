@@ -4,16 +4,29 @@ use strict;
 use v5.10.0;
 
 use File::Find qw(find);
-use File::Spec::Functions;
+use File::Spec::Functions qw(canonpath abs2rel);
 
 # -T taint checking
 # -l sets $\ (ors) to $/ (irs)
 # -w
 # -e
 
-find({
-    wanted => sub {
-        say canonpath $_ if /\.pm\z/;
-    },
-    no_chdir => 1
-}, @INC);
+foreach my $inc (@INC) {
+    find({
+        wanted => sub {
+            return unless m{\.pm\z};
+            my $canonpath = canonpath($_);
+            my $relpath = abs2rel($_, $inc);
+            my $module = path2module($relpath);
+            printf("%-32s %s\n", $module, $canonpath);
+        },
+        no_chdir => 1
+    }, $inc);
+}
+
+sub path2module {
+    my ($path) = @_;
+    $path =~ s{\.pm\z}{};
+    $path =~ s{[\/\\]+}{::}g;
+    return $path;
+}
