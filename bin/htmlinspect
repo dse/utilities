@@ -2,23 +2,42 @@
 use warnings;
 use strict;
 use v5.10.0;
+use utf8;
+
+use open IO => ":locale";
 
 use HTML::TreeBuilder;
 use Getopt::Long;
 
-our $show_attributes;
-our $show_first_child;
-our $show_last_child;
-our @search;
-our $fancy;
+our $opt_show_attributes;
+our $opt_show_first_child;
+our $opt_show_last_child;
+our @opt_search;
+our $opt_fancy;
+our $opt_tree;
+our $opt_theme = 'blank';
 
-Getopt::Long::Configure("bundling", "gnu_compat");
+# gnu_compat disables ":s" options if a value is not supplied.
+
+Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
-    "s|search=s" => \@search,
-    "f|fancy" => \$fancy,
-    "a|attributes|show-attributes" => \$show_attributes,
-    "first-child|show-first-child" => \$show_first_child,
-    "last-child|show-last-child"   => \$show_last_child,
+    "s|search=s"                   => \@opt_search,
+    "f|fancy"                      => \$opt_fancy,
+    "a|attributes|show-attributes" => \$opt_show_attributes,
+    "first-child|show-first-child" => \$opt_show_first_child,
+    "last-child|show-last-child"   => \$opt_show_last_child,
+    "t|tree"                       => \$opt_tree,
+    "T|theme|tree-theme=s" => sub {
+        my $value = $_[1];
+        if ($value ne "blank" && $value ne "ascii" && $value ne "light" && $value ne "heavy") {
+            die("Invalid tree theme: $value\n");
+        }
+        $opt_tree = 1;
+    },
+    "blank" => sub { $opt_theme = "blank"; $opt_tree = 1; },
+    "ascii" => sub { $opt_theme = "ascii"; $opt_tree = 1; },
+    "light" => sub { $opt_theme = "light"; $opt_tree = 1; },
+    "heavy" => sub { $opt_theme = "heavy"; $opt_tree = 1; },
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -32,6 +51,8 @@ options:
   -f, --fancy
       --[show-]first-child
       --[show-]last-child
+  -t, --tree
+  -T, --tree-theme=<theme>    blank, ascii, light, heavy
 END
 
 local $/ = undef;
@@ -40,8 +61,8 @@ while (<>) {
     $tree->parse($_);
     $tree->eof();
     $tree->elementify();
-    if (scalar @search) {
-        my @elements = search($tree, @search);
+    if (scalar @opt_search) {
+        my @elements = search($tree, @opt_search);
         foreach my $element (@elements) {
             htmlinspect($element, $ARGV);
         }
@@ -50,59 +71,127 @@ while (<>) {
     }
 }
 
+our $box_drawing;
+BEGIN {
+    $box_drawing = {
+        light => {
+            last            => "└── ",
+            not_last        => "├── ",
+            parent_last     => "    ",
+            parent_not_last => "│   ",
+        },
+        heavy => {
+            last            => "┗━━ ",
+            not_last        => "┣━━ ",
+            parent_last     => "    ",
+            parent_not_last => "┃   ",
+        },
+        ascii => {
+            last            => "`-- ",
+            not_last        => "|-- ",
+            parent_last     => "    ",
+            parent_not_last => "|   ",
+        },
+        blank => {
+            last            => "    ",
+            not_last        => "    ",
+            parent_last     => "    ",
+            parent_not_last => "    ",
+        },
+    };
+}
+
 our %filename_printed;
 
 sub htmlinspect {
     my ($element, $filename, %args) = @_;
-    my $tagname = eval { $element->tag };
+
+    if (!ref($element)) {
+        return;
+    }
+    my $tagname = $element->tag;
+
     my $index     = $args{index};
     my $nchildren = $args{nchildren};
-    if (defined $tagname) {
-        my $class = $element->attr('class');
-        my $id    = $element->attr('id');
-        my @class = defined $class ? split(' ', $class) : ();
+    my $level     = $args{level} // 0;
+    my $parents   = $args{parents} // [];
+    my $prefix    = $args{prefix} // "";
 
-        my $suffix = "";
-        $suffix .= ".$_" foreach @class;
-        $suffix .= "#$id" if defined $id;
+    my @parents = @$parents;
+    my $parents_string = join("", map { "$_ " } @$parents);
 
-        if ($show_attributes) {
-            my @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" } $element->all_external_attr_names;
-            foreach my $attr_name (@attr_names) {
-                $suffix .= sprintf("[%s]", $attr_name);
-            }
+    my $class = $element->attr('class');
+    my $id    = $element->attr('id');
+    my @class = defined $class ? split(' ', $class) : ();
+
+    my $suffix = "";
+    $suffix .= ".$_" foreach @class;
+    $suffix .= "#$id" if defined $id;
+
+    if ($opt_show_attributes) {
+        my @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" && $_ ne "/" } $element->all_external_attr_names;
+        # bug: attributes named / show up for <.../> empty tags
+        foreach my $attr_name (@attr_names) {
+            $suffix .= sprintf("[%s]", $attr_name);
         }
-        if (defined $index) {
-            if ($show_first_child && $index == 0) {
-                $suffix .= ":first-child";
-            }
-            if ($show_last_child && $index == $nchildren - 1) {
-                $suffix .= ":last-child";
-            }
+    }
+    if (defined $index) {
+        if ($opt_show_first_child && $index == 0) {
+            $suffix .= ":first-child";
         }
+        if ($opt_show_last_child && $index == $nchildren - 1) {
+            $suffix .= ":last-child";
+        }
+    }
 
-        my $parents = $args{parents} // [];
-        my @parents = @$parents;
-        my $parents_string = join("", map { "$_ " } @$parents);
-        if ($args{fancy}) {
-            if (!$filename_printed{$filename}) {
-                print "$filename:\n";
-                $filename_printed{$filename} = 1;
+    if ($opt_fancy) {
+        if (!$filename_printed{$filename}) {
+            print "$filename:\n";
+            $filename_printed{$filename} = 1;
+        }
+        print " " x 4;
+    } else {
+        print "$filename: ";
+    }
+
+    my $newprefix;
+    if ($opt_tree) {
+        if ($opt_theme ne "blank") {
+            my $drawing;
+            if ($level) {
+                $drawing = ($index == $nchildren - 1) ? $box_drawing->{$opt_theme}->{last} : $box_drawing->{$opt_theme}->{not_last};
+            } else {
+                $drawing = "";
             }
-            print " " x 4;
+            print($prefix, $drawing);
+            $newprefix = $prefix;
+            if ($level) {
+                $newprefix .= (($index == $nchildren - 1) ? $box_drawing->{$opt_theme}->{parent_last} : $box_drawing->{$opt_theme}->{parent_not_last});
+            }
         } else {
-            print "$filename: ";
+            print(" " x (4 * $level));
         }
-        print($parents_string, $tagname, $suffix, "\n");
+    } else {
+        print($parents_string);
+    }
+    print($tagname, $suffix, "\n");
 
-        my @children = $element->content_list();
+    {
+        my @children = grep { ref $_ } $element->content_list();
         my $index = 0;
         my $nchildren = scalar @children;
+        my %args;
+        if ($opt_tree && $opt_theme ne "blank") {
+            $args{prefix} = $newprefix;
+        }
         foreach my $child (@children) {
-            htmlinspect($child, $filename,
+            htmlinspect($child,
+                        $filename,
+                        %args,
                         parents => [@parents, $tagname . $suffix],
                         index => $index,
-                        nchildren => $nchildren);
+                        nchildren => $nchildren,
+                        level => $level + 1);
             $index += 1;
         }
     }
