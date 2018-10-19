@@ -21,7 +21,8 @@ usage:
   htmlstructure [<option> ...] [<file> ...]
 options:
   -h, --help
-  -s, --search='<tag>.<class>#<id>'
+  -s, --search='<search>'     <tag>  and/or  .<class>  and/or  #<id>
+  -f, --fancy
 END
 
 local $/ = undef;
@@ -103,14 +104,12 @@ sub htmlstructure {
                 print "$filename:\n";
                 $filename_printed{$filename} = 1;
             }
-            print "    " x ($level + 1);
+            print " " x 4;
         } else {
             print "$filename: ";
-            print "    " x $level;
         }
-        print $tagname;
-        print $suffix;
-        print "\n";
+        print(" " x (4 * $level));
+        print($tagname, $suffix, "\n");
 
         my @children = $element->content_list();
         foreach my $child (@children) {
