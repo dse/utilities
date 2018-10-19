@@ -1,0 +1,150 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+# https://invisible-island.net/xterm/ctlseqs/ctlseqs.html
+
+ESC=$'\e'                       # escape
+CSI=$'\e['                      # control sequence introducer
+AKP=$'\e='                      # application keypad (DECKPAM)
+NKP=$'\e>'                      # normal keypad (DECKPNM)
+FRS=$'\ec'                      # full reset
+
+ACK="${CSI}?1h"                 # application cursor keys (DECCKM)
+NCK="${CSI}?1l"                 # normal cursor keys (DECCKM)
+
+RST="${CSI}0m"                  # reset
+BLD="${CSI}1m"                  # bold
+FNT="${CSI}2m"                  # faint
+ITL="${CSI}3m"                  # italicized
+UNL="${CSI}4m"                  # underlined
+BLN="${CSI}5m"                  # blink
+INV="${CSI}7m"                  # inverse video
+NML="${CSI}22m"                 # normal: neither bold nor faint
+NIT="${CSI}23m"                 # not italicized
+NUL="${CSI}24m"                 # not underlined
+STD="${CSI}25m"                 # steady
+POS="${CSI}27m"                 # not inverse
+
+FN0="${CSI}30m"
+FN1="${CSI}31m"
+FN2="${CSI}32m"
+FN3="${CSI}33m"
+FN4="${CSI}34m"
+FN5="${CSI}35m"
+FN6="${CSI}36m"
+FN7="${CSI}37m"
+FN9="${CSI}39m"
+
+FB0="${CSI}1;30m"
+FB1="${CSI}1;31m"
+FB2="${CSI}1;32m"
+FB3="${CSI}1;33m"
+FB4="${CSI}1;34m"
+FB5="${CSI}1;35m"
+FB6="${CSI}1;36m"
+FB7="${CSI}1;37m"
+FB9="${CSI}39m"
+
+FR0="${CSI}90m"
+FR1="${CSI}91m"
+FR2="${CSI}92m"
+FR3="${CSI}93m"
+FR4="${CSI}94m"
+FR5="${CSI}95m"
+FR6="${CSI}96m"
+FR7="${CSI}97m"
+
+BR0="${CSI}100m"
+BR1="${CSI}101m"
+BR2="${CSI}102m"
+BR3="${CSI}103m"
+BR4="${CSI}104m"
+BR5="${CSI}105m"
+BR6="${CSI}106m"
+BR7="${CSI}107m"
+
+BN0="${CSI}40m"
+BN1="${CSI}41m"
+BN2="${CSI}42m"
+BN3="${CSI}43m"
+BN4="${CSI}44m"
+BN5="${CSI}45m"
+BN6="${CSI}46m"
+BN7="${CSI}47m"
+BN9="${CSI}49m"
+
+main () {
+    demo
+    extras
+    echo
+}
+
+ehco () {
+    echo -n "$@"
+    echo "${RST}"
+}
+
+demo () { cat <<EOF | sed 's/$/'"${RST}"'/'; }
+
+${RST}Normal    ${BLD}Bold${RST}    ${FNT}Faint${RST}    ${ITL}Italicized${RST}    ${UNL}Underlined${RST}    ${BLN}Blink${RST}    ${INV}Inverse${RST}
+${BLD}${ITL}Bold Italicized${RST}    ${BLD}${UNL}Bold Underlined${RST}    ${BLD}${INV}Bold Inverse${RST}
+
+${FN0}black foreground
+${FN1}red foreground
+${FN2}green foreground
+${FN3}brown foreground
+${FN4}blue foreground
+${FN5}magenta foreground
+${FN6}cyan foreground
+${FN7}gray foreground
+
+${FB0}bold black (dark gray) foreground
+${FB1}bold red foreground
+${FB2}bold green foreground
+${FB3}bold brown (yellow) foreground
+${FB4}bold blue foreground
+${FB5}bold magenta foreground
+${FB6}bold cyan foreground
+${FB7}bold gray (white) foreground
+
+${BN0}black background
+${BN1}red background
+${BN2}green background
+${BN3}brown background
+${BN4}blue background
+${BN5}magenta background
+${BN6}cyan background
+${BN7}gray background
+
+${BN4}${FN7}gray on blue${RST}
+${BN1}${FN7}gray on red${RST}
+${BN2}${FN7}gray on green${RST}
+${BN4}${FN0}black on blue${RST}
+${BN1}${FN0}black on red${RST}
+${BN2}${FN0}black on green${RST}
+EOF
+
+extras () { cat <<EOF | sed 's/$/'"${RST}"'/'; }
+
+aixterm: ${FR0}bright black (dark gray) foreground
+         ${FR1}bright red foreground
+         ${FR2}bright green foreground
+         ${FR3}bright brown (yellow) foreground
+         ${FR4}bright blue foreground
+         ${FR5}bright magenta foreground
+         ${FR6}bright cyan foreground
+         ${FR7}bright gray (white) foreground
+
+aixterm: ${BR0}bright black (dark gray) background
+         ${BR1}bright red background
+         ${BR2}bright green background
+         ${BR3}bright brown (yellow) background
+         ${BR4}bright blue background
+         ${BR5}bright magenta background
+         ${BR6}bright cyan background
+         ${BR7}bright gray (white) background
+EOF
+
+###############################################################################
+main "$@"
