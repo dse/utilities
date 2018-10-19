@@ -7,7 +7,6 @@ use utf8;
 use open IO => ":locale";
 
 use strictures;
-
 use HTML::TreeBuilder;
 use Getopt::Long;
 use Data::Dumper;
@@ -21,6 +20,13 @@ our @opt_search;
 our $opt_fancy;
 our $opt_tree;
 our $opt_theme = 'blank';
+
+BEGIN {
+    if (grep { $_ eq "--carp" } @ARGV) {
+        require Carp::Always;
+        import Carp::Always;
+    }
+}
 
 ###############################################################################
 
@@ -45,6 +51,7 @@ Getopt::Long::GetOptions(
     "ascii" => sub { $opt_theme = "ascii"; $opt_tree = 1; },
     "light" => sub { $opt_theme = "light"; $opt_tree = 1; },
     "heavy" => sub { $opt_theme = "heavy"; $opt_tree = 1; },
+    "carp" => sub { },          # does nothing here, but see above
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -54,12 +61,17 @@ usage:
 options:
   -h, --help
   -a, --[show-]attributes
-  -s, --search='<search>'     <tag>  and/or  .<class>  and/or  #<id>
+  -s, --search='<search>'       search by CSS selector
   -f, --fancy
       --[show-]first-child
       --[show-]last-child
   -t, --tree
-  -T, --tree-theme=<theme>    blank, ascii, light, heavy
+  -T, --tree-theme=<theme>      blank, ascii, light, heavy
+      --blank
+      --ascii
+      --light
+      --heavy
+      --carp                    show stack traces
 END
 
 ###############################################################################
@@ -68,9 +80,16 @@ if (scalar @opt_search) {
     $use_xml = 1;
 }
 
+sub f { g(); }
+sub g { h(); }
+sub h { iiii(); }
+f();
+
 if ($use_xml) {
     eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
+    die $@ if $@;
     eval 'use HTML::TreeBuilder::XPath;';
+    die $@ if $@;
 }
 
 local $/ = undef;
