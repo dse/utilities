@@ -117,8 +117,6 @@ while (<>) {
     }
 }
 
-our %filename_printed;
-
 package My::HTML::Inspector {
     use lib "$ENV{HOME}/git/dse.d/perl-class-thingy/lib";
     use Class::Thingy;
@@ -170,6 +168,8 @@ package My::HTML::Inspector {
             },
         };
     }
+
+    our %filename_printed;
 
     sub inspect {
         my ($self, $element, $filename, %args) = @_;
