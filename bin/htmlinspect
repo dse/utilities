@@ -11,8 +11,6 @@ use HTML::TreeBuilder;
 use Getopt::Long;
 use Data::Dumper;
 
-our $use_xml = 1;
-
 our $opt_show_attributes;
 our $opt_show_first_child;
 our $opt_show_last_child;
@@ -20,6 +18,9 @@ our @opt_search;
 our $opt_fancy;
 our $opt_tree;
 our $opt_theme = 'blank';
+our $opt_carp_test;
+our $opt_show_ancestors;
+our $opt_no_recurse;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -36,6 +37,8 @@ BEGIN {
 Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
     "s|search=s"                   => \@opt_search,
+    "A|ancestors|show-ancestors"   => \$opt_show_ancestors,
+    "R|no-recurse"                 => \$opt_no_recurse,
     "f|fancy"                      => \$opt_fancy,
     "a|attributes|show-attributes" => \$opt_show_attributes,
     "first-child|show-first-child" => \$opt_show_first_child,
@@ -53,6 +56,7 @@ Getopt::Long::GetOptions(
     "light" => sub { $opt_theme = "light"; $opt_tree = 1; },
     "heavy" => sub { $opt_theme = "heavy"; $opt_tree = 1; },
     "carp" => sub { },          # does nothing here, but see above
+    "carp-test" => \$opt_carp_test,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -63,6 +67,8 @@ options:
   -h, --help
   -a, --[show-]attributes
   -s, --search='<search>'       search by CSS selector
+  -R, --no-recurse
+  -A, --[show-]ancestors        only when searching
   -f, --fancy
       --[show-]first-child
       --[show-]last-child
@@ -77,217 +83,219 @@ END
 
 ###############################################################################
 
-if (scalar @opt_search) {
-    $use_xml = 1;
-}
-
-sub f { g(); }
-sub g { h(); }
-sub h { iiii(); }
-f();
-
-if ($use_xml) {
-    eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
-    die $@ if $@;
-    eval 'use HTML::TreeBuilder::XPath;';
-    die $@ if $@;
+sub ffff { gggg(); }
+sub gggg { hhhh(); }
+sub hhhh { iiii(); }
+if ($opt_carp_test) {
+    ffff();
 }
 
 local $/ = undef;
 while (<>) {
-    if ($use_xml) {
-        my $tree = HTML::TreeBuilder::XPath->new();
-        $tree->parse($_);
-        $tree->eof();
-        if (scalar @opt_search) {
-            foreach my $search (@opt_search) {
-                my $xpath = selector_to_xpath($search, './');
-                my @results = $tree->findnodes($xpath);
-                foreach my $result (@results) {
-                    htmlinspect($result, $ARGV);
-                }
+    my $inspector = My::HTML::Inspector->new();
+    $inspector->show_ancestors($opt_show_ancestors);
+    $inspector->show_attributes($opt_show_attributes);
+    $inspector->show_first_child($opt_show_first_child);
+    $inspector->show_last_child($opt_show_last_child);
+    $inspector->tree($opt_tree);
+    $inspector->theme($opt_theme);
+    $inspector->fancy($opt_fancy);
+    $inspector->no_recurse($opt_no_recurse);
+
+    my $tree = HTML::TreeBuilder::XPath->new();
+    $tree->parse($_);
+    $tree->eof();
+    if (scalar @opt_search) {
+        foreach my $search (@opt_search) {
+            my @results = $inspector->search($tree, $search);
+            foreach my $result (@results) {
+                $inspector->inspect($result, $ARGV);
             }
-        } else {
-            htmlinspect($tree, $ARGV);
         }
     } else {
-        my $tree = HTML::TreeBuilder->new();
-        $tree->parse($_);
-        $tree->eof();
-        $tree->elementify();
-        htmlinspect($tree, $ARGV);
+        $inspector->inspect($tree, $ARGV);
     }
-}
-
-our $box_drawing;
-BEGIN {
-    $box_drawing = {
-        light => {
-            last            => "└── ",
-            not_last        => "├── ",
-            parent_last     => "    ",
-            parent_not_last => "│   ",
-        },
-        heavy => {
-            last            => "┗━━ ",
-            not_last        => "┣━━ ",
-            parent_last     => "    ",
-            parent_not_last => "┃   ",
-        },
-        ascii => {
-            last            => "`-- ",
-            not_last        => "|-- ",
-            parent_last     => "    ",
-            parent_not_last => "|   ",
-        },
-        blank => {
-            last            => "    ",
-            not_last        => "    ",
-            parent_last     => "    ",
-            parent_not_last => "    ",
-        },
-    };
 }
 
 our %filename_printed;
 
-sub htmlinspect {
-    my ($element, $filename, %args) = @_;
+package My::HTML::Inspector {
+    use lib "$ENV{HOME}/git/dse.d/perl-class-thingy/lib";
+    use Class::Thingy;
 
-    if (!ref($element)) {
-        return;
-    }
-    my $tagname = $element->tag;
-
-    my $index     = $args{index};
-    my $nchildren = $args{nchildren};
-    my $level     = $args{level} // 0;
-    my $parents   = $args{parents} // [];
-    my $prefix    = $args{prefix} // "";
-
-    my @parents = @$parents;
-    my $parents_string = join("", map { "$_ " } @$parents);
-
-    my $class = $element->attr('class');
-    my $id    = $element->attr('id');
-    my @class = defined $class ? split(' ', $class) : ();
-
-    my $suffix = "";
-    $suffix .= ".$_" foreach @class;
-    $suffix .= "#$id" if defined $id;
-
-    if ($opt_show_attributes) {
-        my @attr_names = $element->all_external_attr_names;
-        @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" && $_ ne "/" } @attr_names;
-        # bug: attributes named / show up for <.../> empty tags
-        foreach my $attr_name (@attr_names) {
-            $suffix .= sprintf("[%s]", $attr_name);
-        }
-    }
-    if (defined $index) {
-        if ($opt_show_first_child && $index == 0) {
-            $suffix .= ":first-child";
-        }
-        if ($opt_show_last_child && $index == $nchildren - 1) {
-            $suffix .= ":last-child";
-        }
+    INIT {
+        public show_ancestors;
+        public show_first_child;
+        public show_last_child;
+        public show_attributes;
+        public no_recurse;
+        public tree;
+        public theme;
+        public fancy;
     }
 
-    if ($opt_fancy) {
-        if (!$filename_printed{$filename}) {
-            print "$filename:\n";
-            $filename_printed{$filename} = 1;
-        }
-        print " " x 4;
-    } else {
-        print "$filename: ";
+    INIT {
+        eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
+        die $@ if $@;
+        eval 'use HTML::TreeBuilder::XPath;';
+        die $@ if $@;
     }
 
-    my $newprefix;
-    if ($opt_tree) {
-        if ($opt_theme ne "blank") {
-            my $drawing;
-            if ($level) {
-                $drawing = ($index == $nchildren - 1) ? $box_drawing->{$opt_theme}->{last} : $box_drawing->{$opt_theme}->{not_last};
-            } else {
-                $drawing = "";
+    our $BOX_DRAWING;
+    BEGIN {
+        $BOX_DRAWING = {
+            light => {
+                last            => "└── ",
+                not_last        => "├── ",
+                parent_last     => "    ",
+                parent_not_last => "│   ",
+            },
+            heavy => {
+                last            => "┗━━ ",
+                not_last        => "┣━━ ",
+                parent_last     => "    ",
+                parent_not_last => "┃   ",
+            },
+            ascii => {
+                last            => "`-- ",
+                not_last        => "|-- ",
+                parent_last     => "    ",
+                parent_not_last => "|   ",
+            },
+            blank => {
+                last            => "    ",
+                not_last        => "    ",
+                parent_last     => "    ",
+                parent_not_last => "    ",
+            },
+        };
+    }
+
+    sub inspect {
+        my ($self, $element, $filename, %args) = @_;
+        if (!ref $element) {
+            return;
+        }
+
+        my $element_string = $self->element_string($element);
+
+        my $index     = $args{index};
+        my $nchildren = $args{nchildren};
+        my $level     = $args{level} // 0;
+        my $parents   = $args{parents} // [];
+        my $prefix    = $args{prefix} // "";
+
+        my @parents = @$parents;
+        my $parents_string = join("", map { "$_ " } @$parents);
+
+        if ($self->fancy) {
+            if (!$filename_printed{$filename}) {
+                print "$filename:\n";
+                $filename_printed{$filename} = 1;
             }
-            print($prefix, $drawing);
-            $newprefix = $prefix;
-            if ($level) {
-                $newprefix .= (($index == $nchildren - 1) ? $box_drawing->{$opt_theme}->{parent_last} : $box_drawing->{$opt_theme}->{parent_not_last});
+            print " " x 4;
+        } else {
+            print "$filename: ";
+        }
+
+        my $newprefix;
+        if ($self->tree) {
+            if ($self->theme ne "blank") {
+                my $drawing;
+                if ($level) {
+                    $drawing = ($index == $nchildren - 1) ? $BOX_DRAWING->{$self->theme}->{last} : $BOX_DRAWING->{$self->theme}->{not_last};
+                } else {
+                    $drawing = "";
+                }
+                print($prefix, $drawing);
+                $newprefix = $prefix;
+                if ($level) {
+                    $newprefix .= (($index == $nchildren - 1) ? $BOX_DRAWING->{$self->theme}->{parent_last} : $BOX_DRAWING->{$self->theme}->{parent_not_last});
+                }
+            } else {
+                print(" " x (4 * $level));
             }
         } else {
-            print(" " x (4 * $level));
+            print($parents_string);
         }
-    } else {
-        print($parents_string);
-    }
-    print($tagname, $suffix, "\n");
 
-    {
-        my @children = grep { ref $_ } $element->content_list();
-        my $index = 0;
-        my $nchildren = scalar @children;
-        my %args;
-        if ($opt_tree && $opt_theme ne "blank") {
-            $args{prefix} = $newprefix;
+        if ($level == 0 && $self->show_ancestors) {
+            my $ancestors = "";
+            for (my $parent = $element->parent;
+                 $parent;
+                 $parent = $parent->parent) {
+                $ancestors = $self->element_string($parent) . " " . $ancestors;
+            }
+            print($ancestors);
         }
-        foreach my $child (@children) {
-            htmlinspect($child,
-                        $filename,
-                        %args,
-                        parents => [@parents, $tagname . $suffix],
-                        index => $index,
-                        nchildren => $nchildren,
-                        level => $level + 1);
-            $index += 1;
-        }
-    }
-}
 
-sub search {
-    my ($tree, @search) = @_;
-    my @or;
-    foreach my $search (@search) {
-        my @and;
-        while ($search =~ s{(?:([\.\#])([A-Za-z][A-Za-z0-9\-\_\:\.]*))$}{}x) {
-            my ($prefix, $token) = ($1, $2);
-            if ($prefix eq ".") {
-                push(@and, sub {
-                         return 0 unless ref $_[0];
-                         my $class = $_[0]->attr('class');
-                         return defined $class && $class =~ m{(^|\s)\Q$token\E($|\s)};
-                     });
-            } else {
-                push(@and, sub {
-                         return 0 unless ref $_[0];
-                         my $id = $_[0]->attr('id');
-                         return defined $id && $id eq $token;
-                     });
+        print($element_string, "\n");
+
+        if (!$self->no_recurse) {
+            my @children = grep { ref $_ } $element->content_list();
+            my $index = 0;
+            my $nchildren = scalar @children;
+            my %args;
+            if ($self->tree && $self->theme ne "blank") {
+                $args{prefix} = $newprefix;
+            }
+            foreach my $child (@children) {
+                $self->inspect($child,
+                               $filename,
+                               %args,
+                               parents => [@parents, $element_string],
+                               index => $index,
+                               nchildren => $nchildren,
+                               level => $level + 1);
+                $index += 1;
             }
         }
-        if ($search ne '') {
-            push(@and, sub {
-                     return 0 unless ref $_[0];
-                     my $tagname = $_[0]->tag;
-                     return defined $tagname && $tagname eq $search;
-                 });
-        }
-        push(@or, \@and);
     }
-    my $sub = sub {
-        my $element = $_[0];
-      orr:
-        foreach my $or (@or) {
-            foreach my $and (@$or) {
-                if (!$and->($element)) {
-                    next orr;
-                }
-            }
-            return 1;
+
+    sub element_string {
+        my ($self, $element) = @_;
+        my $tagname = $element->tag;
+
+        my $result = $tagname;
+
+        my $class = $element->attr('class');
+        my @class = defined $class ? split(' ', $class) : ();
+        foreach my $class (@class) {
+            $result .= "." . $class;
         }
-        return 0;
-    };
-    return $tree->look_down($sub);
-}
+
+        my $id = $element->attr('id');
+        if (defined $id) {
+            $result .= "#" . $id;
+        }
+
+        if ($self->show_attributes) {
+            my @attr_names = $element->all_external_attr_names;
+            @attr_names = sort { lc($a) cmp lc($b) } grep { $_ ne "class" && $_ ne "id" && $_ ne "/" } @attr_names;
+            foreach my $attr_name (@attr_names) {
+                $result .= sprintf("[%s]", $attr_name);
+            }
+        }
+
+        my @left  = grep { ref $_ } $element->left;
+        my @right = grep { ref $_ } $element->right;
+        my $is_first_child = !scalar @left;
+        my $is_last_child  = !scalar @right;
+
+        if ($self->show_first_child && $is_first_child) {
+            $result .= ":first-child";
+        }
+        if ($self->show_last_child && $is_last_child) {
+            $result .= ":last-child";
+        }
+
+        return $result;
+    }
+
+    sub search {
+        my ($self, $tree, $search) = @_;
+        my $xpath = selector_to_xpath($search, './');
+        my @results = $tree->findnodes($xpath);
+        return @results;
+    }
+};
