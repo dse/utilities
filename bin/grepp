@@ -45,8 +45,11 @@ usage () {
     echo "      --verbose"
     echo "      --dry-run"
     echo "      --no-excludes"
-    echo "      --min-depth=DEPTH    causes grepp to use find instead of grep to recurse"
-    echo "      --max-depth=DEPTH    \""
+    echo "      --min-depth=DEPTH        causes grepp to use find instead of grep to recurse"
+    echo "      --max-depth=DEPTH        \""
+    echo "      --css-class='<class>'    CSS classes in HTML/SGML/XML files"
+    echo "      --attribute='<attr>'     HTML/SVG/XML attributes"
+    echo "      --attribute='<attr>-'    HTML/SVG/XML attribute prefix"
     echo "grep options having no effect if grepp uses find to recurse:"
     echo "      --directories=ACTION"
     echo "  -r, --recursive"
@@ -134,6 +137,10 @@ longopts=(
     css-class              yes
     non-ascii              no
     non-ascii-printable    no
+    attribute              yes
+    html-attribute         yes
+    sgml-attribute         yes
+    xml-attribute          yes
 
     exclude-binaries       no
     exclude-binary         no
@@ -167,10 +174,20 @@ require_matcher () {
 
 opt_css_class () {
     local classname="$1"
-    local q2="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*\"(?:[^\"]*[[:space:]])?${classname}(?:[[:space:]][^\"]*)?\""
-    local q1="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*\'(?:[^\']*[[:space:]])?${classname}(?:[[:space:]][^\']*)?\'"
-    local q0="(?:^|[[:space:]])class[[:space:]]*=[[:space:]]*${classname}(?:[[:space:]>])"
-    local rx="(?i:${q0}|${q1}|${q2})"
+    local rx="(?x: (?<=^|[[:space:]])
+                   class
+                   [[:space:]]*=[[:space:]]*
+                   (?: \"(?:[^\"]*[[:space:]])?${classname}(?:[[:space:]][^\"]*)?\"
+                     | \'(?:[^\']*[[:space:]])?${classname}(?:[[:space:]][^\']*)?\'
+                     | ${classname}
+                       (?= \$
+                         | [[:space:]]
+                         | >
+                         | /
+                       )
+                   )
+              )"
+    rx="${rx//$'\n'/ }"
     read_pattern_arg=0
     has_pattern=1
     grep_patterns+=(
@@ -178,6 +195,30 @@ opt_css_class () {
         "${rx}"
     )
     require_matcher "-P" "--css-class"
+}
+
+opt_attribute () {
+    local attrname="$1"
+    if [[ "$attrname" = *"-" ]] ; then
+        attrname="${attrname}[A-Za-z0-9-]*"
+    fi
+    local rx="(?x: (?<=^|[[:space:]])
+                   ${attrname}
+                   (?: [[:space:]]*=[[:space:]]*
+                       (?: \"[^\"]*\"
+                         | \'[^\']*\'
+                         | [^\"\'[:space:]]+
+                       )
+                   )?
+              )"
+    rx="${rx//$'\n'/ }"
+    read_pattern_arg=0
+    has_pattern=1
+    grep_patterns+=(
+        "-e"
+        "${rx}"
+    )
+    require_matcher "-P" "--attribute"
 }
 
 opt_non_ascii () {
@@ -322,6 +363,9 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
 
         "css-class")
             opt_css_class "${OPTARG}"
+            ;;
+        "attribute"|"html-attribute"|"sgml-attribute"|"xml-attribute")
+            opt_attribute "${OPTARG}"
             ;;
         "non-ascii")
             opt_non_ascii
