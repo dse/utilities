@@ -177,9 +177,9 @@ opt_css_class () {
     local rx="(?x: (?<=^|[[:space:]])
                    class
                    [[:space:]]*=[[:space:]]*
-                   (?: \"(?:[^\"]*[[:space:]])?${classname}(?:[[:space:]][^\"]*)?\"
-                     | \'(?:[^\']*[[:space:]])?${classname}(?:[[:space:]][^\']*)?\'
-                     | ${classname}
+                   (?: \"(?:[^\"]*[[:space:]])?(?:${classname})(?:[[:space:]][^\"]*)?\"
+                     | \'(?:[^\']*[[:space:]])?(?:${classname})(?:[[:space:]][^\']*)?\'
+                     | (?:${classname})
                        (?= \$
                          | [[:space:]]
                          | >
@@ -203,7 +203,7 @@ opt_attribute () {
         attrname="${attrname}[A-Za-z0-9-]*"
     fi
     local rx="(?x: (?<=^|[[:space:]])
-                   ${attrname}
+                   (?:${attrname})
                    (?: [[:space:]]*=[[:space:]]*
                        (?: \"[^\"]*\"
                          | \'[^\']*\'
