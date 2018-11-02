@@ -10,9 +10,40 @@ declare -a starting_points
 
 verbose=0
 dry_run=0
+list_excludes_only=0
 
 while (( $# )) ; do
     case "$1" in
+        "--test")
+            shift
+
+            temp="$(mktemp)"
+            temp2="$(mktemp)"
+            temp3="$(mktemp)"
+
+            find  "$@" | sort >"${temp}" # all files
+            findd "$@" | sort >"${temp2}" # included files
+            findd --list-excludes-only "$@" -exec find {} + | sort >"${temp3}" # excluded files
+
+            comm -2 -3 "${temp}" "${temp2}" | diff "${temp3}" -
+
+            wc -l "${temp}"
+            wc -l "${temp2}"
+            wc -l "${temp3}"
+
+            rm "${temp}"  || true
+            rm "${temp2}" || true
+            rm "${temp3}" || true
+
+            exit
+
+            ;;
+        "--xtrace")
+            set -x
+            ;;
+        "--no-xtrace")
+            set +x
+            ;;
         "--verbose")
             verbose=$((verbose + 1))
             shift
@@ -23,9 +54,15 @@ while (( $# )) ; do
             ;;
         "--exclude-binaries"|"--exclude-binary"|"--exclude-binary-files")
             grepp_exclude_binary_files=1
+            shift
             ;;
         "--include-binaries"|"--include-binary"|"--include-binary-files")
             grepp_exclude_binary_files=0
+            shift
+            ;;
+        "--list-excludes-only")
+            list_excludes_only=1
+            shift
             ;;
         "--"*)
             >&2 echo "findd: invalid option: $1"
@@ -101,6 +138,19 @@ find_command=(
     \! \( "${find_file_excludes[@]}" \)
     "$@"
 )
+
+if (( list_excludes_only )) ; then
+    find_command=(
+        find
+        "${global_options[@]}"
+        "${starting_points[@]}"
+        \(
+        \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+        -o
+        \( "${find_file_excludes[@]}" \)
+        \)
+    )
+fi
 
 if (( verbose >= 1 || dry_run )) ; then
     >&2 echo "${find_command[@]@Q}"
