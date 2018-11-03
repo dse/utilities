@@ -408,8 +408,8 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
 done
 shift $((OPTIND - 1))
 
-if (( check_for_emacs_grep )) ; then
-    if [[ "${TERM}" = "emacs-grep" ]] ; then
+if (( check_for_emacs_grep )) ; then # default
+    if [[ "${TERM}" = "emacs-grep" ]] ; then # M-x find-grep
         grep_options+=(--color -n -H)
     fi
 fi
