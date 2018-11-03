@@ -148,6 +148,8 @@ longopts=(
     include-binaries       no
     include-binary         no
     include-binary-files   no
+
+    emacs                  no
 )
 
 require_matcher () {
@@ -261,6 +263,8 @@ opt_matcher () {
     esac
 }
 
+check_for_emacs_grep=1
+
 while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${longopts[@]}" -- "$@" ; do
     case "${OPTION}" in
 
@@ -274,10 +278,8 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         G|basic-regexp)    opt_matcher "-G";;
         P|perl-regexp)     opt_matcher "-P";;
 
-        # takes no arguments
-        V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|r|R|U|z)
-            eval "opt_${OPTION}=1" # sets opt_V=1 for example
-
+        # takes no arguments; pass to grep
+        V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|U|z)
             # NOTE: There is no need to pass -r to grep when using
             # find, but it's also harmless.
             grep_options+=(
@@ -285,7 +287,19 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             )
             ;;
 
-        # takes an argument
+        # takes no arguments; pass to grep
+        r)
+            opt_r=1
+            opt_R=0
+            grep_options+=("-${OPTION}")
+            ;;
+        R)
+            opt_r=0
+            opt_R=1
+            grep_options+=("-${OPTION}")
+            ;;
+
+        # takes an argument; pass to grep
         e|f)
             read_pattern_arg=0
             has_pattern=1
@@ -295,9 +309,8 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             )
             ;;
 
-        # takes an argument
+        # takes an argument; pass to grep
         m|A|B|C|D|d)
-            eval "opt_${OPTION}=${OPTARG@Q}" # sets opt_m=<arg> for example
             grep_options+=(
                 -"${OPTION}"
                 "${OPTARG}"
@@ -374,6 +387,11 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             opt_non_ascii_printable
             ;;
 
+        "emacs")
+            check_for_emacs_grep=0
+            grep_options+=(--color -n -H)
+            ;;
+
         # other long option
         ??*)
             grep_options+=(
@@ -389,6 +407,12 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
     esac
 done
 shift $((OPTIND - 1))
+
+if (( check_for_emacs_grep )) ; then
+    if [[ "${TERM}" = "emacs-grep" ]] ; then
+        grep_options+=(--color -n -H)
+    fi
+fi
 
 if (( verbose >= 2 )) ; then
     >&2 echo "after option processing"
