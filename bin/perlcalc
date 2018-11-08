@@ -15,9 +15,39 @@ use POSIX qw(acos acosh asin asinh atan atanh cbrt ceil cosh copysign
 use Math::Trig;
 use Math::Trig qw(:pi);
 
-our $format;
-our $curly_brackets_only;
-our $files;
+our $opt_format;
+our $opt_curly_brackets_only;
+our $opt_files;
+
+# ! operator
+# " quote
+# # comment (candidate)
+# $ sigil
+# % operator
+# & operator
+# ' quote
+# ( paren
+# ) paren
+# * operator
+# + operator
+# , operator
+# - operator
+# . operator
+# / operator
+# : operator
+# ; statement (candidate)
+# < = > ? operators
+# @ sigil
+# [ paren
+# \ reference
+# ] paren
+# ^ operator
+# _ identifier
+# ` shell quote
+# { paren
+# | operator
+# } paren
+# ~ operator
 
 sub opt_module {
     # -m<module>              => use <module> ();
@@ -40,9 +70,9 @@ sub opt_module {
 
 Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
-    "c|curly|curly-brackets-only" => \$curly_brackets_only,
-    "p|printf|format=s"           => \$format,
-    "f|files"                     => \$files,
+    "c|curly|curly-brackets-only" => \$opt_curly_brackets_only,
+    "p|printf|format=s"           => \$opt_format,
+    "f|files"                     => \$opt_files,
     "m=s"                         => \&opt_module,
     "M=s"                         => \&opt_module,
     "h|help" => sub { usage(); exit 0; }
@@ -61,14 +91,12 @@ options:
   -m<module>, -M<module>                        same as in Perl itself
 END
 
-sub result_of($);               # prototype
-
-if ($files) {
+if ($opt_files) {
     magic_filehandle();
 } else {
     if (scalar @ARGV) {
         foreach (@ARGV) {
-            if ($curly_brackets_only) {
+            if ($opt_curly_brackets_only) {
                 curly_brackets();
             } elsif (m{[\{\}]}) {
                 # If any {...} expressions are found, replace them.
@@ -85,7 +113,7 @@ if ($files) {
 }
 
 sub magic_filehandle {
-    if ($curly_brackets_only) {
+    if ($opt_curly_brackets_only) {
         # Only replace {...} expressions.
         while (<>) {
             curly_brackets();
@@ -120,20 +148,21 @@ sub magic_filehandle {
 }
 
 sub curly_brackets {
-    s{\{([^\{\}\r\n]*)\}}
-     {result_of $1}ge;
+    s{\{([^\{\}\r\n]*?)(?:\#([^\#]*))?\}}
+     {result_of($1, $2)}ge;
     print $_;
 }
 
 sub whole_line {
     s{\R\z}{};                  # safer chomp
     my $chewed = $& // "";
-    $_ = result_of $_;
+    $_ = result_of($_);
     print $_ . $chewed;
 }
 
-sub result_of($) {
-    my ($string) = @_;
+sub result_of {
+    my ($string, $format) = @_;
+    $format //= $opt_format;
     my $orig_string = $string;
     $string =~ s{\N{MINUS SIGN}}{-}g;
     $string =~ s{\N{MULTIPLICATION SIGN}}{*}g;
