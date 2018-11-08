@@ -1,0 +1,97 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use URI::Escape;
+use File::Basename;
+use Getopt::Long;
+
+my $progname = basename($0);
+$progname =~ s{\.pl$}{};
+
+our $non_ascii_only = 0;
+our $layer = undef;
+our $verbose = 0;
+
+Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
+Getopt::Long::GetOptions("A|non-ascii-only"          => \$non_ascii_only,
+                         "utf8|utf-8"                => sub { $layer = ":encoding(utf-8)"; },
+                         "latin1|latin-1|iso-8859-1" => sub { $layer = ":encoding(iso-8859-1)"; },
+                         "locale"                    => sub { $layer = ":locale"; },
+                         "encoding=s"                => sub { $layer = ":encoding($_[1])"; },
+                         "layer=s"                   => sub { $layer = $_[1]; },
+                         "v|verbose+"                => \$verbose,
+                         "h|help" => sub { usage(); exit(0); })
+    or die("Type '$0 --usage' for help.\n");
+
+if (!defined $layer) {
+    $layer = ":locale";
+}
+
+if ($layer eq "" || $layer eq "none") {
+    warn("$progname: not changing I/O layers\n") if $verbose;
+        # do nothing
+} else {
+    warn("$progname: changing I/O layers to $layer\n") if $verbose;
+        require "open.pm";
+        "open"->import(IO => $layer);
+    if ($layer eq ":locale") {
+        my $encoding = encoding::_get_locale_encoding();
+        $layer = ":encoding($encoding)";
+    }
+    binmode(\*STDIN,  $layer);
+    binmode(\*STDOUT, $layer);
+    binmode(\*STDERR, $layer);
+}
+
+if ($verbose) {
+    printf("STDIN:  %s\n", join(", ", PerlIO::get_layers(\*STDIN)));
+    printf("STDOUT: %s\n", join(", ", PerlIO::get_layers(\*STDOUT)));
+    printf("STDERR: %s\n", join(", ", PerlIO::get_layers(\*STDERR)));
+}
+
+sub usage { print <<"END"; }
+usage: $0 [OPTION ...] [FILE ...]
+options:
+  -h, --help                             Print this message.
+  -A, --non-ascii-only                   Leave < > & " ' alone.
+      --utf8, --utf-8                    assume I/O is UTF-8.
+      --latin1, --latin-1, --iso-8859-1  assume I/O is ISO-8859-1 (Latin-1).
+      --locale                           assume I/O encoding based on locale.
+      --layer=LAYER           use Perl I/O layer LAYER (e.g., --layer=:utf8).
+      --layer=none            use perl's default I/O layer.
+END
+
+if ($progname eq "uri-escape") {
+    while (<>) {
+        s{\R\z}{};
+        if ($non_ascii_only) {
+            s{[^[:ascii:]]}{uri_escape($&)}ge;
+        } else {
+            $_ = uri_escape($_);
+        }
+        print $_;
+        print "\n";
+    }
+} elsif ($progname eq "uri_unescape") {
+    while (<>) {
+        s{\R\z}{};
+        if ($non_ascii_only) {
+            s{\&[^\;]*\;}{uri_unescape_non_ascii($&)}ge;
+        } else {
+            $_ = uri_unescape($_);
+        }
+        print $_;
+        print "\n";
+    }
+} else {
+    die("This program does not know how to be invoked as '${progname}'.\n");
+}
+
+sub uri_unescape_non_ascii {
+    my ($encoded) = @_;
+    my $decoded = uri_unescape($encoded);
+    return $encoded if $decoded =~ m{^[[:ascii:]]$};
+    return $decoded;
+}
