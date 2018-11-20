@@ -1,0 +1,100 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use v5.10.0;
+
+# use CSS;
+# use CSS::Simple;
+use CSS::DOM;
+use Data::Dumper;
+use Scalar::Util qw(reftype);
+
+local $Data::Dumper::Indent = 1;
+
+local $/ = undef;
+while (<>) {
+    s{\R}{\n}g;
+    my $css_code = $_;
+
+    # my $css = CSS->new({
+    #     parser => 'CSS::Parse::Heavy'
+    # });
+    # $css->read_string($css_code);
+    # print Dumper($css);
+
+    # my $css = CSS::Simple->new();
+    # $css->read({ css => $css_code });
+    # print Dumper($css);
+
+    my $css = CSS::DOM::parse($css_code);
+    my @result = cssinspect($css);
+    say foreach @result;
+}
+
+use CSS::DOM::Rule qw(:all);
+
+sub cssinspect {
+    my @rules;
+    if (scalar @_ == 1 && $_[0]->isa("CSS::Style")) {
+        @rules = $_[0]->rules;
+    } else {
+        @rules = @_;
+    }
+    my @result = qw();
+    foreach my $rule (@rules) {
+        my $type             = $rule->type;
+        my $cssText          = $rule->cssText;
+        my $parentStyleSheet = $rule->parentStyleSheet;
+        my $parentRule       = $rule->parentRule;
+        if ($type eq STYLE_RULE) {                  # CSS::DOM::Rule::Style
+            my $selectorText = $rule->selectorText; # 'p:firstline, h3'
+            $selectorText =~ s{\s+}{ }g;
+            my @selector = split(/\s*,\s*/, $selectorText);
+
+
+            my $style        = $rule->style;        # a CSS::DOM::Style
+            for (my $i = 0; $i < $style->length; $i += 1) {
+                my $propertyCSSText  = $style->cssText;
+                my $propertyName     = $style->item($i); # property name
+                my $propertyValue    = $style->getPropertyValue($propertyName); # a string
+                my $propertyCSSValue = $style->getPropertyCSSValue($propertyName); # a CSS::DOM::Value
+                my $propertyPriority = $style->getPropertyPriority($propertyName); # '' or 'important'
+                foreach my $selector (@selector) {
+                    push(@result, sprintf('%s { %s: %s%s; }',
+                                          $selector,
+                                          $propertyName,
+                                          $propertyValue,
+                                          (($propertyPriority ne '') ? " !$propertyPriority" : '')));
+                }
+            }
+        } elsif ($type eq CHARSET_RULE) { # CSS::DOM::Rule::Charset
+            push(@result, "CHARSET_RULE");
+            # eh?
+        } elsif ($type eq IMPORT_RULE) {  # CSS::DOM::Rule::Import
+            my $href       = $rule->href;
+            my @media      = $rule->media;
+            my $styleSheet = $rule->styleSheet;
+
+            push(@result, sprintf('@import url(%s); /* @media %s */', $href, join(', ', @media)));
+        } elsif ($type eq MEDIA_RULE) {   # CSS::DOM::Rule::Media
+            my @media    = $rule->media;    # a plain list
+            my @cssRules = $rule->cssRules; # a plain list
+            push(@result, map { sprintf('@media %s { %s }', join(', ', @media), $_) } cssinspect($rule));
+        } elsif ($type eq FONT_FACE_RULE) { # CSS::DOM::Rule::FontFace
+            push(@result, "FONT_FACE_RULE");
+            # eh?
+        } elsif ($type eq PAGE_RULE) {      # CSS::DOM::Rule::Page
+            push(@result, "PAGE_RULE");
+            # eh?
+        } elsif ($type eq UNKNOWN_RULE) {
+            my $reftype = reftype $rule;
+            my $ref     = ref     $rule;
+            push(@result, map { "UNKNOWN_RULE $_" } cssinspect(@$rule));
+            # eh?
+        } else {
+            push(@result, "UNKNOWN_UNKNOWN_RULE");
+            # eh?
+        }
+    }
+    return @result;
+}
