@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use HTML::Entities qw(encode_entities);
+
+my @exists    = map { -e $_ ? 1 : 0 } @ARGV;
+my $all_exist = !grep { !$_ } @exists;
+
+printf("<ul>\n");
+
+if ($all_exist) {
+    foreach my $arg (@ARGV) {
+        printf("    <li>\n");
+        printf("        <a href='%s'>%s</a>\n", encode_entities($arg), encode_entities($arg));
+        printf("    </li>\n");
+    }
+} else {
+    foreach my $arg (@ARGV) {
+        printf("    <li>\n");
+        printf("        %s\n", encode_entities($arg));
+        printf("    </li>\n");
+    }
+}
+
+printf("</ul>\n");
