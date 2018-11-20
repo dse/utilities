@@ -2,99 +2,138 @@
 use warnings;
 use strict;
 use v5.10.0;
+use utf8;
 
-# use CSS;
-# use CSS::Simple;
-use CSS::DOM;
-use Data::Dumper;
-use Scalar::Util qw(reftype);
-
-local $Data::Dumper::Indent = 1;
+use open IO => ":locale";
 
 local $/ = undef;
 while (<>) {
-    s{\R}{\n}g;
-    my $css_code = $_;
-
-    # my $css = CSS->new({
-    #     parser => 'CSS::Parse::Heavy'
-    # });
-    # $css->read_string($css_code);
-    # print Dumper($css);
-
-    # my $css = CSS::Simple->new();
-    # $css->read({ css => $css_code });
-    # print Dumper($css);
-
-    my $css = CSS::DOM::parse($css_code);
-    my @result = cssinspect($css);
-    say foreach @result;
+    warn length $_ while s{/\* \s* DISABLE \s* \*/.*?/\* \s* ENABLE \s* \*/}{}xis;
+    warn length $_ while s{/\*.*?\*/}{}xis;
+    my $inspector = My::CSS::Inspector->new();
+    $inspector->parseString($_);
+    $inspector->filename($ARGV);
+    $inspector->inspect();
 }
 
-use CSS::DOM::Rule qw(:all);
+package My::CSS::Inspector {
+    use warnings;
+    use strict;
+    use v5.10.0;
 
-sub cssinspect {
-    my @rules;
-    if (scalar @_ == 1 && $_[0]->isa("CSS::Style")) {
-        @rules = $_[0]->rules;
-    } else {
-        @rules = @_;
+    use lib "$ENV{HOME}/git/dse.d/perl-class-thingy/lib";
+    use Class::Thingy;
+
+    INIT {
+        public filename;
+        public css3;
     }
-    my @result = qw();
-    foreach my $rule (@rules) {
-        my $type             = $rule->type;
-        my $cssText          = $rule->cssText;
-        my $parentStyleSheet = $rule->parentStyleSheet;
-        my $parentRule       = $rule->parentRule;
-        if ($type eq STYLE_RULE) {                  # CSS::DOM::Rule::Style
-            my $selectorText = $rule->selectorText; # 'p:firstline, h3'
-            $selectorText =~ s{\s+}{ }g;
-            my @selector = split(/\s*,\s*/, $selectorText);
 
+    use Carp::Always;
+    use OCBNET::CSS3;
+    use OCBNET::CSS3::Regex::Stylesheet qw();
+    use Text::Trim;
 
-            my $style        = $rule->style;        # a CSS::DOM::Style
-            for (my $i = 0; $i < $style->length; $i += 1) {
-                my $propertyCSSText  = $style->cssText;
-                my $propertyName     = $style->item($i); # property name
-                my $propertyValue    = $style->getPropertyValue($propertyName); # a string
-                my $propertyCSSValue = $style->getPropertyCSSValue($propertyName); # a CSS::DOM::Value
-                my $propertyPriority = $style->getPropertyPriority($propertyName); # '' or 'important'
-                foreach my $selector (@selector) {
-                    push(@result, sprintf('%s { %s: %s%s; }',
-                                          $selector,
-                                          $propertyName,
-                                          $propertyValue,
-                                          (($propertyPriority ne '') ? " !$propertyPriority" : '')));
+    sub parseString {
+        my ($self, $string) = @_;
+        my $css3 = OCBNET::CSS3->new();
+        $css3->parse($string);
+        $self->css3($css3);
+    }
+
+    sub inspect {
+        my ($self, $element, %args) = @_;
+        $element //= $self->css3;
+        my $ancestors = $args{ancestors};
+        my @ancestors = ref $ancestors eq 'ARRAY' ? @$ancestors : ();
+        my $level = $args{level} // 0;
+
+        my @children = @{$element->children};
+        my $nchildren = scalar @children;
+
+        my $class = ref $element;
+        my $text = normalize_space($element->text);
+
+        my $bracket = $element->bracket;
+        my $opener = $bracket ? $OCBNET::CSS3::Regex::Stylesheet::opener{$bracket} : undef;
+        my $closer = $bracket ? $OCBNET::CSS3::Regex::Stylesheet::closer{$bracket} : undef;
+
+        my $myself = {
+            opener => $opener,
+            closer => $closer,
+            text => $text,
+            element => $element,
+        };
+
+        my $print_this = 1;
+
+        if ($element->isa('OCBNET::CSS3::DOM::Property')) {
+            $print_this = 1;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Selector')) {
+            $print_this = 0;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Extended::Media')) {
+            $print_this = 0;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Extended::Import')) {
+            $print_this = 1;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Comment')) {
+            $print_this = 0;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Whitespace')) {
+            $print_this = 0;
+        } elsif ($element->isa('OCBNET::CSS3::DOM::Text')) {
+            $print_this = 0;
+        } else {
+            $print_this = 1;
+            $text .= ' /* ' . $class . ' */';
+        }
+
+        if ($print_this) {
+            print ' ' x ($level * 4);
+
+            foreach my $ancestor (@ancestors) {
+                if (defined $ancestor->{text}) {
+                    print $ancestor->{text};
+                    print ' ';
+                }
+                if ($ancestor->{element}->bracket) {
+                    print $ancestor->{opener};
+                    print ' ';
                 }
             }
-        } elsif ($type eq CHARSET_RULE) { # CSS::DOM::Rule::Charset
-            push(@result, "CHARSET_RULE");
-            # eh?
-        } elsif ($type eq IMPORT_RULE) {  # CSS::DOM::Rule::Import
-            my $href       = $rule->href;
-            my @media      = $rule->media;
-            my $styleSheet = $rule->styleSheet;
 
-            push(@result, sprintf('@import url(%s); /* @media %s */', $href, join(', ', @media)));
-        } elsif ($type eq MEDIA_RULE) {   # CSS::DOM::Rule::Media
-            my @media    = $rule->media;    # a plain list
-            my @cssRules = $rule->cssRules; # a plain list
-            push(@result, map { sprintf('@media %s { %s }', join(', ', @media), $_) } cssinspect($rule));
-        } elsif ($type eq FONT_FACE_RULE) { # CSS::DOM::Rule::FontFace
-            push(@result, "FONT_FACE_RULE");
-            # eh?
-        } elsif ($type eq PAGE_RULE) {      # CSS::DOM::Rule::Page
-            push(@result, "PAGE_RULE");
-            # eh?
-        } elsif ($type eq UNKNOWN_RULE) {
-            my $reftype = reftype $rule;
-            my $ref     = ref     $rule;
-            push(@result, map { "UNKNOWN_RULE $_" } cssinspect(@$rule));
-            # eh?
-        } else {
-            push(@result, "UNKNOWN_UNKNOWN_RULE");
-            # eh?
+            print $text;
+
+            foreach my $ancestor (reverse @ancestors) {
+                if ($ancestor->{element}->bracket) {
+                    print ' ';
+                    print $ancestor->{closer};
+                }
+            }
+
+            print "\n";
+        }
+
+        my $index = 0;
+        foreach my $child (@children) {
+            $index += 1;
+            $self->inspect(
+                $child,
+                ancestors => [
+                    @ancestors,
+                    $myself
+                ],
+                nchildren => $nchildren,
+                index => $index,
+                level => $level + 1,
+            );
         }
     }
-    return @result;
+
+    sub normalize_space {
+        my ($string) = @_;
+        return if !defined $string;
+        $string =~ s{^\s+}{};
+        $string =~ s{\s+$}{};
+        $string =~ s{\s+}{ }g;
+        return $string;
+    }
 }
