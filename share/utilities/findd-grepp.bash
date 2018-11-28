@@ -88,7 +88,7 @@ set_find_file_excludes () {
         fi
         find_file_excludes+=("-iname" "${exclude}")
     done
-    if (( exclude_binary_files )) ; then
+    if (( grepp_exclude_binary_files )) ; then
         for exclude in "${file_excludes_binary[@]}" ; do
             if (( ${#find_file_excludes[@]} )) ; then
                 find_file_excludes+=("-o")
@@ -119,7 +119,7 @@ set_grep_file_excludes () {
     for exclude in "${file_excludes[@]}" ; do
         grep_file_excludes+=("--exclude=${exclude}")
     done
-    if (( exclude_binary_files )) ; then
+    if (( grepp_exclude_binary_files )) ; then
         for exclude in "${file_excludes_binary[@]}" ; do
             grep_file_excludes+=("--exclude=${exclude}")
         done
