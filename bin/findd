@@ -64,6 +64,15 @@ while (( $# )) ; do
             list_excludes_only=1
             shift
             ;;
+        "--exclude")
+            shift
+            add_user_exclude "$1"
+            shift
+            ;;
+        "--exclude="*)
+            add_user_exclude "${1#*=}"
+            shift
+            ;;
         "--"*)
             >&2 echo "findd: invalid option: $1"
             exit 1
