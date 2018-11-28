@@ -92,7 +92,7 @@ user_file_includes=()
 add_user_exclude () {
     local i
     for i ; do
-        i="${i,,}"
+        i="${i,,}"              # lowercase
         user_directory_excludes+=("$i")
         user_file_excludes+=("$i")
     done
@@ -101,7 +101,7 @@ add_user_exclude () {
 add_user_include () {
     local i
     for i ; do
-        i="${i,,}"
+        i="${i,,}"              # lowercase
         user_directory_includes+=("$i")
         user_file_includes+=("$i")
     done
