@@ -1,10 +1,12 @@
 # -*- mode: sh; sh-shell: bash -*-
 
+grepp_exclude_binary_files=0
+# 0 for findd by default
+# 1 for grepp by default
+
 declare -a directory_excludes
 declare -a file_excludes
 declare -a file_excludes_binary
-
-grepp_exclude_binary_files=0
 
 directory_excludes=(
     vendor
@@ -40,6 +42,17 @@ file_excludes_binary=(
     '*.doc'
     '*.ppt'
     '*.xls'
+
+    # Media
+    '*.mov'
+    '*.m4a'
+    '*.qt'
+    '*.wma'
+    '*.mp3'
+    '*.m4r'
+    '*.flv'
+    '*.wmv'
+    '*.swf'
 )
 
 file_excludes=(
@@ -66,11 +79,41 @@ file_excludes=(
     'composer.lock'
 )
 
+declare -a user_directory_excludes
+declare -a user_directory_includes
+declare -a user_file_excludes
+declare -a user_file_includes
+
+user_directory_excludes=()
+user_directory_includes=()
+user_file_excludes=()
+user_file_includes=()
+
+add_user_exclude () {
+    local i
+    for i ; do
+        i="${i,,}"
+        user_directory_excludes+=("$i")
+        user_file_excludes+=("$i")
+    done
+}
+
+add_user_include () {
+    local i
+    for i ; do
+        i="${i,,}"
+        user_directory_includes+=("$i")
+        user_file_includes+=("$i")
+    done
+}
+
+#------------------------------------------------------------------------------
+
 declare -a find_directory_excludes
 
 set_find_directory_excludes () {
     find_directory_excludes=()
-    for exclude in "${directory_excludes[@]}" ; do
+    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
         if (( ${#find_directory_excludes[@]} )) ; then
             find_directory_excludes+=("-o")
         fi
@@ -82,7 +125,7 @@ declare -a find_file_excludes
 
 set_find_file_excludes () {
     find_file_excludes=()
-    for exclude in "${file_excludes[@]}" ; do
+    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
         if (( ${#find_file_excludes[@]} )) ; then
             find_file_excludes+=("-o")
         fi
@@ -107,7 +150,7 @@ declare -a grep_directory_excludes
 
 set_grep_directory_excludes () {
     grep_directory_excludes=()
-    for exclude in "${directory_excludes[@]}" ; do
+    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
         grep_directory_excludes+=("--exclude-dir=${exclude}")
     done
 }
@@ -116,7 +159,7 @@ declare -a grep_file_excludes
 
 set_grep_file_excludes () {
     grep_file_excludes=()
-    for exclude in "${file_excludes[@]}" ; do
+    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
         grep_file_excludes+=("--exclude=${exclude}")
     done
     if (( grepp_exclude_binary_files )) ; then
