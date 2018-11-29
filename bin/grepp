@@ -20,6 +20,8 @@ progname="$(basename "$0")"
 # shellcheck disable=SC1090
 . "${dirname}/../share/utilities/findd-grepp.bash"
 
+grepp_exclude_binary_files=1    # default for grepp
+
 declare -a grep_options
 declare -a grep_patterns        # -e <arg> or -f <arg>
 
@@ -29,6 +31,7 @@ grep_patterns=()
 read_pattern_arg=1
 has_pattern=0
 use_find=0
+find_only=0
 
 maxdepth=""
 mindepth=""
@@ -148,6 +151,16 @@ longopts=(
     include-binaries       no
     include-binary         no
     include-binary-files   no
+
+    find-only no
+    findd-only no
+    list-only no
+
+    use-find no
+    use-findd no
+
+    findd-exclude yes
+    findd-include yes
 
     emacs                  no
 )
@@ -387,12 +400,39 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             opt_non_ascii_printable
             ;;
 
+        "find-only"|"findd-only"|"list-only")
+            find_only=1
+            ;;
+
         "emacs")
             check_for_emacs_grep=0
             grep_options+=(--color -n -H)
             ;;
 
-        # other long option
+        "findd-exclude")
+            add_user_exclude "${OPTARG}"
+            ;;
+        "findd-include")
+            add_user_include "${OPTARG}"
+            ;;
+
+        "use-find"|"use-findd")
+            use_find=1
+            ;;
+
+        "exclude"|"exclude-dir"|"include")
+            lc="${OPTARG,,}"
+            uc="${OPTARG^^}"
+            2>&1 echo "${lc} ${uc}"
+            grep_options+=("--${OPTION}=${lc}")
+            grep_options+=("--${OPTION}=${uc}")
+            if [[ "${OPTARG}" != "${lc}" ]] && [[ "${OPTARG}" != "${uc}" ]] ; then
+                grep_options+=("--${OPTION}=${OPTARG}")
+            fi
+            ;;
+
+        # other long options are passed to grep
+        # for now, includes --exclude-from
         ??*)
             grep_options+=(
                 "${LONGOPTARGS[@]}"
@@ -467,7 +507,30 @@ if (( verbose >= 2 )) ; then
     >&2 echo "  @=(${@@Q})"
 fi
 
-if (( use_find )) ; then
+if (( find_only )) ; then
+    set_find_excludes
+    declare -a find_command
+    find_command=(
+        find
+        "$@"
+        ${mindepth:+-mindepth "${mindepth}"}
+        ${maxdepth:+-maxdepth "${maxdepth}"}
+        \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+        -type f
+        \! \( "${find_file_excludes[@]}" \)
+        -ls
+    )
+
+    if (( verbose >= 1 || dry_run )) ; then
+        echo_command "${find_command[@]}"
+    fi
+
+    if (( dry_run )) ; then
+        exit 0
+    fi
+
+    exec "${find_command[@]}"
+elif (( use_find )) ; then
     set_find_excludes
     declare -a find_command
     find_command=(
@@ -486,7 +549,7 @@ if (( use_find )) ; then
     )
 
     if (( verbose >= 1 || dry_run )) ; then
-        >&2 echo "${find_command[@]@Q}"
+        echo_command "${find_command[@]}"
     fi
 
     if (( dry_run )) ; then
@@ -508,7 +571,7 @@ else
     )
 
     if (( verbose >= 1 || dry_run )) ; then
-        >&2 echo "${grep_command[@]@Q}"
+        echo_command "${grep_command[@]}"
     fi
 
     if (( dry_run )) ; then
