@@ -41,11 +41,6 @@ matcher_conflict=""
 verbose=0
 dry_run=0
 
-grep='grep'
-if [[ "$OSTYPE" = "darwin"* ]] && command -v ggrep >/dev/null 2>/dev/null ; then
-    grep='ggrep'
-fi
-
 usage () {
     "${grep}" --help
     echo
@@ -519,7 +514,7 @@ if (( find_only )) ; then
     set_find_excludes
     declare -a find_command
     find_command=(
-        find
+        "${find}"
         "$@"
         ${mindepth:+-mindepth "${mindepth}"}
         ${maxdepth:+-maxdepth "${maxdepth}"}
