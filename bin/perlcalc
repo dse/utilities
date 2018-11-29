@@ -226,6 +226,9 @@ printf-style formatting:
     $ echo '<{5 * 1.609344}>' | perlcalc -p '%8.3f'
     <   8.047>
 
+    $ echo '<{5 * 1.609344#%8.3f}>' | perlcalc
+    <   8.047>
+
 =head1 DESCRIPTION
 
 perlcalc is a utility program that uses Perl to evaluate expressions
