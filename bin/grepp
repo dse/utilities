@@ -41,8 +41,13 @@ matcher_conflict=""
 verbose=0
 dry_run=0
 
+grep='grep'
+if [[ "$OSTYPE" = "darwin"* ]] && command -v ggrep >/dev/null 2>/dev/null ; then
+    grep='ggrep'
+fi
+
 usage () {
-    grep --help
+    "${grep}" --help
     echo
     echo "grepp - additional options:"
     echo "      --verbose"
@@ -193,7 +198,7 @@ opt_css_class () {
                    class
                    [[:space:]]*=[[:space:]]*
                    (?: \"(?:[^\"]*[[:space:]])?(?:${classname})(?:[[:space:]][^\"]*)?\"
-                     | \'(?:[^\']*[[:space:]])?(?:${classname})(?:[[:space:]][^\']*)?\'
+                     | '(?:[^']*[[:space:]])?(?:${classname})(?:[[:space:]][^']*)?'
                      | (?:${classname})
                        (?= \$
                          | [[:space:]]
@@ -221,8 +226,8 @@ opt_attribute () {
                    (?:${attrname})
                    (?: [[:space:]]*=[[:space:]]*
                        (?: \"[^\"]*\"
-                         | \'[^\']*\'
-                         | [^\"\'[:space:]]+
+                         | '[^']*'
+                         | [^\"'[:space:]]+
                        )
                    )?
               )"
@@ -292,7 +297,7 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         P|perl-regexp)     opt_matcher "-P";;
 
         # takes no arguments; pass to grep
-        V|E|F|G|P|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|U|z)
+        V|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|U|z)
             # NOTE: There is no need to pass -r to grep when using
             # find, but it's also harmless.
             grep_options+=(
@@ -352,9 +357,11 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             file_excludes_binary=()
             ;;
         "exclude-binaries"|"exclude-binary"|"exclude-binary-files")
+            # shellcheck disable=SC2034
             grepp_exclude_binary_files=1
             ;;
         "include-binaries"|"include-binary"|"include-binary-files")
+            # shellcheck disable=SC2034
             grepp_exclude_binary_files=0
             ;;
         "regexp"|"file")
@@ -543,7 +550,7 @@ elif (( use_find )) ; then
         -type f
         \! \( "${find_file_excludes[@]}" \)
         -exec
-        grep
+        "${grep}"
         "${grep_options[@]}"
         "${grep_patterns[@]}"
         {} +
@@ -563,7 +570,7 @@ else
 
     declare -a grep_command
     grep_command=(
-        grep
+        "${grep}"
         "${grep_options[@]}"
         "${grep_directory_excludes[@]}"
         "${grep_file_excludes[@]}"
