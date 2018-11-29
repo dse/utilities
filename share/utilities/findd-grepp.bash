@@ -149,22 +149,42 @@ set_find_excludes () {
 declare -a grep_directory_excludes
 
 set_grep_directory_excludes () {
+    local lc uc
     grep_directory_excludes=()
     for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
-        grep_directory_excludes+=("--exclude-dir=${exclude}")
+        lc="${exclude,,}"
+        uc="${exclude^^}"
+        grep_directory_excludes+=("--exclude-dir=${lc}")
+        grep_directory_excludes+=("--exclude-dir=${uc}")
+        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+            grep_directory_excludes+=("--exclude-dir=${exclude}")
+        fi
     done
 }
 
 declare -a grep_file_excludes
 
 set_grep_file_excludes () {
+    local lc uc
     grep_file_excludes=()
     for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
-        grep_file_excludes+=("--exclude=${exclude}")
+        lc="${exclude,,}"
+        uc="${exclude^^}"
+        grep_file_excludes+=("--exclude=${lc}")
+        grep_file_excludes+=("--exclude=${uc}")
+        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+            grep_file_excludes+=("--exclude=${exclude}")
+        fi
     done
     if (( grepp_exclude_binary_files )) ; then
         for exclude in "${file_excludes_binary[@]}" ; do
-            grep_file_excludes+=("--exclude=${exclude}")
+            lc="${exclude,,}"
+            uc="${exclude^^}"
+            grep_file_excludes+=("--exclude=${lc}")
+            grep_file_excludes+=("--exclude=${uc}")
+            if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                grep_file_excludes+=("--exclude=${exclude}")
+            fi
         done
     fi
 }
@@ -172,4 +192,52 @@ set_grep_file_excludes () {
 set_grep_excludes () {
     set_grep_directory_excludes
     set_grep_file_excludes
+}
+
+#------------------------------------------------------------------------------
+
+# with indentation for find
+echo_command () {
+    local i
+    local has_indent=0
+    local is_find=0
+    local indent_string=''
+    local last_nl=1
+    local this_nl=1
+    if (( verbose >= 2 || (dry_run && verbose >= 1 ) )) ; then
+        i="$1"; shift
+        >&2 echo "- ${i@Q}"
+        i="$(basename "$i")"
+        if [[ "$i" == "find" ]] || [[ "$i" == "gfind" ]] || [[ "$i" == "findd" ]] ; then
+            has_indent=1
+            is_find=1
+        fi
+        for i ; do
+            this_nl=1
+            if (( is_find )) ; then
+                case "$i" in
+                    "!"|"-iname"|"-name"|"-type"|"-o")
+                        this_nl=0
+                        ;;
+                esac
+            fi
+            if (( has_indent )) && [[ "$i" == ")" ]] ; then
+                indent_string="${indent_string#  }"
+            fi
+            if (( last_nl )) ; then
+                >&2 echo -n "  ${indent_string}"
+            fi
+            if (( this_nl )) ; then
+                >&2 echo "${i@Q}"
+            else
+                >&2 echo -n "${i@Q} "
+            fi
+            if (( has_indent )) && [[ "$i" == "(" ]] ; then
+                indent_string="${indent_string}  "
+            fi
+            last_nl="${this_nl}"
+        done
+    elif (( verbose >= 1 || dry_run )) ; then
+        >&2 echo "$@@Q"
+    fi
 }
