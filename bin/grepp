@@ -450,6 +450,8 @@ shift $((OPTIND - 1))
 if (( check_for_emacs_grep )) ; then # default
     if [[ "${TERM}" = "emacs-grep" ]] ; then # M-x find-grep
         grep_options+=(--color -n -H)
+    elif [[ "${TERM}" = "dumb" ]] && [[ -n "${INSIDE_EMACS}" ]] ; then
+        grep_options+=(--color -n -H)
     fi
 fi
 
