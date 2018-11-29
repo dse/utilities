@@ -1,5 +1,16 @@
 # -*- mode: sh; sh-shell: bash -*-
 
+find='find'
+grep='grep'
+if [[ "$OSTYPE" = "darwin"* ]] && command -v ggrep >/dev/null 2>/dev/null ; then
+    # shellcheck disable=SC2034
+    grep='ggrep'
+fi
+if [[ "$OSTYPE" = "darwin"* ]] && command -v gfind >/dev/null 2>/dev/null ; then
+    # shellcheck disable=SC2034
+    find='gfind'
+fi
+
 grepp_exclude_binary_files=0
 # 0 for findd by default
 # 1 for grepp by default
