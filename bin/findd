@@ -21,9 +21,10 @@ while (( $# )) ; do
             temp2="$(mktemp)"
             temp3="$(mktemp)"
 
-            find  "$@" | sort >"${temp}" # all files
+            # shellcheck disable=SC2154
+            "${find}"  "$@" | sort >"${temp}" # all files
             findd "$@" | sort >"${temp2}" # included files
-            findd --list-excludes-only "$@" -exec find {} + | sort >"${temp3}" # excluded files
+            findd --list-excludes-only "$@" -exec "${find}" {} + | sort >"${temp3}" # excluded files
 
             comm -2 -3 "${temp}" "${temp2}" | diff "${temp3}" -
 
@@ -140,7 +141,7 @@ set_find_excludes
 
 declare -a find_command
 find_command=(
-    find
+    "${find}"
     "${global_options[@]}"
     "${starting_points[@]}"
     \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
@@ -150,7 +151,7 @@ find_command=(
 
 if (( list_excludes_only )) ; then
     find_command=(
-        find
+        "${find}"
         "${global_options[@]}"
         "${starting_points[@]}"
         \(
