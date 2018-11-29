@@ -340,7 +340,7 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             exit 0
             ;;
         "version")
-            exec grep --version
+            exec "${grep}" --version
             ;;
         "verbose")
             verbose=$((verbose + 1))
