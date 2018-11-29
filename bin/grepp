@@ -423,7 +423,6 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         "exclude"|"exclude-dir"|"include")
             lc="${OPTARG,,}"
             uc="${OPTARG^^}"
-            2>&1 echo "${lc} ${uc}"
             grep_options+=("--${OPTION}=${lc}")
             grep_options+=("--${OPTION}=${uc}")
             if [[ "${OPTARG}" != "${lc}" ]] && [[ "${OPTARG}" != "${uc}" ]] ; then
