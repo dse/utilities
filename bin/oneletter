@@ -27,6 +27,10 @@ sourcefirst \
 usage () { >&2 cat <<EOF; }
 usage:
   ${progname} [<option> ...] <word> ...
+options:
+  -d, --dictionary=FILE  (default /usr/share/dict/words)
+  -h, --help
+  -v, --verbose
 EOF
 
 main () {
