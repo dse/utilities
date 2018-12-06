@@ -207,6 +207,43 @@ set_grep_excludes () {
 
 #------------------------------------------------------------------------------
 
+declare -a diff_excludes
+
+set_diff_excludes () {
+    diff_excludes=()
+    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
+        lc="${exclude,,}"
+        uc="${exclude^^}"
+        diff_excludes+=("--exclude=${lc}")
+        diff_excludes+=("--exclude=${uc}")
+        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+            diff_excludes+=("--exclude=${exclude}")
+        fi
+    done
+    if (( grepp_exclude_binary_files )) ; then
+        for exclude in "${file_excludes_binary[@]}" ; do
+            lc="${exclude,,}"
+            uc="${exclude^^}"
+            diff_excludes+=("--exclude=${lc}")
+            diff_excludes+=("--exclude=${uc}")
+            if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                diff_excludes+=("--exclude=${exclude}")
+            fi
+        done
+    fi
+    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
+        lc="${exclude,,}"
+        uc="${exclude^^}"
+        diff_excludes+=("--exclude=${lc}")
+        diff_excludes+=("--exclude=${uc}")
+        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+            diff_excludes+=("--exclude=${exclude}")
+        fi
+    done
+}
+
+#------------------------------------------------------------------------------
+
 # with indentation for find
 echo_command () {
     local i

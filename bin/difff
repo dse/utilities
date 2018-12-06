@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+
+dirname="$(dirname "$0")"
+
+grepp_exclude_binary_files=1
+
+# shellcheck disable=SC1090
+. "${dirname}/../share/utilities/findd-grepp.bash"
+
+set_diff_excludes
+
+diff -r -u -b -w \
+     "$@"
