@@ -118,19 +118,14 @@ while (<>) {
 }
 
 package My::HTML::Inspector {
-    use lib "$ENV{HOME}/git/dse.d/perl-class-thingy/lib";
-    use Class::Thingy;
-
-    INIT {
-        public show_ancestors;
-        public show_first_child;
-        public show_last_child;
-        public show_attributes;
-        public no_recurse;
-        public tree;
-        public theme;
-        public fancy;
-    }
+    use Class::Tiny qw(show_ancestors
+                       show_first_child
+                       show_last_child
+                       show_attributes
+                       no_recurse
+                       tree
+                       theme
+                       fancy);
 
     INIT {
         eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
