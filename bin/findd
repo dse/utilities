@@ -74,6 +74,15 @@ while (( $# )) ; do
             add_user_exclude "${1#*=}"
             shift
             ;;
+        "--no-exclude")
+            shift
+            remove_from_excludes "$1"
+            shift
+            ;;
+        "--no-exclude="*)
+            remove_from_excludes "${1#*=}"
+            shift
+            ;;
         "--"*)
             >&2 echo "findd: invalid option: $1"
             exit 1
@@ -162,12 +171,10 @@ if (( list_excludes_only )) ; then
     )
 fi
 
-if (( verbose >= 1 || dry_run )) ; then
-    >&2 echo "${find_command[@]@Q}"
+if (( dry_run || verbose )) ; then
+    >&2 echo_command "${find_command[@]}"
 fi
-
 if (( dry_run )) ; then
     exit 0
 fi
-
 exec "${find_command[@]}"
