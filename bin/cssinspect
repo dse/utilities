@@ -21,13 +21,7 @@ package My::CSS::Inspector {
     use strict;
     use v5.10.0;
 
-    use lib "$ENV{HOME}/git/dse.d/perl-class-thingy/lib";
-    use Class::Thingy;
-
-    INIT {
-        public filename;
-        public css3;
-    }
+    use Class::Tiny qw(filename css3);
 
     use Carp::Always;
     use OCBNET::CSS3;
