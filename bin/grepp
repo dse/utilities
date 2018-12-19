@@ -48,6 +48,7 @@ usage () {
     echo "      --verbose"
     echo "      --dry-run"
     echo "      --no-excludes"
+    echo "      --no-exclude=PATTERN     remove a built-in pattern from the exclusion list"
     echo "      --min-depth=DEPTH        causes grepp to use find instead of grep to recurse"
     echo "      --max-depth=DEPTH        \""
     echo "      --css-class='<class>'    CSS classes in HTML/SGML/XML files"
