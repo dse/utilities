@@ -1,5 +1,20 @@
 # -*- mode: sh; sh-shell: bash -*-
 
+exclude_from_array () {
+    local -n __array="$1"; shift
+    local -a __result
+    local element
+    for element in "${__array[@]}" ; do
+        for exclude in "$@" ; do
+            if [[ "${element}" == "${exclude}" ]] ; then
+                break
+            fi
+            __result+=("${element}")
+        done
+    done
+    __array=("${__result[@]}")
+}
+
 find='find'
 grep='grep'
 if [[ "$OSTYPE" = "darwin"* ]] && command -v ggrep >/dev/null 2>/dev/null ; then
@@ -106,6 +121,7 @@ add_user_exclude () {
         i="${i,,}"              # lowercase
         user_directory_excludes+=("$i")
         user_file_excludes+=("$i")
+        remove_from_excludes "$i"
     done
 }
 
@@ -115,6 +131,16 @@ add_user_include () {
         i="${i,,}"              # lowercase
         user_directory_includes+=("$i")
         user_file_includes+=("$i")
+    done
+}
+
+remove_from_excludes () {
+    for i ; do
+        exclude_from_array user_directory_excludes "$i"
+        exclude_from_array user_file_excludes      "$i"
+        exclude_from_array directory_excludes      "$i"
+        exclude_from_array file_excludes           "$i"
+        exclude_from_array file_excludes_binary    "$i"
     done
 }
 
@@ -252,9 +278,9 @@ echo_command () {
     local indent_string=''
     local last_nl=1
     local this_nl=1
-    if (( verbose >= 2 || (dry_run && verbose >= 1 ) )) ; then
+    if (( verbose >= 2 || (dry_run && verbose) )) ; then
         i="$1"; shift
-        >&2 echo "- ${i@Q}"
+        echo "- ${i@Q}"
         i="$(basename "$i")"
         if [[ "$i" == "find" ]] || [[ "$i" == "gfind" ]] || [[ "$i" == "findd" ]] ; then
             has_indent=1
@@ -273,19 +299,19 @@ echo_command () {
                 indent_string="${indent_string#  }"
             fi
             if (( last_nl )) ; then
-                >&2 echo -n "  ${indent_string}"
+                echo -n "[  ${indent_string}]"
             fi
             if (( this_nl )) ; then
-                >&2 echo "${i@Q}"
+                printf "%q\n" "$i"
             else
-                >&2 echo -n "${i@Q} "
+                printf "%q " "$i"
             fi
             if (( has_indent )) && [[ "$i" == "(" ]] ; then
                 indent_string="${indent_string}  "
             fi
             last_nl="${this_nl}"
         done
-    elif (( verbose >= 1 || dry_run )) ; then
-        >&2 echo "$@@Q"
+    elif (( verbose || dry_run )) ; then
+        echo "+ ${@@Q}"
     fi
 }
