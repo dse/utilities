@@ -12,6 +12,9 @@ progname="$(basename "$0")"
 
 grepp_exclude_binary_files=1    # default for difff
 
+declare -i dry_run=0
+declare -i verbose=0
+
 main () {
     local -a diff_options
 
@@ -20,11 +23,19 @@ main () {
 
     set_diff_excludes
     local -a cmd
-    cmd=(diff -r -u -b -w
-         "${diff_options[@]}"
-         "${diff_excludes[@]}"
-         "$@")
-    >&2 echo "${cmd[@]@Q}"
+    cmd=(
+        diff -r -u -b -w
+        "${diff_options[@]}"
+        "${diff_excludes[@]}"
+        "$@"
+    )
+
+    if (( dry_run || verbose )) ; then
+        >&2 echo_command "${cmd[@]}"
+    fi
+    if (( dry_run )) ; then
+        exit 0
+    fi
     exec "${cmd[@]}"
 }
 
@@ -95,6 +106,10 @@ longopts=(
     palette=PALETTE
     help
     v,version
+
+    no-exclude=PAT
+    dry-run
+    verbose
 )
 
 check_options () {
@@ -102,6 +117,15 @@ check_options () {
         case "${OPTION}" in
             "?")
                 exit 1
+                ;;
+            'dry-run')
+                dry_run=1
+                ;;
+            'verbose')
+                verbose+=1
+                ;;
+            'no-exclude')
+                remove_from_excludes "${OPTARG}"
                 ;;
             ?*)
                 diff_options+=(
