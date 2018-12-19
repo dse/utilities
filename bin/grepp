@@ -152,6 +152,9 @@ longopts=(
     include-binary         no
     include-binary-files   no
 
+    no-exclude     yes
+    no-exclude-dir yes
+
     find-only no
     findd-only no
     list-only no
@@ -418,6 +421,10 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             add_user_include "${OPTARG}"
             ;;
 
+        "no-exclude"|"no-exclude-dir")
+            remove_from_excludes "${OPTARG}"
+            ;;
+
         "use-find"|"use-findd")
             use_find=1
             ;;
@@ -573,13 +580,11 @@ else
         "$@"
     )
 
-    if (( verbose >= 1 || dry_run )) ; then
-        echo_command "${grep_command[@]}"
+    if (( dry_run || verbose )) ; then
+        >&2 echo_command "${grep_command[@]}"
     fi
-
     if (( dry_run )) ; then
         exit 0
     fi
-
     exec "${grep_command[@]}"
 fi
