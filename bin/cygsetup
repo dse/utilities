@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+main () {
+    set_vars
+    require_cygwin
+    command="$1"; shift
+    if [[ "$command" = "update-setup" ]] ; then
+        update_setup
+    elif [[ "$command" = "setup" ]] ; then
+        setup "$@"
+    elif [[ "$command" = "upgrade" ]] ; then
+        upgrade "$@"
+    fi
+}
+
+require_cygwin () {
+    if [[ "${uname}" != *CYGWIN* ]] ; then
+        >&2 echo "cygsetup only runs on cygwin."
+        exit 1
+    fi
+}
+
+set_vars () {
+    uname="$(uname)"
+    unamea="$(uname -a)"
+
+    if [[ "${unamea}" = *x86_64* ]] ; then
+        cygsetupurl=http://cygwin.com/setup-x86_64.exe
+        exebasename="${cygsetupurl##*/}"
+    else
+        cygsetupurl=http://cygwin.com/setup-x86.exe
+        exebasename="${cygsetupurl##*/}"
+    fi
+    cygsetupdir="$HOME/.cygsetup"
+    cygsetupexe="${cygsetupdir}/${exebasename}"
+}
+
+update_setup () {
+    mkdir -p "${cygsetupdir}"
+    wget --server-response --output-document="${cygsetupexe}.tmp" "${cygsetupurl}"
+    mv "${cygsetupexe}.tmp" "${cygsetupexe}"
+    chmod a+x "${cygsetupexe}"
+}
+
+require_setup () {
+    if [[ ! -e "${cygsetupexe}" ]] ; then
+        update
+    fi
+    chmod a+x "${cygsetupexe}"
+}
+
+setup () {
+    require_setup
+    exec "${cygsetupexe}" "$@"
+}
+
+upgrade () {
+    require_setup
+    exec "${cygsetupexe}" \
+         --no-desktop \
+         --upgrade-also \
+         --quiet-mode \
+         "$@"
+}
+
+###############################################################################
+main "$@"
