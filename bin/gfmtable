@@ -1,0 +1,28 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use open IO => ':locale';
+
+use lib "$ENV{HOME}/git/dse.d/utilities/lib/perl";
+use My::Text::GFMTable::Parser;
+
+my $parser = My::Text::GFMTable::Parser->new();
+$parser->handleLine(sub {
+                        my ($self, $line) = @_;
+                        say $line;
+                    });
+$parser->handleTable(sub {
+                         my ($self, $table) = @_;
+                         $self->printTable($table);
+                     });
+
+my $oldARGV;
+while (<>) {
+    if (defined $oldARGV && $oldARGV ne $ARGV) {
+        $parser->eof();
+    }
+    $parser->parseLine($_);
+}
+$parser->eof();
