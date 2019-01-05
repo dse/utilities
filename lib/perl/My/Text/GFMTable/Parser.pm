@@ -109,7 +109,7 @@ sub printTable {
 
     my @columnWidths = map {
         my $index = $_;
-        max map { length $_->[$index] } @r
+        max map { defined $_->[$index] ? length $_->[$index] : 0 } @r
     } (0 .. ($columns - 1));
 
     my @h = @{$table->{headerRow}};
@@ -130,7 +130,7 @@ sub printTable {
         my $l = ('| ' .
                      join(' | ', map {
                          my $w = $columnWidths[$_];
-                         my $t = $row->[$_];
+                         my $t = $row->[$_] // "";
                          my $a = $align[$_];
                          $a eq 'right' ? sprintf('%*s', $w, $t) : sprintf('%-*s', $w, $t);
                      } (0 .. $#columnWidths))
