@@ -47,6 +47,10 @@ has 'inputFieldSeparator' => (
 has 'outputFieldSeparator' => (
     is => 'rw',
 );
+has 'columnAlignment' => (
+    is => 'rw',
+    default => sub { return []; },
+);
 
 sub header {
     my ($self, @header) = @_;
@@ -98,6 +102,15 @@ sub resetData {
     $self->headerArray(undef);
     $self->rows([]);
     $self->footerArray(undef);
+}
+
+sub setColumnAlignment {
+    my ($self, $column, $alignment) = @_;
+    return $self->columnAlignment->[$column] = $alignment;
+}
+sub getColumnAlignment {
+    my ($self, $column) = @_;
+    return $self->columnAlignment->[$column] // 'left';
 }
 
 sub as_string {
@@ -155,7 +168,9 @@ sub asString {
                 $left  = $self->hasVerticalBorders ? "| " : "";
                 $right = $self->hasVerticalBorders ? " |" : "";
             }
-            $result .= $left . join($join, map { sprintf("%-*s", $columnWidths[$_], $row[$_][$i] // "") } (0 .. ($numColumns - 1))) . $right . "\n";
+            $result .= $left . join($join, map {
+                $self->getColumnString($_, $row[$_][$i]);
+            } (0 .. ($numColumns - 1))) . $right . "\n";
         }
         if ($self->hasRowBorders && $j >= $firstDataRow && $j < $lastDataRow) {
             $result .= $self->getRowBorderString();
@@ -171,6 +186,24 @@ sub asString {
     $self->headerArray($saveHeaderArray);
 
     return $result;
+}
+
+use POSIX qw(round);
+
+sub getColumnString {
+    my ($self, $column, $string) = @_;
+    $string //= '';
+    my $alignment = $self->getColumnAlignment($column);
+    my $width = $self->getColumnWidth($column);
+    if ($alignment eq 'right') {
+        return sprintf('%*s', $width, $string);
+    }
+    if ($alignment eq 'center') {
+        my $length = length($string);
+        my $diff = round($length + ($width - $length) / 2);
+        return sprintf('%-*s', $width, sprintf('%*s', $length + $diff, $string));
+    }
+    return sprintf('%-*s', $width, $string);
 }
 
 sub top_border {
