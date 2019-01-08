@@ -31,8 +31,13 @@ grepp_exclude_binary_files=0
 # 1 for grepp by default
 
 declare -a directory_excludes
+declare -a directory_excludes_binary
 declare -a file_excludes
 declare -a file_excludes_binary
+
+directory_excludes_binary=(
+    zip-cache
+)
 
 directory_excludes=(
     vendor
@@ -79,6 +84,16 @@ file_excludes_binary=(
     '*.flv'
     '*.wmv'
     '*.swf'
+
+    # Dalvik
+    '*.dex'
+
+    # Java
+    '*.class'
+
+    # Misc.
+    '*.bin'
+    '*.flat'
 )
 
 file_excludes=(
@@ -148,9 +163,9 @@ remove_from_excludes () {
 
 declare -a find_directory_excludes
 
-set_find_directory_excludes () {
-    find_directory_excludes=()
-    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
+_add_find_directory_excludes () {
+    local exclude
+    for exclude ; do
         if (( ${#find_directory_excludes[@]} )) ; then
             find_directory_excludes+=("-o")
         fi
@@ -158,23 +173,33 @@ set_find_directory_excludes () {
     done
 }
 
+set_find_directory_excludes () {
+    find_directory_excludes=()
+    _add_find_directory_excludes "${directory_excludes[@]}" \
+                                 "${user_directory_excludes[@]}"
+    if (( grepp_exclude_binary_files )) ; then
+        _add_find_directory_excludes "${directory_excludes_binary[@]}"
+    fi
+}
+
 declare -a find_file_excludes
 
-set_find_file_excludes () {
-    find_file_excludes=()
-    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
+_add_find_file_excludes () {
+    local exclude
+    for exclude ; do
         if (( ${#find_file_excludes[@]} )) ; then
             find_file_excludes+=("-o")
         fi
         find_file_excludes+=("-iname" "${exclude}")
     done
+}
+
+set_find_file_excludes () {
+    find_file_excludes=()
+    _add_find_file_excludes "${file_excludes[@]}" \
+                            "${user_file_excludes[@]}"
     if (( grepp_exclude_binary_files )) ; then
-        for exclude in "${file_excludes_binary[@]}" ; do
-            if (( ${#find_file_excludes[@]} )) ; then
-                find_file_excludes+=("-o")
-            fi
-            find_file_excludes+=("-iname" "${exclude}")
-        done
+        _add_find_file_excludes "${file_excludes_binary[@]}"
     fi
 }
 
@@ -185,10 +210,10 @@ set_find_excludes () {
 
 declare -a grep_directory_excludes
 
-set_grep_directory_excludes () {
+_add_grep_directory_excludes () {
     local lc uc
-    grep_directory_excludes=()
-    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
+    local exclude
+    for exclude ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
         grep_directory_excludes+=("--exclude-dir=${lc}")
@@ -199,12 +224,21 @@ set_grep_directory_excludes () {
     done
 }
 
+set_grep_directory_excludes () {
+    grep_directory_excludes=()
+    _add_grep_directory_excludes "${directory_excludes[@]}" \
+                                 "${user_directory_excludes[@]}"
+    if (( grepp_exclude_binary_files )) ; then
+        _add_grep_directory_excludes "${directory_excludes_binary[@]}"
+    fi
+}
+
 declare -a grep_file_excludes
 
-set_grep_file_excludes () {
+_add_grep_file_excludes () {
     local lc uc
-    grep_file_excludes=()
-    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
+    local exclude
+    for exclude ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
         grep_file_excludes+=("--exclude=${lc}")
@@ -213,16 +247,13 @@ set_grep_file_excludes () {
             grep_file_excludes+=("--exclude=${exclude}")
         fi
     done
+}
+
+set_grep_file_excludes () {
+    grep_file_excludes=()
+    _add_grep_file_excludes "${file_excludes[@]}" "${user_file_excludes[@]}"
     if (( grepp_exclude_binary_files )) ; then
-        for exclude in "${file_excludes_binary[@]}" ; do
-            lc="${exclude,,}"
-            uc="${exclude^^}"
-            grep_file_excludes+=("--exclude=${lc}")
-            grep_file_excludes+=("--exclude=${uc}")
-            if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-                grep_file_excludes+=("--exclude=${exclude}")
-            fi
-        done
+        _add_grep_file_excludes "${file_excludes_binary[@]}"
     fi
 }
 
@@ -278,7 +309,8 @@ echo_command () {
     local indent_string=''
     local last_nl=1
     local this_nl=1
-    if (( verbose >= 2 || (dry_run && verbose) )) ; then
+    # shellcheck disable=SC2154
+    if (( verbose >= 2 || (dry_run && verbose >= 1 ) )) ; then
         i="$1"; shift
         echo "- ${i@Q}"
         i="$(basename "$i")"
@@ -311,7 +343,7 @@ echo_command () {
             fi
             last_nl="${this_nl}"
         done
-    elif (( verbose || dry_run )) ; then
-        echo "+ ${@@Q}"
+    elif (( verbose >= 1 || dry_run )) ; then
+        >&2 echo "${@@Q}"
     fi
 }
