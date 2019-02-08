@@ -265,6 +265,7 @@ set_grep_excludes () {
 #------------------------------------------------------------------------------
 
 declare -a diff_excludes
+declare -a git_diff_excludes
 
 set_diff_excludes () {
     diff_excludes=()
@@ -273,6 +274,7 @@ set_diff_excludes () {
         uc="${exclude^^}"
         diff_excludes+=("--exclude=${lc}")
         diff_excludes+=("--exclude=${uc}")
+        git_diff_excludes+=(":(exclude,icase)${lc}")
         if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
             diff_excludes+=("--exclude=${exclude}")
         fi
@@ -283,6 +285,7 @@ set_diff_excludes () {
             uc="${exclude^^}"
             diff_excludes+=("--exclude=${lc}")
             diff_excludes+=("--exclude=${uc}")
+            git_diff_excludes+=(":(exclude,icase)${lc}")
             if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
                 diff_excludes+=("--exclude=${exclude}")
             fi
@@ -293,6 +296,7 @@ set_diff_excludes () {
         uc="${exclude^^}"
         diff_excludes+=("--exclude=${lc}")
         diff_excludes+=("--exclude=${uc}")
+        git_diff_excludes+=(":(exclude,icase)${lc}")
         if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
             diff_excludes+=("--exclude=${exclude}")
         fi
