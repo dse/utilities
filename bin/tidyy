@@ -27,8 +27,15 @@ coproc TIDYSTDERR {
     else
         grep -v \
              -e '<nobr> is not approved' \
+             -e '<wbr> is not approved' \
+             -e '<table> lacks "summary" attribute' \
+             -e '<input> proprietary attribute "width"' \
+             -e '<input> proprietary attribute "height"' \
              -e 'trimming empty' \
-             -e '<img> lacks "alt" attribute'
+             -e '<img> lacks "alt" attribute' \
+             -e 'MISSING_DOCTYPE' \
+             -e 'MISSING_ENDTAG_OPTIONAL' \
+             -e 'MISSING_DOCTYPE' 
     fi
 } >&2
 
