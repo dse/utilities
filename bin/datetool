@@ -1,0 +1,203 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Time::ParseDate qw();
+use Date::Parse qw();
+use DateTime::Format::DateParse;
+use POSIX qw(round);
+use DateTime;
+# use DateTimeX::ISO8601::Interval;
+
+use Data::Dumper qw(Dumper);
+
+our $DATE_FORMAT = '%a %Y-%m-%d';
+our $TIME_FORMAT = '%a %Y-%m-%d %H:%M:%S %z (%Z)';
+
+if (scalar @ARGV == 1) {
+    if ($ARGV[0] =~ m{^([\-\+])(\d+)$}) {
+        # datetool -<non-negative-integer>
+        # datetool +<non-negative-integer>
+        my ($sign, $days) = ($1, $2);
+        deltaDaysFromToday($sign, $days);
+        exit(0);
+    }
+    my $parsedDateTime = parseDateTime($ARGV[0]);
+    if (defined $parsedDateTime) {
+        # datetool <date>
+        say "parsed:         ", $parsedDateTime->strftime($TIME_FORMAT);
+        deltaDays($parsedDateTime);
+        exit(0);
+    }
+} elsif (scalar @ARGV == 2) {
+    if ($ARGV[0] eq '-' || $ARGV[0] eq '+') {
+        my $sign = $ARGV[0];
+        if ($ARGV[1] =~ m{^([\-\+])?(\d+)$}) {
+            # datetool - <integer>
+            # datetool + <integer>
+            my ($sign2, $days) = ($1, $2);
+            deltaDaysFromToday($sign, $sign2, $days);
+            exit(0);
+        }
+    } else {
+        my $parsedDateTime = parseDateTime($ARGV[0]);
+        if (defined $parsedDateTime) {
+            if ($ARGV[1] =~ m{^([\-\+])(\d+)$}) {
+                # datetool <date> -<non-negative-integer>
+                # datetool <date> +<non-negative-integer>
+                my ($sign, $days) = ($1, $2);
+                say "parsed:         ", $parsedDateTime->strftime($TIME_FORMAT);
+                deltaDaysFromDateTime($parsedDateTime, $sign, $days);
+                exit(0);
+            }
+            my $parsedDateTime2 = parseDateTime($ARGV[1]);
+            if (defined $parsedDateTime2) {
+                # datetool <date> <date>
+                say "parsed:         ", $parsedDateTime->strftime($TIME_FORMAT);
+                say "parsed:         ", $parsedDateTime2->strftime($TIME_FORMAT);
+                deltaDays($parsedDateTime, $parsedDateTime2);
+                exit(0);
+            }
+        }
+    }
+} elsif (scalar @ARGV == 3) {
+    my $parsedDateTime = parseDateTime($ARGV[0]);
+    if (defined $parsedDateTime) {
+        if ($ARGV[1] eq '-' || $ARGV[1] eq '+') {
+            my $sign = $ARGV[1];
+            if ($ARGV[2] =~ m{^([\-\+])?(\d+)$}) {
+                # datetool <date> + <integer>
+                # datetool <date> - <integer>
+                my ($sign2, $days) = ($1, $2);
+                say "parsed:         ", $parsedDateTime->strftime($TIME_FORMAT);
+                deltaDaysFromDateTime($parsedDateTime, $sign, $sign2, $days);
+                exit(0);
+            }
+        }
+    }
+}
+
+sub usage { print <<"END"; }
+difference between a date and today:
+    datetool <date>
+difference between two dates:
+    datetool <date> <date>
+add or subtract days from today:
+    datetool - <days>
+    datetool + <days>
+    datetool -<days>
+    datetool +<days>
+add or subtract days from a date:
+    datetool <date> - <days>
+    datetool <date> + <days>
+    datetool <date> -<days>
+    datetool <date> +<days>
+END
+
+sub deltaDaysFromDateTime {
+    my $dateTime = shift;
+    my $delta;
+    my $days;
+    my $sign = 1;
+  arg:
+    foreach my $arg (@_) {
+        next arg if !defined $arg;
+        if ($arg eq '+') {
+            # do nothing
+        } elsif ($arg eq '-') {
+            $sign *= -1;
+        } elsif ($arg =~ m{^([\-\+])?(\d+)$}) {
+            my ($s, $d) = ($1, $2);
+            $sign *= -1 if defined $s && $s eq '-';
+            $days = $d;
+            last arg;
+        }
+    }
+
+    my $original = $dateTime->clone();
+    $original->set_time_zone('floating');
+    my $result = $original->clone();
+
+    if ($days >= 0) {
+        $result->add(days => abs($days));
+    } else {
+        $result->subtract(days => abs($days));
+    }
+    printf("original:       %s\n", $original->strftime($DATE_FORMAT));
+    if ($days >= 0) {
+        printf("add:            %d day(s)\n", $days);
+    } else {
+        printf("subtract:       %d day(s)\n", abs($days));
+    }
+    printf("result:         %s\n", $result->strftime($DATE_FORMAT));
+}
+
+sub deltaDaysFromToday {
+    my $today = DateTime->today();
+    return deltaDaysFromDateTime($today, @_);
+}
+
+sub deltaDays {
+    my ($dateTime1, $dateTime2);
+    if (scalar @_ < 2) {
+        $dateTime1 = DateTime->now(time_zone => 'local');
+        ($dateTime2) = @_;
+        $dateTime2 = $dateTime2->clone();
+    } else {
+        ($dateTime1, $dateTime2) = @_;
+        $dateTime1 = $dateTime1->clone();
+        $dateTime2 = $dateTime2->clone();
+    }
+
+    $dateTime1->set_time_zone('floating');
+    $dateTime2->set_time_zone('floating');
+    $dateTime1->truncate(to => 'day');
+    $dateTime2->truncate(to => 'day');
+
+    printf("date 1:         %s\n", $dateTime1->strftime($DATE_FORMAT));
+    printf("date 2:         %s\n", $dateTime2->strftime($DATE_FORMAT));
+
+    my $days = round(($dateTime2->epoch - $dateTime1->epoch) / 86400);
+    printf("difference:     %d day(s)\n", $days);
+}
+
+sub parseDateTime {
+    my ($string) = @_;
+
+    my $epoch;
+    my $result;
+    my $how;
+
+    $epoch = Time::ParseDate::parsedate($string);
+    if (defined $epoch) {
+        $result = DateTime->from_epoch(epoch => $epoch, time_zone => 'local');
+        if (defined $result) {
+            $how = 'Time::ParseDate';
+            goto done;
+        }
+    }
+
+    $epoch = Date::Parse::str2time($string);
+    if (defined $epoch) {
+        $result = DateTime->from_epoch(epoch => $epoch, time_zone => 'local');
+        if (defined $result) {
+            $how = 'Date::Parse';
+            goto done;
+        }
+    }
+
+    $result = DateTime::Format::DateParse->parse_datetime($string, 'local');
+    if (defined $result) {
+        $how = 'DateTime::Format::DateParse';
+        goto done;
+    }
+
+  done:
+    if (defined $result) {
+        return ($result, $how) if wantarray;
+        return $result;
+    }
+
+    return;
+}
