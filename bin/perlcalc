@@ -7,11 +7,18 @@ use utf8;
 use open IO => ":locale";
 use Getopt::Long;
 
-use POSIX qw(acos acosh asin asinh atan atanh cbrt ceil cosh copysign
-             expm1 floor fdim fma fmax fmin fmod frexp hypot ilogb Inf
-             j0 j1 jn y0 y1 yn ldexp lgamma log1p log2 logb log10 modf
-             NaN nan nextafter nexttoward pow remainder remquo round
-             scalbn sinh tan tanh tgamma trunc);
+use POSIX qw(acos asin atan ceil cosh floor fmod frexp ldexp log10
+             modf pow sinh tan tanh);
+
+BEGIN {
+    eval {
+        import POSIX qw(acosh asinh atanh cbrt copysign expm1 fdim fma fmax fmin
+                        hypot ilogb Inf j0 j1 jn y0 y1 yn lgamma log1p log2
+                        logb NaN nan nextafter nexttoward remainder remquo
+                        round scalbn tgamma trunc);
+    };
+}
+
 use Math::Trig;
 use Math::Trig qw(:pi);
 
