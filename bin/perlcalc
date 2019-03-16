@@ -7,23 +7,27 @@ use utf8;
 use open IO => ":locale";
 use Getopt::Long;
 
-use POSIX qw(acos asin atan ceil cosh floor fmod frexp ldexp log10
-             modf pow sinh tan tanh);
-
-BEGIN {
-    eval {
-        import POSIX qw(acosh asinh atanh cbrt copysign expm1 fdim fma fmax fmin
-                        hypot ilogb Inf j0 j1 jn y0 y1 yn lgamma log1p log2
-                        logb NaN nan nextafter nexttoward remainder remquo
-                        round scalbn tgamma trunc);
-    };
-    eval {
-        require List::Util;
-        import List::Util qw(min max);
-    };
+sub importeach (*@) {
+    my $module = shift;
+    eval "use $module;";
+    return if $@;
+    foreach my $symbol (@_) {
+        eval { import $module $symbol; };
+    }
 }
-use Math::Trig;
-use Math::Trig qw(:pi);
+
+INIT {
+    importeach POSIX, qw(acos asin atan ceil cosh floor fmod frexp
+                         ldexp log10 modf pow sinh tan tanh
+
+                         acosh asinh atanh cbrt copysign expm1 fdim fma
+                         fmax fmin hypot ilogb Inf j0 j1 jn y0 y1 yn
+                         lgamma log1p log2 logb NaN nan nextafter
+                         nexttoward remainder remquo round scalbn
+                         tgamma trunc);
+    importeach List::Util, qw(min max minn);
+    importeach Math::Trig, qw(:pi);
+}
 
 our $opt_format;
 our $opt_curly_brackets_only;
