@@ -17,8 +17,11 @@ BEGIN {
                         logb NaN nan nextafter nexttoward remainder remquo
                         round scalbn tgamma trunc);
     };
+    eval {
+        require List::Util;
+        import List::Util qw(min max);
+    };
 }
-use List::Util qw(min max);
 use Math::Trig;
 use Math::Trig qw(:pi);
 
