@@ -317,7 +317,8 @@ convenience.  See perlfunc for details.
     sqrt           Returns the positive square root of its argument.
     srand          Sets or returns the random seed for the rand() function.
 
-The following functions from the POSIX module are imported:
+The following functions from the POSIX module are imported, each if
+available:
 
     acos           The arcus cosine.
     acosh          The hyperbolic arcus cosine.
@@ -364,7 +365,7 @@ The following functions from the POSIX module are imported:
     tgamma         The Gamma function.
     trunc          Returns the integer toward zero from its argument.
 
-The following functions from List::Util are imported:
+The following functions from List::Util are imported, if available:
 
     min
     max
