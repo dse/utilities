@@ -18,7 +18,7 @@ BEGIN {
                         round scalbn tgamma trunc);
     };
 }
-
+use List::Util qw(min max);
 use Math::Trig;
 use Math::Trig qw(:pi);
 
@@ -360,6 +360,11 @@ The following functions from the POSIX module are imported:
     tanh           The hyperbolic tangent.
     tgamma         The Gamma function.
     trunc          Returns the integer toward zero from its argument.
+
+The following functions from List::Util are imported:
+
+    min
+    max
 
 The following functions and constants from the Math::Trig module are
 imported:
