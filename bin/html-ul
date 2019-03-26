@@ -13,7 +13,7 @@ printf("<ul>\n");
 if ($all_exist) {
     foreach my $arg (@ARGV) {
         printf("    <li>\n");
-        printf("        <a href='%s'>%s</a>\n", encode_entities($arg), encode_entities($arg));
+        printf("        <a href=\"%s\">%s</a>\n", encode_entities($arg), encode_entities($arg));
         printf("    </li>\n");
     }
 } else {
