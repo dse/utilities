@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Image::Size;
+use HTML::Entities qw(encode_entities);
+use Getopt::Long;
+use Regexp::Common qw(number);
+use POSIX qw(round);
+
+our $ratio = 1;
+our $noWidth = 0;
+our $noHeight = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'noignore_case');
+Getopt::Long::GetOptions(
+    'r|radio=f'   => \$ratio,
+    'W|no-width'  => \$noWidth,
+    'H|no-height' => \$noHeight,
+);
+
+foreach my $filename (@ARGV) {
+    if ($filename =~ m{^$RE{num}{real}$}) {
+        $ratio = $filename;
+        next;
+    }
+    my ($width, $height) = imgsize($filename);
+    $width  = round($width * $ratio);
+    $height = round($height * $ratio);
+    if (defined $width && defined $height) {
+        my $widthAttr = $noWidth ? '' : sprintf(" width=\"%d\"",
+                                                encode_entities($width));
+        my $heightAttr = $noHeight ? '' : sprintf(" height=\"%d\"",
+                                                  encode_entities($height));
+        printf("<img src=\"%s\"%s%s>\n",
+               encode_entities($filename),
+               $widthAttr,
+               $heightAttr);
+    }
+}
