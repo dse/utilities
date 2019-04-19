@@ -93,14 +93,14 @@ if ($opt_carp_test) {
 local $/ = undef;
 while (<>) {
     my $inspector = My::HTML::Inspector->new();
-    $inspector->show_ancestors($opt_show_ancestors);
-    $inspector->show_attributes($opt_show_attributes);
-    $inspector->show_first_child($opt_show_first_child);
-    $inspector->show_last_child($opt_show_last_child);
-    $inspector->tree($opt_tree);
-    $inspector->theme($opt_theme);
-    $inspector->fancy($opt_fancy);
-    $inspector->no_recurse($opt_no_recurse);
+    $inspector->show_ancestors($opt_show_ancestors)     if defined $opt_show_ancestors;
+    $inspector->show_attributes($opt_show_attributes)   if defined $opt_show_attributes;
+    $inspector->show_first_child($opt_show_first_child) if defined $opt_show_first_child;
+    $inspector->show_last_child($opt_show_last_child)   if defined $opt_show_last_child;
+    $inspector->tree($opt_tree)                         if defined $opt_tree;
+    $inspector->theme($opt_theme)                       if defined $opt_theme;
+    $inspector->fancy($opt_fancy)                       if defined $opt_fancy;
+    $inspector->no_recurse($opt_no_recurse)             if defined $opt_no_recurse;
 
     my $tree = HTML::TreeBuilder::XPath->new();
     $tree->parse($_);
