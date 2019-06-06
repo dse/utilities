@@ -1,0 +1,153 @@
+#!/usr/bin/env perl
+#
+# align - a utility influenced by M-x align-regexp.
+# But more powerful because it uses Perl regular expressions.
+#
+use warnings;
+use strict;
+use v5.10.0;
+
+use open qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+use Getopt::Long;
+use List::Util qw(max all);
+use Data::Dumper;
+
+sub usage { print <<EOF; }
+usage:
+  align [<option> ...] <pattern> [<file> ...]
+options:
+  -f, --fixed              interpret patterns as fixed strings
+  -r, --regexp             interpret patterns as perl regexps (default)
+  -i, --case-insensitive   case-insensitive pattern match
+      --case-sensitive     case-sensitive pattern match (default)
+  -e, --pattern=<pattern>  specify multiple patterns, like grep
+  -m, --max-columns=<int>  specify maximum number of column alignments
+                             (default is 1; 0 means as many as possible)
+      --repeat             align as many columns as possible (--max=0)
+      --space              collapse spaces; one space before each separator
+EOF
+###############################################################################
+
+my $debug                = 0;
+my $patternType          = 'regexp';
+my $caseInsensitive      = 0;
+my $maxColumns           = 1;   # 0 = infinity
+my $collapseSpacesBefore = 0;
+my $minSpacesBefore      = 0;
+my @pattern;
+
+Getopt::Long::Configure('bundling', 'gnu_compat');
+Getopt::Long::GetOptions(
+    'd|debug'                => sub { $debug += 1; },
+    'e|pattern=s'            => \@pattern,
+    'r|regexp'               => sub { $patternType = 'regexp'; },
+    'i|case-insensitive'     => \$caseInsensitive,
+    'case-sensitive'         => sub { $caseInsensitive = 0; },
+    'f|fixed'                => sub { $patternType = 'fixed'; },
+    'm|max-columns=i'        => \$maxColumns,
+    'space'                  => sub { $collapseSpacesBefore = 1; $minSpacesBefore = 1; },
+    'repeat'                 => sub { $maxColumns = 0; },
+    'h|help'                 => sub { usage(); exit(0); },
+) or die("Type '$0 --help' for help.\n");
+
+if (!scalar @pattern) {
+    if (!scalar @ARGV) {
+        die("pattern must be specified.\n");
+    }
+    push(@pattern, shift(@ARGV));
+}
+
+foreach my $pattern (@pattern) {
+    if ($patternType eq 'fixed') {
+        $pattern = '\Q' . $pattern . '\E';
+    }
+    $pattern = '(' . $pattern . ')';
+    if ($collapseSpacesBefore) {
+        $pattern = '\s*' . $pattern;
+    }
+    if ($caseInsensitive) {
+        $pattern = qr{$pattern}i;
+    } else {
+        $pattern = qr{$pattern};
+    }
+}
+
+my @line;
+
+while (<>) {
+    s{\R\z}{};
+    my @columns;
+    if ($debug) {
+        printf("line %d: %s\n", $., terseDump($_));
+    }
+    my $numColumns = 0;
+    do {
+        $numColumns += 1;
+        foreach my $pattern (@pattern) {
+            if (!s{^(.*?)$pattern}{}) {
+                goto doneWithLine;
+            }
+            my ($text, $separator) = ($1 // '', $2);
+            if ($debug) {
+                printf("  column %d: text = %s; separator = %s; remainder = %s\n", $numColumns, terseDump($text), terseDump($separator), terseDump($_));
+            }
+            push(@columns, { text => $text, separator => $separator });
+        }
+    } while ($_ ne '' && (!$maxColumns || ($numColumns < $maxColumns)));
+  doneWithLine:
+    if ($_ ne '') {
+        push(@columns, { text => $_ });
+    }
+    push(@line, \@columns);
+}
+
+my $maxNumColumns = max map { scalar @$_ } @line;
+my @textLength;
+my @separatorLength;
+
+if ($debug) {
+    printf("maximum number of columns: $maxNumColumns\n");
+}
+
+foreach my $columnNumber (0 .. ($maxNumColumns - 1)) {
+    my $textLength      = max map {
+        # don't vivify $_->[$columnNumber]
+        defined $_->[$columnNumber] ? eval { length $_->[$columnNumber]->{text} } // 0 : 0
+    } @line;
+    my $separatorLength = max map {
+        # don't vivify $_->[$columnNumber]
+        defined $_->[$columnNumber] ? eval { length $_->[$columnNumber]->{separator} } // 0 : 0
+    } @line;
+    push(@textLength,      $textLength);
+    push(@separatorLength, $separatorLength);
+    printf("  column %d: maximum text length is %d; maximum separator length is %d\n", $columnNumber + 1, $textLength, $separatorLength);
+}
+
+foreach my $line (@line) {
+    # print Dumper $line;
+    my $output = '';
+    foreach my $columnNumber (0 .. (scalar @$line - 1)) {
+        my $isLastColumn = ($columnNumber == (scalar @$line - 1));
+        my $column = $line->[$columnNumber];
+        my $textWidth      = $textLength[$columnNumber] + $minSpacesBefore;
+        my $separatorWidth = $separatorLength[$columnNumber];
+        $output .= sprintf("%-*s", $textWidth,      $column->{text});
+        $output .= sprintf("%-*s", $separatorWidth, $column->{separator}) if defined $column->{separator};
+    }
+    $output =~ s{\s+\z}{};
+    say $output;
+}
+
+sub terseDump {
+    local $Data::Dumper::Indent   = 0;
+    local $Data::Dumper::Purity   = 0;
+    local $Data::Dumper::Terse    = 1;
+    local $Data::Dumper::Sortkeys = 1;
+    return Data::Dumper::Dumper(@_);
+}
