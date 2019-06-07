@@ -94,6 +94,7 @@ file_excludes_binary=(
     # Misc.
     '*.bin'
     '*.flat'
+    '*.elc'
 )
 
 file_excludes=(

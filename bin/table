@@ -14,6 +14,21 @@ our $opt_row_borders;
 our $ifs;
 our $ofs;
 
+sub usage { print <<END; }
+usage:
+    table [<option> ...] [<file> ...]
+options:
+    -t, --tabs, --tab-separated-values, --tsv
+    -x, --excel-header
+    -u, --unicode
+    -b, --borders
+    -r, --row-borders
+        --ifs=<string>
+        --ofs=<string>
+        --ifs-regexp=<string>
+    -h, --help
+END
+
 use Getopt::Long;
 Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions(
