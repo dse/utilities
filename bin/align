@@ -107,6 +107,11 @@ while (<>) {
     push(@line, \@columns);
 }
 
+# early termination condition
+if (!scalar @line) {
+    exit 0;
+}
+
 my $maxNumColumns = max map { scalar @$_ } @line;
 my @textLength;
 my @separatorLength;
@@ -126,7 +131,9 @@ foreach my $columnNumber (0 .. ($maxNumColumns - 1)) {
     } @line;
     push(@textLength,      $textLength);
     push(@separatorLength, $separatorLength);
-    printf("  column %d: maximum text length is %d; maximum separator length is %d\n", $columnNumber + 1, $textLength, $separatorLength);
+    if ($debug) {
+        printf("  column %d: maximum text length is %d; maximum separator length is %d\n", $columnNumber + 1, $textLength, $separatorLength);
+    }
 }
 
 foreach my $line (@line) {
