@@ -1,0 +1,237 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+foreach my $arg (@ARGV) {
+    my $colortool = Color::Tool->new();
+    $colortool->run($arg);
+}
+
+package Color::Tool {
+    use List::Util qw(min max);
+    use Regexp::Common qw(number);
+    use Math::Trig qw(pi);
+    use Moo;
+    BEGIN {
+        has 'r' => (is => 'rw');
+        has 'g' => (is => 'rw');
+        has 'b' => (is => 'rw');
+        has 'h' => (is => 'rw');
+        has 's' => (is => 'rw');
+        has 'l' => (is => 'rw');
+        has 'a' => (is => 'rw');
+    }
+    sub run {
+        my ($self, $string) = @_;
+        $self->set($string);
+        $self->dump;
+    }
+    sub set {
+        my ($self, $string) = @_;
+        my ($r, $g, $b, $a);
+        if ($string =~ m{^\#([[:xdigit:]]{2})([[:xdigit:]]{2})([[:xdigit:]]{2})([[:xdigit:]]{2})?$}xi) {
+            ($r, $g, $b, $a) = map { hex($_) / 255 } ($1, $2, $3, $4 // 'ff');
+            $self->r($r);
+            $self->g($g);
+            $self->b($b);
+            $self->a($a);
+            $self->rgb2hsl();
+        } elsif ($string =~ m{^\#([[:xdigit:]])([[:xdigit:]])([[:xdigit:]])([[:xdigit:]])?$}xi) {
+            ($r, $g, $b, $a) = map { hex($_) / 15 } ($1, $2, $3, $4 // 'f');
+            $self->r($r);
+            $self->g($g);
+            $self->b($b);
+            $self->a($a);
+            $self->rgb2hsl();
+        } elsif ($string =~ m{^\s*
+                              rgba?
+                              \s*
+                              \(
+                              \s*
+                              ($RE{num}{real})(%)? # r
+                              (?:\s*,\s*|\s+)
+                              ($RE{num}{real})(%)? # g
+                              (?:\s*,\s*|\s+)
+                              ($RE{num}{real})(%)? # b
+                              (?:
+                                  (?:\s*,\s*|\s*/\s*|\s+)
+                                  ($RE{num}{real})(%)? # a
+                              )?
+                              \s*
+                              \)
+                              \s*$}xi) {
+            my ($r, $rUnit, $g, $gUnit, $b, $bUnit, $a, $aUnit) = ($1, $2, $3, $4, $5, $6, $7, $8);
+            foreach my $unit ($rUnit, $gUnit, $bUnit, $aUnit) {
+                $unit //= '';
+            }
+            $r /= ($rUnit eq '%' ? 100 : $rUnit eq '' ? 255 : 255);
+            $g /= ($gUnit eq '%' ? 100 : $gUnit eq '' ? 255 : 255);
+            $b /= ($bUnit eq '%' ? 100 : $bUnit eq '' ? 255 : 255);
+            $a /= ($aUnit eq '%' ? 100 : $aUnit eq '' ? 1 : 1);
+            $r = min(max($r, 0), 1);
+            $g = min(max($r, 0), 1);
+            $b = min(max($r, 0), 1);
+            $a = min(max($r, 0), 1);
+            $self->r($r);
+            $self->g($g);
+            $self->b($b);
+            $self->a($a);
+            $self->rgb2hsl();
+        } elsif ($string =~ m{^\s*
+                              hsla?
+                              \s*
+                              \(
+                              \s*
+                              ($RE{num}{real})(deg|rad|grad|turn)? # h
+                              (?:\s*,\s*|\s+)
+                              ($RE{num}{real})% # s
+                              (?:\s*,\s*|\s+)
+                              ($RE{num}{real})% # l
+                              (?:
+                                  (?:\s*,\s*|\s*/\s*|\s+)
+                                  ($RE{num}{real})(%)? # a
+                              )?
+                              \s*
+                              \)
+                              \s*$}xi) {
+            my ($h, $hUnit, $s, $l, $a, $aUnit) = ($1, $2, $3, $4, $5, $6);
+            foreach my $unit ($hUnit, $aUnit) {
+                $unit //= '';
+            }
+            $h /= ($hUnit eq '' ? 360 :
+                       $hUnit eq 'deg' ? 360 :
+                       $hUnit eq 'rad' ? (2 * pi) :
+                       $hUnit eq 'grad' ? 400 :
+                       $hUnit eq 'turn' ? 1 :
+                       1);
+            $s /= 100;
+            $l /= 100;
+            $a /= ($aUnit eq '%' ? 100 : 1);
+            $h = min(max($h, 0), 1);
+            $s = min(max($s, 0), 1);
+            $l = min(max($l, 0), 1);
+            $a = min(max($a, 0), 1);
+            $self->h($h);
+            $self->s($s);
+            $self->l($l);
+            $self->a($a);
+            $self->hsl2rgb();
+        } else {
+            die("invalid color: $string\n");
+        }
+    }
+    sub dump {
+        my ($self) = @_;
+        printf("%s %s %s\n", $self->asHashRGB, $self->asCSSRGB, $self->asCSSHSL);
+    }
+    sub asHashRGB {
+        my ($self) = @_;
+        if ($self->a < 1) {
+            return sprintf('#%02x%02x%02x%02x',
+                           int($self->r * 255 + 0.5),
+                           int($self->g * 255 + 0.5),
+                           int($self->b * 255 + 0.5),
+                           int($self->a * 255 + 0.5));
+        }
+        return sprintf('#%02x%02x%02x',
+                       int($self->r * 255 + 0.5),
+                       int($self->g * 255 + 0.5),
+                       int($self->b * 255 + 0.5));
+    }
+    sub asCSSRGB {
+        my ($self) = @_;
+        my $r = $self->r * 255;
+        my $g = $self->g * 255;
+        my $b = $self->b * 255;
+        my $a = $self->a;
+        foreach ($r, $g, $b) {
+            $_ = int($_ + 0.5);
+        }
+        if ($a < 1) {
+            return sprintf('rgba(%d, %d, %d, %.3f)', $r, $g, $b, $a);
+        }
+        return sprintf('rgb(%d, %d, %d)', $r, $g, $b);
+    }
+    sub asCSSHSL {
+        my ($self) = @_;
+        my $h = $self->h * 360;
+        my $s = $self->s * 100;
+        my $l = $self->l * 100;
+        my $a = $self->a;
+        if ($a < 1) {
+            return sprintf('hsla(%.1f, %.1f%%, %.1f%%, %.3f)', $h, $s, $l, $a);
+        }
+        return sprintf('hsl(%.1f, %.1f%%, %.1f%%)', $h, $s, $l, $a);
+    }
+
+    # https://gist.github.com/mjackson/5311256
+    sub rgb2hsl {
+        my ($self) = @_;
+        my ($r, $g, $b) = ($self->r, $self->g, $self->b);
+        my $max = max($r, $g, $b);
+        my $min = min($r, $g, $b);
+        my $l = ($max + $min) / 2;
+        my $h;
+        my $s;
+        if ($max == $min) {
+            $h = $s = 0;        # achromatic
+        } else {
+            my $d = $max - $min;
+            $s = ($l > 0.5) ? ($d / (2 - $max - $min)) : ($d / ($max + $min));
+            if ($max == $r) {
+                $h = ($g - $b) / $d + ($g < $b ? 6 : 0);
+            } elsif ($max == $g) {
+                $h = ($b - $r) / $d + 2;
+            } elsif ($max == $b) {
+                $h = ($r - $g) / $d + 4;
+            } else {
+                die("UNEXPECTED ERROR");
+            }
+            $h /= 6;
+        }
+        $self->h($h);
+        $self->s($s);
+        $self->l($l);
+    }
+
+    # https://gist.github.com/mjackson/5311256
+    sub hue2rgb {
+        my ($self, $p, $q, $t) = @_;
+        if ($t < 0) {
+            $t += 1;
+        }
+        if ($t > 1) {
+            $t -= 1;
+        }
+        if ($t < 1/6) {
+            return $p + ($q - $p) * 6 * $t;
+        }
+        if ($t < 1/2) {
+            return $q;
+        }
+        if ($t < 2/3) {
+            return $p + ($q - $p) * (2/3 - $t) * 6;
+        }
+        return $p;
+    }
+
+    # https://gist.github.com/mjackson/5311256
+    sub hsl2rgb {
+        my ($self) = @_;
+        my ($h, $s, $l) = ($self->h, $self->s, $self->l);
+        my ($r, $g, $b);
+        if ($s == 0) {
+            $r = $g = $b = $l;  # achromatic
+        } else {
+            my $q = $l < 0.5 ? $l * (1 + $s) : $l + $s - $l * $s;
+            my $p = 2 * $l - $q;
+            $r = $self->hue2rgb($p, $q, $h + 1/3);
+            $g = $self->hue2rgb($p, $q, $h);
+            $b = $self->hue2rgb($p, $q, $h - 1/3);
+        }
+        $self->r($r);
+        $self->g($g);
+        $self->b($b);
+    }
+};
