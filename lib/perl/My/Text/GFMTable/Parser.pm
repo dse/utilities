@@ -28,7 +28,7 @@ has 'handleTable' => (
     },
 );
 
-use List::Util qw(max);
+use List::Util qw(max all);
 
 sub parseLine {
     my ($self, $line) = @_;
@@ -46,20 +46,44 @@ sub parseLine {
         my @data = ();
         my $rx_cell = qr{(
                              (?:
-                                 [^\`\|]+?
+                                 \\\\
                              |
-                                 (\`+).*?\2
+                                 \\`
+                             |
+                                 [^\\`|]+?
+                             |
+                                 `
+                                 (
+                                     \\\\
+                                 |
+                                     \\`
+                                 |
+                                     [^\\`]+?
+                                 )*?
+                                 `
                              )*?
                          )
-                         \s*(?:$|\|\s*)}x;
+                         \s*
+                         (?:
+                             $
+                         |
+                             \|\s*
+                         )}x;
 
         while ($_ =~ m{\S} && $_ =~ s{$rx_cell}{}) {
             push(@data, $1);
         }
+
+        my $canBeDelimiterRow = all { m{ ^ \s* :? -+ :? \s* $ }x } @data;
+
         if (!defined $self->table->{headerRow}) {
             $self->table->{headerRow} = \@data;
         } elsif (!defined $self->table->{delimiterRow}) {
-            $self->table->{delimiterRow} = \@data;
+            if ($canBeDelimiterRow) {
+                $self->table->{delimiterRow} = \@data;
+            } else {
+                $self->table->{delimiterRow} = [];
+            }
         } else {
             push(@{$self->table->{rows}}, \@data);
         }
