@@ -74,7 +74,7 @@ if ($progname eq "uri-escape") {
         print $_;
         print "\n";
     }
-} elsif ($progname eq "uri_unescape") {
+} elsif ($progname eq "uri-unescape") {
     while (<>) {
         s{\R\z}{};
         if ($non_ascii_only) {
