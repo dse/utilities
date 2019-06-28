@@ -42,6 +42,7 @@ Getopt::Long::GetOptions(
     'x|suffix=s'       => \$suffix,
     'test'             => sub { $suffix = 'test'; },
     'tomorrow'         => sub { $date = 'tomorrow'; },
+    'h|help'           => sub { usage(); exit(0); },
 ) or die("Type '$0 --help' for help.\n");
 
 my @remainder;
