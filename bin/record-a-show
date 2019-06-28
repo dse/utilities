@@ -10,6 +10,14 @@ use File::Basename qw(dirname);
 use File::Path qw(make_path);
 use URI;
 use POSIX qw(strftime);
+use File::Which qw(which);
+
+my $ffmpeg = which('ffmpeg');
+my $avconv = which('avconv');
+
+if (!defined $ffmpeg && !defined $avconv) {
+    die("ffmpeg and avconv not found\n");
+}
 
 my $url;
 my $stationName;
@@ -99,9 +107,17 @@ my $filename = sprintf('%s/record-a-show/%s/%s/%s%s.nut',
                        defined $suffix ? "-$suffix" : '');
 
 make_path(dirname($filename));
-my @cmd = ('ffmpeg', '-y',
-           '-loglevel', 'warning',
-           '-i', $url, '-t', $maxTime, $filename);
+
+my @cmd;
+if (defined $ffmpeg) {
+    @cmd = ($ffmpeg, '-y',
+            '-loglevel', 'warning',
+            '-i', $url, '-t', $maxTime, $filename);
+} elsif (defined $avconv) {
+    @cmd = ($avconv, '-y',
+            '-loglevel', 'warning',
+            '-i', $url, '-t', $maxTime, $filename);
+}
 
 warn("Executing: @cmd\n");
 exec(@cmd);
