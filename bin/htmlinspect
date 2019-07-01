@@ -120,6 +120,17 @@ if ($opt_list_files_only) {
 
 local $/ = undef;
 while (<>) {
+
+    # required for unknown tags to work
+    if ($_ !~ m{<body[^>]*>.*</body>}smi) {
+        printf("no <body> element\n");
+        $_ = '<body>' . $_ . '</body>';
+    }
+    if ($_ !~ m{<html[^>]*>.*</html>}smi) {
+        printf("no <html> element\n");
+        $_ = '<html>' . $_ . '</html>';
+    }
+
     my $inspector = My::HTML::Inspector->new();
     $inspector->show_ancestors($opt_show_ancestors)     if defined $opt_show_ancestors;
     $inspector->show_attributes($opt_show_attributes)   if defined $opt_show_attributes;
@@ -131,9 +142,9 @@ while (<>) {
     $inspector->no_recurse($opt_no_recurse)             if defined $opt_no_recurse;
 
     my $tree = HTML::TreeBuilder::XPath->new();
+    $tree->ignore_unknown(0);
     $tree->parse($_);
     $tree->eof();
-
 
     if (scalar @opt_search) {
         foreach my $search (@opt_search) {
