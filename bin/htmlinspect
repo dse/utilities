@@ -10,6 +10,7 @@ use strictures;
 use HTML::TreeBuilder;
 use Getopt::Long;
 use Data::Dumper;
+use File::Find qw();
 
 our $opt_show_attributes;
 our $opt_show_first_child;
@@ -89,6 +90,25 @@ sub hhhh { iiii(); }
 if ($opt_carp_test) {
     ffff();
 }
+
+# replace directories with lists of files
+my @files;
+foreach my $arg (@ARGV) {
+    if (-d $arg) {
+        my $wanted = sub {
+            my ($dev,$ino,$mode,$nlink,$uid,$gid);
+            (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+                -f _ &&
+                /^.*\.html?\z/si
+                && push(@files, $File::Find::name);
+        };
+        File::Find::find({ wanted => $wanted }, $arg);
+    } else {
+        push(@files, $arg);
+    }
+}
+
+@ARGV = @files;
 
 local $/ = undef;
 while (<>) {
