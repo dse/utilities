@@ -123,11 +123,9 @@ while (<>) {
 
     # required for unknown tags to work
     if ($_ !~ m{<body[^>]*>.*</body>}smi) {
-        printf("no <body> element\n");
         $_ = '<body>' . $_ . '</body>';
     }
     if ($_ !~ m{<html[^>]*>.*</html>}smi) {
-        printf("no <html> element\n");
         $_ = '<html>' . $_ . '</html>';
     }
 
