@@ -22,6 +22,7 @@ our $opt_theme = 'blank';
 our $opt_carp_test;
 our $opt_show_ancestors;
 our $opt_no_recurse;
+our $opt_list_files_only;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -58,6 +59,7 @@ Getopt::Long::GetOptions(
     "heavy" => sub { $opt_theme = "heavy"; $opt_tree = 1; },
     "carp" => sub { },          # does nothing here, but see above
     "carp-test" => \$opt_carp_test,
+    "list-files-only" => \$opt_list_files_only,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -80,6 +82,7 @@ options:
       --light
       --heavy
       --carp                    show stack traces
+      --list-files-only
 END
 
 ###############################################################################
@@ -110,6 +113,11 @@ foreach my $arg (@ARGV) {
 
 @ARGV = @files;
 
+if ($opt_list_files_only) {
+    say foreach @ARGV;
+    exit;
+}
+
 local $/ = undef;
 while (<>) {
     my $inspector = My::HTML::Inspector->new();
@@ -125,6 +133,8 @@ while (<>) {
     my $tree = HTML::TreeBuilder::XPath->new();
     $tree->parse($_);
     $tree->eof();
+
+
     if (scalar @opt_search) {
         foreach my $search (@opt_search) {
             my @results = $inspector->search($tree, $search);
