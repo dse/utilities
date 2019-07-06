@@ -1,0 +1,76 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our $maxLines = 100;
+our $threshold = 0.9;
+
+if (scalar(@ARGV)) {
+    foreach my $arg (@ARGV) {
+        checkCRLF($arg);
+    }
+} else {
+    checkCRLF();
+}
+
+sub outputCRLFResult {
+    my ($filename, $style, $mostly) = @_;
+    my $result = $style;
+    $result .= " ($mostly)" if defined $mostly;
+    printf("%-31s %s\n", $filename, $result);
+}
+
+sub checkCRLF {
+    my $filename = shift;
+    my $isBinary = 0;
+    if (defined $filename) {
+        if (-B $filename) {
+            $isBinary = 1;
+            goto result;
+        }
+    } else {
+        $filename = "<stdin>";
+    }
+    local @ARGV = ($filename);
+    local $. = 0;
+    my $lineCount = 0;
+    my $counts = {};
+    while (<>) {
+        s{(\R)\z}{};
+        my $terminator = $1;
+        if (!defined $terminator || $terminator eq '') {
+            $counts->{none} += 1;
+        } elsif ($terminator eq "\r\n") {
+            $counts->{crlf} += 1;
+        } elsif ($terminator eq "\r") {
+            $counts->{cr} += 1;
+        } elsif ($terminator eq "\n") {
+            $counts->{lf} += 1;
+        } else {
+            $counts->{other} += 1;
+        }
+        $lineCount += 1;
+        if ($lineCount >= $maxLines) {
+            last;
+        }
+    }
+  result:
+    if ($isBinary) {
+        outputCRLFResult($filename, 'binary');
+    } elsif ($lineCount == 0) {
+        outputCRLFResult($filename, 'empty');
+    } else {
+        foreach my $style (qw(none crlf cr lf other)) {
+            $counts->{$style} //= 0;
+            if ($counts->{$style} == $lineCount) {
+                outputCRLFResult($filename, $style);
+                return;
+            } elsif ($counts->{$style} / $lineCount >= $threshold - 0.000001) {
+                outputCRLFResult($filename, $style, 'mostly');
+                return;
+            }
+        }
+        outputCRLFResult($filename, 'mixed');
+    }
+}
