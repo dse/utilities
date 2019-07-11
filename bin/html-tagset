@@ -4,7 +4,27 @@ use strict;
 use v5.10.0;
 
 use HTML::Tagset;
+use HTML::Valid::Tagset;
 use Data::Dumper;
+
+BEGIN {
+    %HTML::Tagset::emptyElement                 = %HTML::Valid::Tagset::emptyElement;
+    %HTML::Tagset::optionalEndTag               = %HTML::Valid::Tagset::optionalEndTag;
+    %HTML::Tagset::linkElements                 = %HTML::Valid::Tagset::linkElements;
+    %HTML::Tagset::boolean_attr                 = %HTML::Valid::Tagset::boolean_attr;
+    %HTML::Tagset::isPhraseMarkup               = %HTML::Valid::Tagset::isPhraseMarkup;
+    %HTML::Tagset::is_Possible_Strict_P_Content = %HTML::Valid::Tagset::is_Possible_Strict_P_Content;
+    %HTML::Tagset::isHeadElement                = %HTML::Valid::Tagset::isHeadElement;
+    %HTML::Tagset::isList                       = %HTML::Valid::Tagset::isList;
+    %HTML::Tagset::isTableElement               = %HTML::Valid::Tagset::isTableElement;
+    %HTML::Tagset::isFormElement                = %HTML::Valid::Tagset::isFormElement;
+    %HTML::Tagset::isBodyMarkup                 = %HTML::Valid::Tagset::isBodyMarkup;
+    %HTML::Tagset::isHeadOrBodyElement          = %HTML::Valid::Tagset::isHeadOrBodyElement;
+    %HTML::Tagset::isKnown                      = %HTML::Valid::Tagset::isKnown;
+    %HTML::Tagset::canTighten                   = %HTML::Valid::Tagset::canTighten;
+    @HTML::Tagset::p_closure_barriers           = @HTML::Valid::Tagset::p_closure_barriers;
+    %HTML::Tagset::isCDATA_Parent               = %HTML::Valid::Tagset::isCDATA_Parent;
+}
 
 our @variables = (
     { full_name => '%HTML::Tagset::emptyElement'                 },
