@@ -23,6 +23,7 @@ our $opt_carp_test;
 our $opt_show_ancestors;
 our $opt_no_recurse;
 our $opt_list_files_only;
+our $opt_files_with_matches;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -46,6 +47,7 @@ Getopt::Long::GetOptions(
     "first-child|show-first-child" => \$opt_show_first_child,
     "last-child|show-last-child"   => \$opt_show_last_child,
     "t|tree"                       => \$opt_tree,
+    "l|files-with-matches"         => \$opt_files_with_matches,
     "T|theme|tree-theme=s" => sub {
         my $value = $_[1];
         if ($value ne "blank" && $value ne "ascii" && $value ne "light" && $value ne "heavy") {
@@ -62,6 +64,11 @@ Getopt::Long::GetOptions(
     "list-files-only" => \$opt_list_files_only,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
+
+if ($opt_files_with_matches && !scalar @opt_search) {
+    warn("--files-with-matches specified without a -s/--search selector.\n");
+    die("Type '$0 --help' for help.\n");
+}
 
 sub usage { print <<"END"; }
 usage:
@@ -82,7 +89,8 @@ options:
       --light
       --heavy
       --carp                    show stack traces
-      --list-files-only
+      --list-files-only         list files that would be searched
+  -l, --files-with-matches      list files containing matches with -s/--search
 END
 
 ###############################################################################
@@ -138,13 +146,23 @@ while (<>) {
     $inspector->theme($opt_theme)                       if defined $opt_theme;
     $inspector->fancy($opt_fancy)                       if defined $opt_fancy;
     $inspector->no_recurse($opt_no_recurse)             if defined $opt_no_recurse;
+    $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
 
     my $tree = HTML::TreeBuilder::XPath->new();
     $tree->ignore_unknown(0);
     $tree->parse($_);
     $tree->eof();
 
-    if (scalar @opt_search) {
+    if ($opt_files_with_matches) {
+        if (scalar @opt_search) {
+            foreach my $search (@opt_search) {
+                if ($inspector->has($tree, $search)) {
+                    print "$ARGV\n";
+                    last;
+                }
+            }
+        }
+    } elsif (scalar @opt_search) {
         foreach my $search (@opt_search) {
             my @results = $inspector->search($tree, $search);
             foreach my $result (@results) {
@@ -164,7 +182,8 @@ package My::HTML::Inspector {
                        no_recurse
                        tree
                        theme
-                       fancy);
+                       fancy
+                       files_with_matches);
 
     INIT {
         eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
@@ -331,5 +350,12 @@ package My::HTML::Inspector {
         my $xpath = selector_to_xpath($search, './');
         my @results = $tree->findnodes($xpath);
         return @results;
+    }
+
+    sub has {
+        my ($self, $tree, $search) = @_;
+        my $xpath = selector_to_xpath($search, './');
+        my @results = $tree->findnodes($xpath);
+        return scalar @results;
     }
 };
