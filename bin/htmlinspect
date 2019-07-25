@@ -65,6 +65,11 @@ Getopt::Long::GetOptions(
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
+if ($opt_tree && scalar @opt_search) {
+    warn("--tree and --search are incompatible.\n");
+    die("Type '$0 --help' for help.\n");
+}
+
 if ($opt_files_with_matches && !scalar @opt_search) {
     warn("--files-with-matches specified without a -s/--search selector.\n");
     die("Type '$0 --help' for help.\n");
@@ -82,7 +87,7 @@ options:
   -f, --fancy
       --[show-]first-child
       --[show-]last-child
-  -t, --tree
+  -t, --tree                    (not for use with -s/--search)
   -T, --tree-theme=<theme>      blank, ascii, light, heavy
       --blank
       --ascii
@@ -138,13 +143,13 @@ while (<>) {
     }
 
     my $inspector = My::HTML::Inspector->new();
-    $inspector->show_ancestors($opt_show_ancestors)     if defined $opt_show_ancestors;
-    $inspector->show_attributes($opt_show_attributes)   if defined $opt_show_attributes;
-    $inspector->show_first_child($opt_show_first_child) if defined $opt_show_first_child;
-    $inspector->show_last_child($opt_show_last_child)   if defined $opt_show_last_child;
-    $inspector->tree($opt_tree)                         if defined $opt_tree;
-    $inspector->theme($opt_theme)                       if defined $opt_theme;
-    $inspector->fancy($opt_fancy)                       if defined $opt_fancy;
+    $inspector->show_ancestors($opt_show_ancestors)         if defined $opt_show_ancestors;
+    $inspector->show_attributes($opt_show_attributes)       if defined $opt_show_attributes;
+    $inspector->show_first_child($opt_show_first_child)     if defined $opt_show_first_child;
+    $inspector->show_last_child($opt_show_last_child)       if defined $opt_show_last_child;
+    $inspector->tree($opt_tree)                             if defined $opt_tree;
+    $inspector->theme($opt_theme)                           if defined $opt_theme;
+    $inspector->fancy($opt_fancy)                           if defined $opt_fancy;
     $inspector->no_recurse($opt_no_recurse)             if defined $opt_no_recurse;
     $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
 
@@ -269,10 +274,12 @@ package My::HTML::Inspector {
                 print(" " x (4 * $level));
             }
         } else {
-            print($parents_string);
+            if (!$self->show_ancestors) {
+                print($parents_string);
+            }
         }
 
-        if ($level == 0 && $self->show_ancestors) {
+        if ($self->show_ancestors) {
             my $ancestors = "";
             for (my $parent = $element->parent;
                  $parent;
