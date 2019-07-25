@@ -41,6 +41,11 @@ matcher_conflict=""
 verbose=0
 dry_run=0
 
+split=0
+opt_r=0
+opt_R=0
+opt_v=0
+
 usage () {
     "${grep}" --help
     echo
@@ -54,6 +59,9 @@ usage () {
     echo "      --css-class='<class>'    CSS classes in HTML/SGML/XML files"
     echo "      --attribute='<attr>'     HTML/SVG/XML attributes"
     echo "      --attribute='<attr>-'    HTML/SVG/XML attribute prefix"
+    echo "      --split"
+    echo "      --split-by-file"
+    echo "      --no-split"
     echo "grep options having no effect if grepp uses find to recurse:"
     echo "      --directories=ACTION"
     echo "  -r, --recursive"
@@ -165,6 +173,10 @@ longopts=(
 
     findd-exclude yes
     findd-include yes
+
+    split         no
+    split-by-file no
+    no-split      no
 
     emacs                  no
 )
@@ -296,7 +308,7 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
         P|perl-regexp)     opt_matcher "-P";;
 
         # takes no arguments; pass to grep
-        V|i|v|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|U|z)
+        V|i|w|x|y|c|L|l|o|q|s|b|H|h|n|T|u|Z|a|I|U|z)
             # NOTE: There is no need to pass -r to grep when using
             # find, but it's also harmless.
             grep_options+=(
@@ -314,6 +326,12 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             opt_r=0
             opt_R=1
             grep_options+=("-${OPTION}")
+            ;;
+        v)
+            opt_v=1
+            grep_options+=(
+                -"${OPTION}"
+            )
             ;;
 
         # takes an argument; pass to grep
@@ -384,6 +402,12 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
                 "${LONGOPTARGS[@]}"
             )
             ;;
+        "invert-match")
+            opt_v=1
+            grep_options+=(
+                "${LONGOPTARGS[@]}"
+            )
+            ;;
         "maxdepth"|"max-depth")
             maxdepth="${OPTARG}"
             use_find=1
@@ -440,6 +464,13 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             fi
             ;;
 
+        "split")
+            split=1
+            ;;
+        "no-split")
+            split=0
+            ;;
+
         # other long options are passed to grep
         # for now, includes --exclude-from
         ??*)
@@ -456,6 +487,11 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
     esac
 done
 shift $((OPTIND - 1))
+
+if (( opt_v && split )) ; then
+    >&2 echo "--split is not compatible with -v/--invert-match."
+    exit 1
+fi
 
 if (( check_for_emacs_grep )) ; then # default
     if [[ "${TERM}" = "emacs-grep" ]] ; then # M-x find-grep
@@ -531,19 +567,18 @@ if (( find_only )) ; then
         \! \( "${find_file_excludes[@]}" \)
         -ls
     )
-
     if (( verbose >= 1 || dry_run )) ; then
         echo_command "${find_command[@]}"
     fi
-
     if (( dry_run )) ; then
         exit 0
     fi
-
     exec "${find_command[@]}"
 elif (( use_find )) ; then
     set_find_excludes
     declare -a find_command
+    declare -a find_v_command
+
     find_command=(
         find
         "$@"
@@ -558,20 +593,38 @@ elif (( use_find )) ; then
         "${grep_patterns[@]}"
         {} +
     )
+    find_v_command=(
+        find
+        "$@"
+        ${mindepth:+-mindepth "${mindepth}"}
+        ${maxdepth:+-maxdepth "${maxdepth}"}
+        \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+        -type f
+        \! \( "${find_file_excludes[@]}" \)
+        -exec
+        "${grep}"
+        -v
+        "${grep_options[@]}"
+        "${grep_patterns[@]}"
+        {} +
+    )
 
-    if (( verbose >= 1 || dry_run )) ; then
-        echo_command "${find_command[@]}"
-    fi
-
-    if (( dry_run )) ; then
+    if (( split )) ; then
+        (( verbose >= 1 || dry_run )) && echo_command "${find_command[@]}"
+        (( !dry_run ))                && "${find_command[@]}"
+        (( verbose >= 1 || dry_run )) && echo_command "${find_v_command[@]}"
+        (( !dry_run ))                && "${find_v_command[@]}"
+        exit 0
+    else
+        (( verbose >= 1 || dry_run )) && echo_command "${find_command[@]}"
+        (( !dry_run ))                && exec "${find_command[@]}"
         exit 0
     fi
-
-    exec "${find_command[@]}"
 else
     set_grep_excludes
 
     declare -a grep_command
+    declare -a grep_v_command
     grep_command=(
         "${grep}"
         "${grep_options[@]}"
@@ -580,12 +633,41 @@ else
         "${grep_patterns[@]}"
         "$@"
     )
+    grep_v_command=(
+        "${grep}"
+        -v
+        "${grep_options[@]}"
+        "${grep_directory_excludes[@]}"
+        "${grep_file_excludes[@]}"
+        "${grep_patterns[@]}"
+        "$@"
+    )
 
-    if (( dry_run || verbose )) ; then
-        >&2 echo_command "${grep_command[@]}"
-    fi
-    if (( dry_run )) ; then
+    if (( split )) ; then
+        if [[ "$#" = "1" ]] && [[ "$1" = "-" ]] ; then
+            if (( dry_run )) ; then
+                echo_command "${grep_command[@]}"
+                echo_command "${grep_v_command[@]}"
+                exit 0
+            else
+                temp="$(mktemp)"
+                cat >"$temp"
+                (( verbose )) && echo_command "${grep_command[@]}"
+                "${grep_command[@]}" <"$temp"
+                (( verbose )) && echo_command "${grep_v_command[@]}"
+                "${grep_v_command[@]}" <"$temp"
+                exit 0
+            fi
+        else
+            (( dry_run || verbose )) && echo_command "${grep_command[@]}"
+            (( !dry_run ))           && "${grep_command[@]}"
+            (( dry_run || verbose )) && echo_command "${grep_v_command[@]}"
+            (( !dry_run ))           && "${grep_v_command[@]}"
+            exit 0
+        fi
+    else
+        (( dry_run || verbose )) && echo_command "${grep_command[@]}"
+        (( !dry_run ))           && exec "${grep_command[@]}"
         exit 0
     fi
-    exec "${grep_command[@]}"
 fi
