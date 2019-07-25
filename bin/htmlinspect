@@ -21,7 +21,7 @@ our $opt_tree;
 our $opt_theme = 'blank';
 our $opt_carp_test;
 our $opt_show_ancestors;
-our $opt_no_recurse;
+our $opt_recurse;
 our $opt_list_files_only;
 our $opt_files_with_matches;
 
@@ -41,7 +41,8 @@ Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
     "s|search=s"                   => \@opt_search,
     "A|ancestors|show-ancestors"   => \$opt_show_ancestors,
-    "R|no-recurse"                 => \$opt_no_recurse,
+    "R|no-recurse"                 => sub { $opt_recurse = 0; },
+    "r|recurse"                    => sub { $opt_recurse = 1; },
     "f|fancy"                      => \$opt_fancy,
     "a|attributes|show-attributes" => \$opt_show_attributes,
     "first-child|show-first-child" => \$opt_show_first_child,
@@ -82,7 +83,8 @@ options:
   -h, --help
   -a, --[show-]attributes
   -s, --search='<search>'       search by CSS selector
-  -R, --no-recurse
+  -r, --recurse                 (default if --search is not specified)
+  -R, --no-recurse              (default if --search is specified)
   -A, --[show-]ancestors        only when searching
   -f, --fancy
       --[show-]first-child
@@ -142,6 +144,14 @@ while (<>) {
         $_ = '<html>' . $_ . '</html>';
     }
 
+    if (!defined $opt_recurse) {
+        if (scalar @opt_search) {
+            $opt_recurse = 0;
+        } else {
+            $opt_recurse = 1;
+        }
+    }
+
     my $inspector = My::HTML::Inspector->new();
     $inspector->show_ancestors($opt_show_ancestors)         if defined $opt_show_ancestors;
     $inspector->show_attributes($opt_show_attributes)       if defined $opt_show_attributes;
@@ -150,7 +160,7 @@ while (<>) {
     $inspector->tree($opt_tree)                             if defined $opt_tree;
     $inspector->theme($opt_theme)                           if defined $opt_theme;
     $inspector->fancy($opt_fancy)                           if defined $opt_fancy;
-    $inspector->no_recurse($opt_no_recurse)             if defined $opt_no_recurse;
+    $inspector->recurse($opt_recurse)                       if defined $opt_recurse;
     $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
 
     my $tree = HTML::TreeBuilder::XPath->new();
@@ -184,7 +194,7 @@ package My::HTML::Inspector {
                        show_first_child
                        show_last_child
                        show_attributes
-                       no_recurse
+                       recurse
                        tree
                        theme
                        fancy
@@ -291,7 +301,7 @@ package My::HTML::Inspector {
 
         print($element_string, "\n");
 
-        if (!$self->no_recurse) {
+        if ($self->recurse) {
             my @children = grep { ref $_ } $element->content_list();
             my $index = 0;
             my $nchildren = scalar @children;
