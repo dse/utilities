@@ -1,0 +1,21 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+while (<>) {
+    # usage:
+    #     @file <filename>
+    #     @file(<filename>)
+    #     @file[<filename>]
+    #     @file{<filename>}
+    if (m{\@file\s*\((.*?)\)}i ||
+            m{\@file\s*\[(.*?)\]}i ||
+            m{\@file\s*\{(.*?)\}}i ||
+            m{\@file\s+(\S+)}i) {
+        my $filename = $1;
+        close(STDOUT);
+        open(STDOUT, '>', $filename) or die("Cannot write $filename: $!\n");
+    }
+    print;
+}
