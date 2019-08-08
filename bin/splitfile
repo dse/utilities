@@ -9,13 +9,106 @@ while (<>) {
     #     @file(<filename>)
     #     @file[<filename>]
     #     @file{<filename>}
-    if (m{\@file\s*\((.*?)\)}i ||
-            m{\@file\s*\[(.*?)\]}i ||
-            m{\@file\s*\{(.*?)\}}i ||
-            m{\@file\s+(\S+)}i) {
+    if (m{\@(?:split)?file\s*\((.*?)\)}i ||
+            m{\@(?:split)?file\s*\[(.*?)\]}i ||
+            m{\@(?:split)?file\s*\{(.*?)\}}i ||
+            m{\@(?:split)?file\s+(\S+)}i) {
         my $filename = $1;
         close(STDOUT);
         open(STDOUT, '>', $filename) or die("Cannot write $filename: $!\n");
     }
     print;
 }
+
+=head1 NAME
+
+splitfile - Split a file into multiple files based on @file directives
+
+=head1 SYNOPSIS
+
+    splitfile [<filename> ...]
+
+=head1 DESCRIPTION
+
+=head2 What It Does
+
+The C<splitfile> utility reads each line of its input, and for each
+line it reads:
+
+=over 4
+
+=item *
+
+If it contains a C<@file> directive discussed below, redirects
+standard output to the filename it specifies.
+
+=item *
+
+It then prints that line to standard output.
+
+=back
+
+Standard output is directed to normal standard output initially.
+
+=head2 Program Input
+
+The C<splitfile> utility takes its input from either standard input
+or, if any filename arguments are specified on the command line, the
+concatenation of the contents of those files.  A filename argument
+consisting entirely of "-" is considered standard input.
+
+=head2 @file Directives
+
+A C<@file> directive looks like one of the following:
+
+    @file file1.txt
+    @file(file2.txt)
+    @file[file3.txt]
+    @file{file4.txt}
+
+It may appear on a line by itself, or can be preceeded or followed by
+other characters in the line.
+
+You must use one of the second through fourth forms, which use
+matching brackets to surround the filename, if the filename contains
+one or more spaces.
+
+There may be one or more spaces after C<@file> and B<before> one of
+the opening paired brackets:
+
+    @file (file2.txt)
+    @file [file3.txt]
+    @file {file4.txt}
+
+However, any space B<inside> the paired brackets is significant; the
+following:
+
+    @file( file2.txt )
+
+will redirect output to a filename called C< file2.txt >, which
+begins with a space and ends with a space.
+
+=head1 EXAMPLE
+
+Let's take the following example input:
+
+    1   The quick brown fox jumps over a lazy dog.
+    2   @file pangram1.txt
+    3   Wafting zephyrs quickly vex bold Jim.
+    4   Fox nymphs grab quick-jived waltz.
+    5   /* @file pangram2.txt */
+    6   Pack my box with five dozen liquor jugs.
+
+Line 1 will be printed to stanard output; lines 2 through 4, including
+the C<@file> directive, will be printed to C<pangram1.txt>, and lines
+5 and 6 will be printed to C<pangram2.txt>.
+
+=head1 OPTIONS
+
+There are no command-line options at this time.
+
+=head1 AUTHOR
+
+Darren Embry (dse at-sign webonastick period com)
+
+=cut
