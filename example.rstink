@@ -1,0 +1,3 @@
+# -*- sh -*-
+SYNC '\\smb.example.com\share1\project1'
+SYNC '\\smb.example.com\share2\group3\project99'
