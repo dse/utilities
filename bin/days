@@ -4,7 +4,12 @@ use strict;
 use v5.10.0;
 
 use Time::ParseDate qw(parsedate);
-use POSIX qw(round strftime);
+use POSIX qw(strftime);
+
+sub round {
+    my $x = shift;
+    return int(0.5 + $x);
+}
 
 my $firstarg = $ARGV[0];
 if (defined $firstarg &&
