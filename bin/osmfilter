@@ -10,8 +10,6 @@ my @pairs = grep { /=/ } @ARGV;
 
 local $/ = undef;
 
-use XML::LibXML;
-
 while (<>) {
     foreach my $pair (@pairs) {
         if ($pair eq '=unused-nodes') {
