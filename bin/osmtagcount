@@ -1,0 +1,118 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Sort::Naturally;
+use File::Basename qw(basename);
+
+my $countKeyValues;
+
+my $progname = basename($0);
+if ($progname eq 'osmtagcount') {
+    $countKeyValues = 0;
+} elsif ($progname eq 'osmtagvaluecount') {
+    $countKeyValues = 1;
+} else {
+    die("I'm $progname?  :-(\n");
+}
+
+our $EXCLUDE_TAG_NAMES = {
+    name          => 1,
+    created_by    => 1,
+    ref           => 1,
+    int_name      => 1,
+    loc_name      => 1,
+    nat_name      => 1,
+    official_name => 1,
+    old_name      => 1,
+    reg_name      => 1,
+    short_name    => 1,
+    sorting_name  => 1,
+    alt_name      => 1,
+    website       => 1,
+    phone         => 1,
+    start_date    => 1,
+    repeat_on     => 1,
+    opening_hours => 1,
+    ele           => 1,
+    FIXME         => 1,
+};
+
+our $TAG_NAME_WHITELIST = {
+    aerialway        => 1,
+    aeroway          => 1,
+    amenity          => 1,
+    barrier          => 1,
+    boundary         => 1,
+    building         => 1,
+    craft            => 1,
+    emergency        => 1,
+    geological       => 1,
+    highway          => 1,
+    sidewalk         => 1,
+    cycleway         => 1,
+    busway           => 1,
+    historic         => 1,
+    landuse          => 1,
+    leisure          => 1,
+    man_made         => 1,
+    military         => 1,
+    natural          => 1,
+    office           => 1,
+    place            => 1,
+    power            => 1,
+    public_transport => 1,
+    railway          => 1,
+    electrified      => 1,
+    embedded_rails   => 1,
+    service          => 1,
+    usage            => 1,
+    route            => 1,
+    shop             => 1,
+    sport            => 1,
+    telecom          => 1,
+    tourism          => 1,
+    waterway         => 1,
+};
+
+our $TAG_NAME_VALUE_WHITELIST = {
+    'line=busbar'    => 1,
+    'line=bay'       => 1,
+    'bridge=yes'     => 1,
+    'cutting=yes'    => 1,
+    'embankment=yes' => 1,
+    'tunnel=yes'     => 1,
+};
+
+my %k;
+my %kv;
+
+local $/ = undef;
+while (<>) {
+    while (m{<tag\s+k="([^>"]*)"\s+v="([^>"]*)"\s*/>}g) {
+        my ($k, $v) = ($1, $2);
+        next if index($k, ':') != -1;
+        next if $EXCLUDE_TAG_NAMES->{$k};
+        next if $k =~ m{^name_\d+$};
+        if ($TAG_NAME_WHITELIST->{$k} || $TAG_NAME_VALUE_WHITELIST->{"$k=$v"}) {
+            if ($countKeyValues) {
+                $kv{$k}{$v} += 1;
+            } else {
+                $k{$k} += 1;
+            }
+        }
+    }
+}
+
+if ($countKeyValues) {
+    foreach my $k (nsort keys %kv) {
+        foreach my $v (nsort keys %{$kv{$k}}) {
+            printf("%6d  %-30s  %s\n", $kv{$k}{$v}, $k, $v);
+        }
+    }
+} else {
+    foreach my $k (nsort keys %k) {
+        printf("%6d  %s\n", $k{$k}, $k);
+    }
+}
