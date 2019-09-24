@@ -2,26 +2,116 @@
 set -o errexit
 set -o pipefail
 
-SYNC () {
-    local source="$1"
-    local dest="$2"
-    if [[ "$OSTYPE" = "cygwin" ]] ; then
-	source="$(cygpath -u "$source")"
+declare -a patterns
+declare -a rsync_options
+
+SYNC_MATCHES () {
+    if (( ! "${#patterns[@]}" )) ; then
+        return 0
     fi
-    local basename="$(basename "$source")"
-    if [[ "$2" = "" ]] ; then
-	dest="$basename"
-    fi
-    if ! [[ -d "$dest" ]] ; then
-	mkdir "$dest"
-    fi
-    >&2 echo "[$basename]"
-    rsync -r -l -t -D -v --progress \
-	  --delete --delete-excluded \
-	  --exclude='.DS_Store' \
-	  --exclude='Thumbs.db' \
-	  "$source/" "$dest/"
+    local pattern
+    local i
+    for pattern in "${patterns[@]}" ; do
+        for i ; do
+            if [[ "${i,,}" = *"${pattern,,}"* ]] ; then
+                return 0
+            fi
+        done
+    done
+    return 1
 }
+
+SYNC () {
+    if SYNC_MATCHES "$@" ; then
+        SYNC_RUN "$@"
+    else
+        return 0
+    fi
+}
+
+ACTION_RSYNC () {
+    SYNC_RUN () {
+        local source="$1"
+        local dest="$2"
+        if [[ "$OSTYPE" = "cygwin" ]] ; then
+	    source="$(cygpath -u "$source")"
+        fi
+        local basename="$(basename "$source")"
+        if [[ "$2" = "" ]] ; then
+	    dest="$basename"
+        fi
+        if ! [[ -d "$dest" ]] ; then
+	    mkdir "$dest"
+        fi
+        >&2 echo "[$basename]"
+        rsync --recursive \
+              --links \
+              --times \
+              --devices \
+              --specials \
+	      --delete \
+              --delete-excluded \
+	      --exclude='.DS_Store' \
+	      --exclude='Thumbs.db' \
+              "${rsync_options[@]}" \
+	      "$source/" "$dest/"
+    }
+}
+
+ACTION_LIST () {
+    SYNC_RUN () {
+        local source="$1"
+        local dest="$2"
+        echo "$@"
+    }
+}
+
+usage () { cat <<EOF; }
+usage:
+    rstink [-r|--rsync] [<keyword> ...]
+    rstink  -l|--list   [<keyword> ...]
+    rstink  -h|--help
+other options:
+    -n, --dry-run
+    -v, --verbose
+        --progress
+EOF
+
+ACTION_RSYNC
+
+while true ; do
+    case "$1" in
+        -l|--list)
+            ACTION_LIST
+            ;;
+        -r|--rsync)
+            ACTION_RSYNC
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -n|--dry-run)
+            rsync_options+=(-n)
+            ;;
+        -v|--verbose)
+            rsync_options+=(-v)
+            ;;
+        --progress)
+            rsync_options+=(--progress)
+            ;;
+        -*)
+            >&2 echo "unknown option: $1"
+            exit 1
+            ;;
+        *)
+            break;;
+    esac
+    shift
+done
+
+patterns=("$@")
+
 if [[ -e .rstink ]] ; then
     . .rstink
 fi
