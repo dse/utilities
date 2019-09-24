@@ -24,6 +24,7 @@ our $opt_show_ancestors;
 our $opt_recurse;
 our $opt_list_files_only;
 our $opt_files_with_matches;
+our $opt_verbose = 0;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -63,6 +64,7 @@ Getopt::Long::GetOptions(
     "carp" => sub { },          # does nothing here, but see above
     "carp-test" => \$opt_carp_test,
     "list-files-only" => \$opt_list_files_only,
+    "v|verbose+" => \$opt_verbose,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -98,6 +100,7 @@ options:
       --carp                    show stack traces
       --list-files-only         list files that would be searched
   -l, --files-with-matches      list files containing matches with -s/--search
+  -v, --verbose                 list files as they're being searched
 END
 
 ###############################################################################
@@ -135,6 +138,9 @@ if ($opt_list_files_only) {
 
 local $/ = undef;
 while (<>) {
+    if ($opt_verbose) {
+        printf STDERR ("%s...\n", $ARGV);
+    }
 
     # required for unknown tags to work
     if ($_ !~ m{<body[^>]*>.*</body>}smi) {

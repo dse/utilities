@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+for i ; do
+    basename="$(basename "$i")"
+    if [[ "$basename" != *@2x.* ]] ; then
+        >&2 echo "$i: u cannot halve: no @2x"
+        continue
+    fi
+    halved="${i%@2x.*}${i##*@2x}"
+    case "$i" in
+        *.jpg|*.gif|*.png)
+            >&2 echo "$i ..."
+            convert -geometry 50% "$i" "$halved"
+            >&2 echo "    => $halved"
+            ;;
+        *)
+            >&2 echo "$i: u cannot halve: invalid file type"
+            ;;
+    esac
+done

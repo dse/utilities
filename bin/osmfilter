@@ -1,0 +1,86 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+# usage: osmfilter [<key>=<value> | =unused-nodes ...] [<filename> ...]
+
+my @pairs = grep { /=/ } @ARGV;
+@ARGV = grep { !/=/ } @ARGV;
+
+local $/ = undef;
+
+use XML::LibXML;
+
+while (<>) {
+    foreach my $pair (@pairs) {
+        if ($pair eq '=unused-nodes') {
+            my %nodeid;
+            while (m{<nd\b[^>]*
+                     \sref=\"([^">]+)\"
+                     [^>]*
+                     >}gsimx) {
+                $nodeid{$1} += 1;
+            }
+            while (m{<member
+                     \s+type="node"
+                     \s+ref="([^">]*)"
+                     [^>]*/>}gsimx) {
+                $nodeid{$1} += 1;
+            }
+            s{<node\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              />}{$nodeid{$1} ? $& : ''}gsimxe;
+            s{<node\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              (?<!/)>
+              (.*?)
+              </node>}{$nodeid{$1} ? $& : ''}gsimxe;
+        } elsif ($pair eq '=unused-ways') {
+            my %wayid;
+            while (m{<member
+                     \s+type="way"
+                     \s+ref="([^">]*)"
+                     [^>]*/>}gsimx) {
+                $wayid{$1} += 1;
+            }
+            s{<way\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              />}{$wayid{$1} ? $& : ''}gsimxe;
+            s{<way\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              (?<!/)>
+              (.*?)
+              </way>}{$wayid{$1} ? $& : ''}gsimxe;
+        } elsif ($pair =~ m{=$}) {
+            my $k = substr($pair, 0, length($pair) - 1);
+            s{<(node|way|relation)\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              (?<!/)>
+              (.*?)
+              </\1>}{object($&, $k)}gsimxe;
+        } else {
+            my ($k, $v) = split('=', $pair);
+            s{<(node|way|relation)\b[^>]*
+              \sid="([^">]+)"
+              [^>]*
+              (?<!/)>
+              (.*?)
+              </\1>}{object($&, $k, $v)}gsimxe;
+        }
+    }
+    print $_;
+}
+
+sub object {
+    my ($tag, $k, $v) = @_;
+    if (defined $v && $v ne '') {
+        return $tag =~ m{<tag\s+k=\"$k\"\s+v=\"$v\"\s*/>} ? '' : $tag;
+    }
+    return $tag =~ m{<tag\s+k=\"$k\"[^>]*/>} ? '' : $tag;
+}

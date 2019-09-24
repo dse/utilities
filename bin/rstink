@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+SYNC () {
+    local source="$1"
+    local dest="$2"
+    if [[ "$OSTYPE" = "cygwin" ]] ; then
+	source="$(cygpath -u "$source")"
+    fi
+    local basename="$(basename "$source")"
+    if [[ "$2" = "" ]] ; then
+	dest="$basename"
+    fi
+    if ! [[ -d "$dest" ]] ; then
+	mkdir "$dest"
+    fi
+    >&2 echo "[$basename]"
+    rsync -r -l -t -D -v --progress \
+	  --delete --delete-excluded \
+	  --exclude='.DS_Store' \
+	  --exclude='Thumbs.db' \
+	  "$source/" "$dest/"
+}
+if [[ -e .rstink ]] ; then
+    . .rstink
+fi
