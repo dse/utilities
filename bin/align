@@ -15,8 +15,9 @@ BEGIN {
 }
 
 use Getopt::Long;
-use List::Util qw(max all);
+use List::Util qw(max all min);
 use Data::Dumper;
+use Text::Tabs qw(expand);
 
 sub usage { print <<EOF; }
 usage:
@@ -38,123 +39,135 @@ my $debug                = 0;
 my $patternType          = 'regexp';
 my $caseInsensitive      = 0;
 my $maxColumns           = 1;   # 0 = infinity
-my $collapseSpacesBefore = 0;
-my $minSpacesBefore      = 0;
-my @pattern;
+my @patterns;
+my $alignBefore          = 1;
+my $alignAfter           = 0;
+my $repeat               = 0;
 
-Getopt::Long::Configure('bundling', 'gnu_compat');
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
-    'd|debug'                => sub { $debug += 1; },
-    'e|pattern=s'            => \@pattern,
-    'r|regexp'               => sub { $patternType = 'regexp'; },
-    'i|case-insensitive'     => \$caseInsensitive,
-    'case-sensitive'         => sub { $caseInsensitive = 0; },
-    'f|fixed'                => sub { $patternType = 'fixed'; },
-    'm|max-columns=i'        => \$maxColumns,
-    'space'                  => sub { $collapseSpacesBefore = 1; $minSpacesBefore = 1; },
-    'repeat'                 => sub { $maxColumns = 0; },
-    'h|help'                 => sub { usage(); exit(0); },
+    'a|after|align-after'         => sub { $alignAfter  = 1; },
+    'b|before|align-before'       => sub { $alignBefore = 1; },
+    'A|no-after|no-align-after'   => sub { $alignAfter  = 0; },
+    'B|no-before|no-align-before' => sub { $alignBefore = 0; },
+    'd|debug'                     => sub { $debug += 1; },
+    'e|pattern=s'                 => sub {
+        push(@patterns, {
+            alignBefore     => $alignBefore,
+            patternType     => $patternType,
+            caseInsensitive => $caseInsensitive,
+            pattern         => $_[1],
+        });
+    },
+    'r|regexp'                    => sub { $patternType = 'regexp'; },
+    'i|case-insensitive'          => \$caseInsensitive,
+    'case-sensitive'              => sub { $caseInsensitive = 0; },
+    'f|fixed'                     => sub { $patternType = 'fixed'; },
+    'repeat'                      => \$repeat,
+    'h|help'                      => sub { usage(); exit(0); },
 ) or die("Type '$0 --help' for help.\n");
 
-if (!scalar @pattern) {
+if (!scalar @patterns) {
     if (!scalar @ARGV) {
         die("pattern must be specified.\n");
     }
-    push(@pattern, shift(@ARGV));
+    my $pattern = shift(@ARGV);
+    push(@patterns, {
+        alignBefore     => $alignBefore,
+        patternType     => $patternType,
+        caseInsensitive => $caseInsensitive,
+        pattern         => $pattern
+    });
 }
 
-foreach my $pattern (@pattern) {
-    if ($patternType eq 'fixed') {
-        $pattern = '\Q' . $pattern . '\E';
+foreach my $pattern (@patterns) {
+    my $p = $pattern->{pattern};
+
+    if ($pattern->{patternType} eq 'fixed') {
+        $p = quotemeta($p);
+        # $p = '\Q' . $p . '\E';
     }
-    $pattern = '(' . $pattern . ')';
-    if ($collapseSpacesBefore) {
-        $pattern = '\s*' . $pattern;
-    }
-    if ($caseInsensitive) {
-        $pattern = qr{$pattern}i;
+    if ($pattern->{caseInsensitive}) {
+        $p = qr{(\s*)($p)(\s*)}i;
     } else {
-        $pattern = qr{$pattern};
+        $p = qr{(\s*)($p)(\s*)};
     }
+
+    $pattern->{pattern} = $p;
 }
 
-my @line;
+my @lines;
 
 while (<>) {
     s{\R\z}{};
-    my @columns;
-    if ($debug) {
-        printf("line %d: %s\n", $., terseDump($_));
-    }
-    my $numColumns = 0;
-    do {
-        $numColumns += 1;
-        foreach my $pattern (@pattern) {
-            if (!s{^(.*?)$pattern}{}) {
-                goto doneWithLine;
+    $_ = expand($_);
+    push(@lines, {
+        text => $_,
+        filename => $ARGV,
+        lineNumber => $.,
+    });
+}
+
+my $cycleMatch;
+do {
+    $cycleMatch = 0;
+  pattern:
+    foreach my $pattern (@patterns) {
+        foreach my $line (@lines) {
+            if ($line->{text} =~ $pattern->{pattern}) {
+                my ($preMatch, $spaceBefore, $match, $spaceAfter, $postMatch) =
+                    ($`, $1, $2, $3, $');
+                $line->{matches} = 1;
+                $line->{result} = ($line->{result} // '') . $preMatch;
+                $line->{spaceBefore} = $spaceBefore;
+                $line->{match}       = $match;
+                $line->{spaceAfter}  = $spaceAfter;
+                $line->{text}        = $postMatch;
+            } else {
+                delete $line->{spaceBefore};
+                delete $line->{match};
+                delete $line->{spaceAfter};
             }
-            my ($text, $separator) = ($1 // '', $2);
-            if ($debug) {
-                printf("  column %d: text = %s; separator = %s; remainder = %s\n", $numColumns, terseDump($text), terseDump($separator), terseDump($_));
-            }
-            push(@columns, { text => $text, separator => $separator });
         }
-    } while ($_ ne '' && (!$maxColumns || ($numColumns < $maxColumns)));
-  doneWithLine:
-    if ($_ ne '') {
-        push(@columns, { text => $_ });
+        my @matchingLines = grep { $_->{matches} } @lines;
+        if (!scalar @matchingLines) {
+            next pattern;
+        }
+        $cycleMatch = 1;
+
+        if ($pattern->{alignBefore}) {
+            my $maxColumn = 1 + max(map { length $_->{result} } @matchingLines);
+            foreach my $line (@matchingLines) {
+                $line->{result} .= ' ' x ($maxColumn - length $line->{result});
+                delete $line->{spaceBefore};
+            }
+        } else {
+            foreach my $line (@matchingLines) {
+                $line->{result} .= delete $line->{spaceBefore};
+            }
+        }
+
+        foreach my $line (@matchingLines) {
+            $line->{result} .= delete $line->{match};
+        }
+
+        if ($pattern->{alignAfter}) {
+            my $maxColumn = 1 + max(map { length $_->{result} } @matchingLines);
+            foreach my $line (@matchingLines) {
+                if (length $line->{text}) {
+                    $line->{result} .= ' ' x ($maxColumn - length $line->{result});
+                }
+                delete $line->{spaceAfter};
+            }
+        } else {
+            foreach my $line (@matchingLines) {
+                $line->{result} .= delete $line->{spaceAfter};
+            }
+        }
     }
-    push(@line, \@columns);
-}
+} while ($repeat && $cycleMatch);
 
-# early termination condition
-if (!scalar @line) {
-    exit 0;
-}
-
-my $maxNumColumns = max map { scalar @$_ } @line;
-my @textLength;
-my @separatorLength;
-
-if ($debug) {
-    printf("maximum number of columns: $maxNumColumns\n");
-}
-
-foreach my $columnNumber (0 .. ($maxNumColumns - 1)) {
-    my $textLength      = max map {
-        # don't vivify $_->[$columnNumber]
-        defined $_->[$columnNumber] ? eval { length $_->[$columnNumber]->{text} } // 0 : 0
-    } @line;
-    my $separatorLength = max map {
-        # don't vivify $_->[$columnNumber]
-        defined $_->[$columnNumber] ? eval { length $_->[$columnNumber]->{separator} } // 0 : 0
-    } @line;
-    push(@textLength,      $textLength);
-    push(@separatorLength, $separatorLength);
-    if ($debug) {
-        printf("  column %d: maximum text length is %d; maximum separator length is %d\n", $columnNumber + 1, $textLength, $separatorLength);
-    }
-}
-
-foreach my $line (@line) {
-    # print Dumper $line;
-    my $output = '';
-    foreach my $columnNumber (0 .. (scalar @$line - 1)) {
-        my $isLastColumn = ($columnNumber == (scalar @$line - 1));
-        my $column = $line->[$columnNumber];
-        my $textWidth      = $textLength[$columnNumber] + $minSpacesBefore;
-        my $separatorWidth = $separatorLength[$columnNumber];
-        $output .= sprintf("%-*s", $textWidth,      $column->{text});
-        $output .= sprintf("%-*s", $separatorWidth, $column->{separator}) if defined $column->{separator};
-    }
-    $output =~ s{\s+\z}{};
-    say $output;
-}
-
-sub terseDump {
-    local $Data::Dumper::Indent   = 0;
-    local $Data::Dumper::Purity   = 0;
-    local $Data::Dumper::Terse    = 1;
-    local $Data::Dumper::Sortkeys = 1;
-    return Data::Dumper::Dumper(@_);
+foreach my $line (@lines) {
+    print $line->{result} if defined $line->{result};
+    print $line->{text}, "\n";
 }
