@@ -1,0 +1,100 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Getopt::Long;
+use File::Copy qw(move);
+
+our $dryRun = 0;
+our $verbose = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat');
+Getopt::Long::GetOptions(
+    'v|verbose+' => \$verbose,
+    'n|dry-run' => \$dryRun,
+    'h|help' => sub { usage(); exit(0); }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print(<<"EOF"); }
+usage:
+    swap [<option> ...] <filename1> <filename2>
+options:
+    -n, --dry-run
+    -v, --verbose
+    -h, --help
+EOF
+
+###############################################################################
+
+srand(time() + $$ / 1048576);
+
+if (scalar @ARGV < 2) {
+    warn("swap: not enough parameters\n");
+    exit(1);
+}
+
+my $filename1 = shift(@ARGV);
+my $filename2 = shift(@ARGV);
+
+if (!-e $filename1) {
+    warn("swap: $filename1 not found\n");
+    exit(1);
+}
+
+if (!-e $filename2) {
+    warn("swap: $filename2 not found\n");
+    exit(1);
+}
+
+my $tempFilename = tempMove($filename1);
+
+if (-e $filename1) {
+    die("swap: $filename1 exists after renaming it\n");
+}
+if (!move($filename2, $filename1)) {
+    die("swap: move $filename1 $filename2: $!\n");
+}
+
+if (-e $filename2) {
+    die("swap: $filename2 exists after renaming it\n");
+}
+if (!move($tempFilename, $filename2)) {
+    die("swap: move $tempFilename, $filename2: $!\n");
+}
+
+###############################################################################
+
+sub tempMove {
+    my ($filename) = @_;
+    while (1) {
+        my $newFilename = $filename;
+        my $random = randomCharacters();
+        if ($newFilename !~ s{(?:\.[^./\\]+$)}{.$random}) {
+            $newFilename .= '.' . $random;
+        }
+        if (-e $newFilename) {
+            next;
+        }
+        if ($dryRun) {
+            return $newFilename;
+        }
+        if (!move($filename, $newFilename)) {
+            die("swap: cannot move $filename => $newFilename: $!\n");
+        }
+        return $newFilename;
+    }
+}
+
+our $RANDOM_BASE;
+BEGIN {
+    $RANDOM_BASE = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+}
+
+sub randomCharacters {
+    my $result = '';
+    for (my $i = 0; $i < 10; $i += 1) {
+        $result .= substr($RANDOM_BASE, int(rand(length($RANDOM_BASE))), 1);
+    }
+    return $result;
+}
