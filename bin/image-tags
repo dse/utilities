@@ -18,7 +18,18 @@ Getopt::Long::GetOptions(
     'r|radio=f'   => \$ratio,
     'W|no-width'  => \$noWidth,
     'H|no-height' => \$noHeight,
+    'h|help' => sub { usage(); exit(0); },
 );
+
+sub usage { print <<"END"; }
+usage:
+    $0 [<option> ...] <filename> ...
+options:
+    -r, --ratio=<float>      multiply image sizes by specified ratio
+    -W, --no-width
+    -H, --no-height
+    -h, --help               display this message and exit
+END
 
 foreach my $filename (@ARGV) {
     if ($filename =~ m{^$RE{num}{real}$}) {
