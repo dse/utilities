@@ -1,4 +1,4 @@
-package My::Text::GFMTable::Parser;
+package My::Text::GFMTable::Parser; # -*- mode: perl; comment-column: 56; -*-
 use warnings;
 use strict;
 use v5.10.0;
@@ -29,10 +29,18 @@ has 'handleTable' => (
 );
 
 use List::Util qw(max all);
+use Data::Dumper qw(Dumper);
 
 sub parseLine {
     my ($self, $line) = @_;
-    $line =~ s{\R\z}{};
+    $line =~ s{\R\z}{};                                 # safer chomp
+
+    local $Data::Dumper::Indent   = 0;
+    local $Data::Dumper::Terse    = 1;
+    local $Data::Dumper::Deepcopy = 1;
+    local $Data::Dumper::Sortkeys = 1;
+    local $Data::Dumper::Useqq    = 1;
+
     local $_ = $line;
     if (s{^\|\s*}{}) {
         if (!$self->table) {
@@ -44,33 +52,39 @@ sub parseLine {
         my $table = $self->table;
         push(@{$table->{lines}}, $line);
         my @data = ();
-        my $rx_cell = qr{(
-                             (?:
-                                 \\\\
-                             |
-                                 \\`
-                             |
-                                 [^\\`|]+?
-                             |
-                                 `
-                                 (
-                                     \\\\
-                                 |
-                                     \\`
-                                 |
-                                     [^\\`]+?
-                                 )*?
-                                 `
-                             )*?
-                         )
-                         \s*
-                         (?:
-                             $
-                         |
-                             \|\s*
-                         )}x;
+        my $rx_cell =
+            qr{^
+               (
+                   (?:
+                       \\\\                             # \\
+                   |
+                       \\`                              # \`
+                   |
+                       [^\\`|]+?                        # sequence of anything except \ of ` or |
+                   |
+                       `                                # `
+                       (
+                           \\\\                         # \\
+                       |
+                           \\`                          # \`
+                       |
+                           [^\\`]+?                     # sequence of anything except \ or `
+                       )*?
+                       `                                # `
+                   )*?
+               )
+               \s*                                      # whitespace
+               (?:
+                   $
+               |
+                   \|\s*
+               )}x;
 
-        while ($_ =~ m{\S} && $_ =~ s{$rx_cell}{}) {
+        my $count = 0;
+        printf("%s(%s):%s\n", $., $count, Dumper($_));
+        while ($_ =~ m{\S} && $_ =~ s{$rx_cell}{} && length($&) && $count < 512) {
+            $count += 1;
+            printf("%s(%s):%s\n", $., $count, Dumper($_));
             push(@data, $1);
         }
 
