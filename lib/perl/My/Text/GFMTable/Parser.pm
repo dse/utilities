@@ -62,15 +62,9 @@ sub parseLine {
                    |
                        [^\\`|]+?                        # sequence of anything except \ of ` or |
                    |
-                       `                                # `
-                       (
-                           \\\\                         # \\
-                       |
-                           \\`                          # \`
-                       |
-                           [^\\`]+?                     # sequence of anything except \ or `
-                       )*?
-                       `                                # `
+                       `[^`]+`                          # ` followed by 1+ not-` followed by `
+                   |
+                       (``+) ?(.*?) ?\2                 # `` ... ``
                    )*?
                )
                \s*                                      # whitespace
@@ -81,10 +75,8 @@ sub parseLine {
                )}x;
 
         my $count = 0;
-        printf("%s(%s):%s\n", $., $count, Dumper($_));
         while ($_ =~ m{\S} && $_ =~ s{$rx_cell}{} && length($&) && $count < 512) {
             $count += 1;
-            printf("%s(%s):%s\n", $., $count, Dumper($_));
             push(@data, $1);
         }
 
