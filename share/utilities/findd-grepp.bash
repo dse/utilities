@@ -58,6 +58,7 @@ directory_excludes=(
     '_MTN'
     '_darcs'
     '{arch}'
+    '.sass-cache'
 )
 
 file_excludes_binary=(
