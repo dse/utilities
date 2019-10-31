@@ -16,22 +16,30 @@ BEGIN {
 
 use Getopt::Long;
 use List::Util qw(max all min);
-use Data::Dumper;
+use Data::Dumper qw(Dumper);
 use Text::Tabs qw(expand);
+
+local $Data::Dumper::Indent   = 0;
+local $Data::Dumper::Terse    = 1;
+local $Data::Dumper::Deepcopy = 1;
+local $Data::Dumper::Sortkeys = 1;
+local $Data::Dumper::Useqq    = 1;
 
 sub usage { print <<EOF; }
 usage:
   align [<option> ...] <pattern> [<file> ...]
 options:
+  -b, --before             align spaces before <pattern> (default)
+  -a, --after              align spaces after <pattern>
+  -B, --no-before          do not align spaces before <pattern>
+  -A, --no-after           do not align spaces after <pattern>
   -f, --fixed              interpret patterns as fixed strings
   -r, --regexp             interpret patterns as perl regexps (default)
   -i, --case-insensitive   case-insensitive pattern match
       --case-sensitive     case-sensitive pattern match (default)
   -e, --pattern=<pattern>  specify multiple patterns, like grep
   -m, --max-columns=<int>  specify maximum number of column alignments
-                             (default is 1; 0 means as many as possible)
-      --repeat             align as many columns as possible (--max=0)
-      --space              collapse spaces; one space before each separator
+      --repeat             repeat as many alignments as possible
 EOF
 ###############################################################################
 
@@ -40,8 +48,8 @@ my $patternType          = 'regexp';
 my $caseInsensitive      = 0;
 my $maxColumns           = 1;   # 0 = infinity
 my @patterns;
-my $alignBefore          = 1;
-my $alignAfter           = 0;
+my $alignBefore;
+my $alignAfter;
 my $repeat               = 0;
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
@@ -50,7 +58,7 @@ Getopt::Long::GetOptions(
     'b|before|align-before'       => sub { $alignBefore = 1; },
     'A|no-after|no-align-after'   => sub { $alignAfter  = 0; },
     'B|no-before|no-align-before' => sub { $alignBefore = 0; },
-    'd|debug'                     => sub { $debug += 1; },
+    'debug+'                      => \$debug,
     'e|pattern=s'                 => sub {
         push(@patterns, {
             alignBefore     => $alignBefore,
@@ -67,6 +75,14 @@ Getopt::Long::GetOptions(
     'h|help'                      => sub { usage(); exit(0); },
 ) or die("Type '$0 --help' for help.\n");
 
+if (!defined $alignBefore && !defined $alignAfter) {
+    $alignBefore = 1;
+    $alignAfter = 0;
+} else {
+    $alignBefore //= 0;
+    $alignAfter //= 0;
+}
+
 if (!scalar @patterns) {
     if (!scalar @ARGV) {
         die("pattern must be specified.\n");
@@ -74,6 +90,7 @@ if (!scalar @patterns) {
     my $pattern = shift(@ARGV);
     push(@patterns, {
         alignBefore     => $alignBefore,
+        alignAfter      => $alignAfter,
         patternType     => $patternType,
         caseInsensitive => $caseInsensitive,
         pattern         => $pattern
@@ -82,7 +99,9 @@ if (!scalar @patterns) {
 
 foreach my $pattern (@patterns) {
     my $p = $pattern->{pattern};
-
+    if ($debug) {
+        print $p;
+    }
     if ($pattern->{patternType} eq 'fixed') {
         $p = quotemeta($p);
         # $p = '\Q' . $p . '\E';
@@ -92,7 +111,9 @@ foreach my $pattern (@patterns) {
     } else {
         $p = qr{(\s*)($p)(\s*)};
     }
-
+    if ($debug) {
+        say " => ", $p;
+    }
     $pattern->{pattern} = $p;
 }
 

@@ -6,128 +6,18 @@ use utf8;
 
 use open IO => ":locale";
 
+use Data::Dumper;
+
 local $/ = undef;
 while (<>) {
-    warn length $_ while s{/\* \s* DISABLE \s* \*/.*?/\* \s* ENABLE \s* \*/}{}xis;
-    warn length $_ while s{/\*.*?\*/}{}xis;
-    my $inspector = My::CSS::Inspector->new();
-    $inspector->parseString($_);
-    $inspector->filename($ARGV);
-    $inspector->inspect();
 }
 
-package My::CSS::Inspector {
-    use warnings;
-    use strict;
-    use v5.10.0;
+# CSS::Parser
+# http://perl.mines-albi.fr/perl5.6.1/site_perl/5.6.1/CSS/Parser.html
+# is not on CPAN.
 
-    use Class::Tiny qw(filename css3);
+# CSS::Selector::Parser
 
-    use Carp::Always;
-    use OCBNET::CSS3;
-    use OCBNET::CSS3::Regex::Stylesheet qw();
-    use Text::Trim;
+# CSS::Inliner::Parser
 
-    sub parseString {
-        my ($self, $string) = @_;
-        my $css3 = OCBNET::CSS3->new();
-        $css3->parse($string);
-        $self->css3($css3);
-    }
-
-    sub inspect {
-        my ($self, $element, %args) = @_;
-        $element //= $self->css3;
-        my $ancestors = $args{ancestors};
-        my @ancestors = ref $ancestors eq 'ARRAY' ? @$ancestors : ();
-        my $level = $args{level} // 0;
-
-        my @children = @{$element->children};
-        my $nchildren = scalar @children;
-
-        my $class = ref $element;
-        my $text = normalize_space($element->text);
-
-        my $bracket = $element->bracket;
-        my $opener = $bracket ? $OCBNET::CSS3::Regex::Stylesheet::opener{$bracket} : undef;
-        my $closer = $bracket ? $OCBNET::CSS3::Regex::Stylesheet::closer{$bracket} : undef;
-
-        my $myself = {
-            opener => $opener,
-            closer => $closer,
-            text => $text,
-            element => $element,
-        };
-
-        my $print_this = 1;
-
-        if ($element->isa('OCBNET::CSS3::DOM::Property')) {
-            $print_this = 1;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Selector')) {
-            $print_this = 0;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Extended::Media')) {
-            $print_this = 0;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Extended::Import')) {
-            $print_this = 1;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Comment')) {
-            $print_this = 0;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Whitespace')) {
-            $print_this = 0;
-        } elsif ($element->isa('OCBNET::CSS3::DOM::Text')) {
-            $print_this = 0;
-        } else {
-            $print_this = 1;
-            $text .= ' /* ' . $class . ' */';
-        }
-
-        if ($print_this) {
-            print ' ' x ($level * 4);
-
-            foreach my $ancestor (@ancestors) {
-                if (defined $ancestor->{text}) {
-                    print $ancestor->{text};
-                    print ' ';
-                }
-                if ($ancestor->{element}->bracket) {
-                    print $ancestor->{opener};
-                    print ' ';
-                }
-            }
-
-            print $text;
-
-            foreach my $ancestor (reverse @ancestors) {
-                if ($ancestor->{element}->bracket) {
-                    print ' ';
-                    print $ancestor->{closer};
-                }
-            }
-
-            print "\n";
-        }
-
-        my $index = 0;
-        foreach my $child (@children) {
-            $index += 1;
-            $self->inspect(
-                $child,
-                ancestors => [
-                    @ancestors,
-                    $myself
-                ],
-                nchildren => $nchildren,
-                index => $index,
-                level => $level + 1,
-            );
-        }
-    }
-
-    sub normalize_space {
-        my ($string) = @_;
-        return if !defined $string;
-        $string =~ s{^\s+}{};
-        $string =~ s{\s+$}{};
-        $string =~ s{\s+}{ }g;
-        return $string;
-    }
-}
+# CSS::Simple
