@@ -1,0 +1,99 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+use open IO => ":locale";
+
+use HTML::TreeBuilder;
+use Getopt::Long;
+use File::Find qw();
+
+our $opt_verbose = 0;
+
+BEGIN {
+    if (grep { $_ eq "--carp" } @ARGV) {
+        # This does nothing during regular runtime.
+        require Carp::Always;
+        import Carp::Always;
+    }
+}
+
+Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
+Getopt::Long::GetOptions(
+    "v|verbose+" => \$opt_verbose,
+    "h|help" => sub { usage(); exit 0; }
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+  htmlheadings [<option> ...] [<file> ...]
+options:
+  -h, --help
+  -v, --verbose                 list files as they're being searched
+END
+
+###############################################################################
+
+# replace directories with lists of files
+my @files;
+foreach my $arg (@ARGV) {
+    if (-d $arg) {
+        my $wanted = sub {
+            my ($dev,$ino,$mode,$nlink,$uid,$gid);
+            (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+                -f _ &&
+                /^.*\.html?\z/si
+                && push(@files, $File::Find::name);
+        };
+        File::Find::find({ wanted => $wanted }, $arg);
+    } else {
+        push(@files, $arg);
+    }
+}
+
+@ARGV = @files;
+
+our %headingLevel = (
+    h1 => 1,
+    h2 => 2,
+    h3 => 3,
+    h4 => 4,
+    h5 => 5,
+    h6 => 6,
+);
+
+local $/ = undef;
+while (<>) {
+    if ($opt_verbose) {
+        printf STDERR ("%s...\n", $ARGV);
+    }
+
+    # required for unknown tags to work
+    if ($_ !~ m{<body[^>]*>.*</body>}smi) {
+        $_ = '<body>' . $_ . '</body>';
+    }
+    if ($_ !~ m{<html[^>]*>.*</html>}smi) {
+        $_ = '<html>' . $_ . '</html>';
+    }
+
+    my $tree = HTML::TreeBuilder->new();
+    $tree->ignore_unknown(0);
+    $tree->parse($_);
+    $tree->eof();
+
+    my @h = $tree->look_down(
+        sub {
+            exists $headingLevel{lc $_[0]->tag}
+        }
+    );
+    foreach my $h (@h) {
+        my $tagName = lc $h->tag;
+        my $textContent = $h->as_trimmed_text;
+        $textContent =~ s{\s+}{ }g;
+        my $headingLevel = $headingLevel{$tagName};
+
+        print '    ' x $headingLevel, $textContent, "\n";
+    }
+}
