@@ -1,0 +1,20 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+my $lastFilename;
+while (<>) {
+    my $filename;
+    s{\R\z}{};
+    if (s{^(.*?):(\d+:)?\s*}{}) {
+        $filename = $1;
+        if (!defined $lastFilename || $filename ne $lastFilename) {
+            say "$filename:";
+        }
+        say "\t", $_;
+        $lastFilename = $filename;
+    } else {
+        say $_;
+    }
+}
