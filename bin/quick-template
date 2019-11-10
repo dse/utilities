@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use v5.10.0;
 
 use Text::Trim qw(trim);
 use Getopt::Long;
 
 my $template;
 my $separator;
-my $what;
 my $verbose = 0;
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
@@ -22,53 +22,40 @@ sub do_template {
 sub do_data {
     return unless /\S/;
     if (defined($template)) {
-        s{\R\z}{};
-        $_ = trim($_);
+        if ($separator ne "\t") {
+            $_ = trim($_);
+        }
 	my @data = split($separator, $_);
 	my $out = $template;
-	{
-	    no warnings;
-	    $out =~ s{ \$ (\$|\d+) }{ $1 eq '$' ? '$' : $data[$1 - 1] }xge;
-	}
+        $out =~ s{ \$ (\$|\d+) }{ ($1 eq '$') ? '$' : ($data[$1 - 1] // '') }xge;
 	print($out);
     }
 }
 
-my $do;			# a reference to one of the do_ methods above.
+my $action;
 
 while (<>) {
-    s{\R\z}{};
+    s{\R\z}{};                  # safer chomp()
     say STDERR sprintf("%6d. %s", $., $_) if $verbose >= 2;
-    if (/^\s*\{\s*TEMPLATE\s*\}\s*$/i ||
-            /\{\{\s*TEMPLATE\s*\}\}/i) {
-        say STDERR "        {{ template }}" if $verbose;
-	$template = "";
-	$what = "template";
-	$do = \&do_template;
-	next;
-    } elsif (/^\s*\{\s*DATA\b(?:\s*(\S+?))?\s*\}\s*$/i ||
-                 /\{\{\s*DATA\b(?:\s*(\S+?))?\s*\}\}/i) {
-        if ($template !~ m{\S}) {
-            warn "Data **before** the template?  We don't support that.  :-(\n";
-        }
-        say STDERR "        {{ data }}" if $verbose;
-	$separator = defined $1 ? qr{\Q$1\E} : qr{\t};
-	$what = "data";
-	$do = \&do_data;
-	next;
-    } elsif (/^\s*\#/) {
-	print();
-	next;
-    } elsif (/^\s*\{\s*COMMENT\s*\}\s*$/i || /\{\{\s*COMMENT\s*\}\}/i) {
-	$do = undef;
-	next;
-    } elsif (/^\s*$/ && (!defined $what || $what ne "template")) {
-	print("\n");
-	next;
-    } else {
-	if (defined($do)) {
-	    $do->();
-	}
+    if (m{^\s*\{\s*template\s*\}\s*$}i || m{\{\{\s*template\s*\}\}}i) {
+        $template = '';
+        $action = 'template';
+        next;
+    } elsif (m{^\s*\{\s*data\b(?:\s*(\S+?))?\s*\}\s*$}i || m{\{\{\s*data\b(?:\s*(\S+?))?\s*\}\}}i) {
+        $separator = $1 // "\t";
+        $action = 'data';
+        next;
+    } elsif (m{^\s*\{\s*(?:end|comment)\s*\}\s*$}i || m{\{\{\s*(?:end|comment)\s*\}\}}i) {
+        $action = undef;
+        next;
+    } elsif (!defined $action) {
+        say $_;
+        next;
+    } elsif ($action eq 'template') {
+        do_template();
+        next;
+    } elsif ($action eq 'data') {
+        do_data();
+        next;
     }
 }
-
