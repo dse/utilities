@@ -8,7 +8,7 @@ use Getopt::Long;
 my $template;
 my $separator;
 my $what;
-my $verbose;
+my $verbose = 0;
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
