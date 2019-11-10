@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Text::Trim qw(trim);
+use Getopt::Long;
+
+my $template;
+my $separator;
+my $what;
+my $verbose;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'v|verbose+' => \$verbose,
+) or die("Type '$0 --help' for help.\n");
+
+sub do_template {
+    $template .= $_ . "\n";
+}
+
+sub do_data {
+    return unless /\S/;
+    if (defined($template)) {
+        s{\R\z}{};
+        $_ = trim($_);
+	my @data = split($separator, $_);
+	my $out = $template;
+	{
+	    no warnings;
+	    $out =~ s{ \$ (\$|\d+) }{ $1 eq '$' ? '$' : $data[$1 - 1] }xge;
+	}
+	print($out);
+    }
+}
+
+my $do;			# a reference to one of the do_ methods above.
+
+while (<>) {
+    s{\R\z}{};
+    say STDERR sprintf("%6d. %s", $., $_) if $verbose >= 2;
+    if (/^\s*\{\s*TEMPLATE\s*\}\s*$/i ||
+            /\{\{\s*TEMPLATE\s*\}\}/i) {
+        say STDERR "        {{ template }}" if $verbose;
+	$template = "";
+	$what = "template";
+	$do = \&do_template;
+	next;
+    } elsif (/^\s*\{\s*DATA\b(?:\s*(\S+?))?\s*\}\s*$/i ||
+                 /\{\{\s*DATA\b(?:\s*(\S+?))?\s*\}\}/i) {
+        if ($template !~ m{\S}) {
+            warn "Data **before** the template?  We don't support that.  :-(\n";
+        }
+        say STDERR "        {{ data }}" if $verbose;
+	$separator = defined $1 ? qr{\Q$1\E} : qr{\t};
+	$what = "data";
+	$do = \&do_data;
+	next;
+    } elsif (/^\s*\#/) {
+	print();
+	next;
+    } elsif (/^\s*\{\s*COMMENT\s*\}\s*$/i || /\{\{\s*COMMENT\s*\}\}/i) {
+	$do = undef;
+	next;
+    } elsif (/^\s*$/ && (!defined $what || $what ne "template")) {
+	print("\n");
+	next;
+    } else {
+	if (defined($do)) {
+	    $do->();
+	}
+    }
+}
+
