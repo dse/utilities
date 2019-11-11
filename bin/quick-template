@@ -27,35 +27,237 @@ sub do_data {
         }
 	my @data = split($separator, $_);
 	my $out = $template;
-        $out =~ s{ \$ (\$|\d+) }{ ($1 eq '$') ? '$' : ($data[$1 - 1] // '') }xge;
+        $out =~ s{ \$ (?:\$|(\d+)|\{(\d+)\}) }
+                 { (defined $1) ? ($data[$1 - 1] // '') : (defined $2) ? ($data[$2 - 1] // '') : '$' }xge;
 	print($out);
     }
 }
 
-my $action;
+my $mode = 'silent';
 
 while (<>) {
     s{\R\z}{};                  # safer chomp()
     say STDERR sprintf("%6d. %s", $., $_) if $verbose >= 2;
     if (m{^\s*\{\s*template\s*\}\s*$}i || m{\{\{\s*template\s*\}\}}i) {
         $template = '';
-        $action = 'template';
+        $mode = 'template';
         next;
     } elsif (m{^\s*\{\s*data\b(?:\s*(\S+?))?\s*\}\s*$}i || m{\{\{\s*data\b(?:\s*(\S+?))?\s*\}\}}i) {
         $separator = $1 // "\t";
-        $action = 'data';
+        $mode = 'data';
         next;
     } elsif (m{^\s*\{\s*(?:end|comment)\s*\}\s*$}i || m{\{\{\s*(?:end|comment)\s*\}\}}i) {
-        $action = undef;
+        $mode = 'silent';
         next;
-    } elsif (!defined $action) {
+    } elsif (m{^\s*\{\s*(?:echo)\s*\}\s*$}i || m{\{\{\s*(?:echo)\s*\}\}}i) {
+        $mode = 'echo';
+        next;
+    } elsif ($mode eq 'silent') {
+        # print nothing
+        next;
+    } elsif ($mode eq 'echo') {
         say $_;
         next;
-    } elsif ($action eq 'template') {
+    } elsif ($mode eq 'template') {
         do_template();
         next;
-    } elsif ($action eq 'data') {
+    } elsif ($mode eq 'data') {
         do_data();
         next;
     }
 }
+
+=head1 NAME
+
+quick-template
+
+=head1 SYNOPSIS
+
+    quick-template [<filename> ...]
+
+=head1 DESCRIPTION
+
+quick-template is a simple "mail merge" utility that reads both its
+template and its data from standard input (or one or more files
+specified on the command line).
+
+The following is a simplified explanation of its operation.
+
+Once a C<{template}> line is encountered, quick-template starts
+reading lines from its input into a buffer called the template.
+
+Once a C<{data}> line is encountered, quick-template starts reading
+lines from its input, each containing one or more tab-separated
+fields.  For each line it prints the contents of the template with any
+special sequences replaced with the contents of one of the fields.
+
+The special sequences are as follows:
+
+    The following:      are replaced with:
+    --------------      ----------------------------------------------
+    $1 $2 ...           the contents of the first, second, etc. fields
+    ${1} ${2} ...       same as above
+    $$                  a single dollar sign ($)
+
+=head1 EXAMPLE
+
+The following rather simple and contrived example illustrates
+quick-template's basic operation.
+
+Pretend the lines following C<{data}> are tab-separated.
+
+=head2 Example Input
+
+    {template}
+    Hello, $1 $2!
+
+    You have $$$3 in your account as of 05/31/2019.
+
+    {data}
+    Alice   Johnson 351.49
+    Bob     Smith   29.16
+    Mallory Brown   -88.21
+
+=head2 Example Output
+
+    Hello, Alice Johnson!
+
+    You have $351.49 in your account as of 05/31/2019.
+
+    Hello, Bob Smith!
+
+    You have $29.16 in your account as of 05/31/2019.
+
+    Hello, Mallory Brown!
+
+    You have $-88.21 in your account as of 05/31/2019.
+
+=head1 MODES OF OPERATION
+
+At any particular point during its operation, quick-template runs in
+one of four operating modes.  Once a line consisting of one of the
+following directives is reached:
+
+    {template}
+    {data}
+    {end}
+    {echo}
+
+quick-template switches into a different operating mode, taking no
+action in its previous operating mode with the contents of that line.
+
+=head2 Silent Mode
+
+quick-template starts in silent mode by default.
+
+As quick-template reads each line from its input, it discards its
+contents and moves on to the next line.
+
+=head2 Template Mode
+
+Once a line consisting of the directive C<{template}> is encountered,
+quick-template switches into template mode, initializing (or
+resetting) a storage buffer known as the template to the empty string.
+
+As quick-template reads each line from its input, it appends each line
+to the template.
+
+=head2 Data Mode
+
+Once a line consisting of the directive C<{data}> is encountered,
+quick-template switches into data mode.
+
+As quick-template reads each line of tab-separated fields from its
+input, it prints a copy of the template with each special sequence
+replaced with the contents of one of the tab-separated fields, as
+described above.
+
+=head2 End of Data
+
+Once the end of the last file (or end of standard input) is reached,
+quick-template exits.
+
+=head2 Return to Silent Mode
+
+Once a line consisting of the directive C<{end}> is encountered,
+quick-template switches back into silent mode, described as above.
+
+Another chunk of C<{template}> data followed by another series of
+C<{data}> lines may follow.
+
+=head2 Echo Mode
+
+Once a line consisting of the directive C<{echo}> is encountered,
+quick-template switches to echo mode.
+
+In echo mode, quick-template prints the contents of each line of text
+it reads.  No special sequences in the line are replaced.
+
+=head1 OTHER FEATURES
+
+The rather simplified documentation above specifies that each line
+consisting of the directive C<{template}>, C<{data}>, C<{end}>, or
+C<{echo}> changes quick-template's operating mode.
+
+=head2 Whitespace Before and After
+
+Though one of the directives listed above must occur by itself on the
+line, you may precede or follow it with any number of spaces and/or
+tab characters.  You may also insert spaces and/or characters after
+the C<{> and before the word, and/or after the word and before the
+C<}>.  You may not split the word with whitespace.  Examples:
+
+    # OK
+    {template}
+        {template}
+      { template }
+
+    # NOT OK
+    {temp late}
+
+=head2 Directives Within Comments
+
+You may also use C<{{template}}>, C<{{data}}>, C<{{end}}>, or
+C<{{echo}}>.  Any of those forms may be preceded or followed by
+non-whitespace characters on its line.  The typical usage might be
+embedded inside a comment.
+
+As with C<{template}>, etc., you may insert whitespace after the C<{{>
+and/or before the C<}}>, and you may not split the word with
+whitespace.  You may not split the C<{{> or C<}}> sequences with
+whitespace.
+
+Examples:
+
+    # OK
+    <!--{{template}}-->
+    /* {{ template }} */
+
+    # NOT OK
+    {{ temp late }}
+    { {template} }
+
+=head2 Overriding Tab Separation
+
+After a C<{data}> or C<{{data}}> directive, each subsequent line in
+quick-template's input is interpreted as a sequence of tab-separated
+fields by default.
+
+You may override this by following the word C<data> with whitespace
+then a sequence of non-whitespace before the C<}}>.
+
+Examples:
+
+    {data :}
+    Alice:Johnson:351.49
+    Bob:Smith:29.16
+    Mallory:Brown:-88.21
+
+    /* {{ data <> }} */
+    Alice<>Johnson<>351.49
+    Bob<>Smith<>29.16
+    Mallory<>Brown<>-88.21
+
+=head1 AUTHOR
+
+Darren Embry (C<dse at webonastick dot com>)
