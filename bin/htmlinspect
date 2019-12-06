@@ -6,10 +6,65 @@ use utf8;
 
 use open IO => ":locale";
 
-use strictures;
-use HTML::TreeBuilder;
-use Getopt::Long;
 use Data::Dumper;
+local $Data::Dumper::Indent   = 1;
+local $Data::Dumper::Terse    = 1;
+local $Data::Dumper::Deepcopy = 1;
+local $Data::Dumper::Sortkeys = 1;
+local $Data::Dumper::Useqq    = 1;
+
+use HTML::Tagset;
+use HTML::Valid::Tagset;
+
+sub updateTagsets {
+    @HTML::Tagset::p_closure_barriers           = @HTML::Valid::Tagset::p_closure_barriers;
+    %HTML::Tagset::emptyElement                 = %HTML::Valid::Tagset::emptyElement;
+    %HTML::Tagset::optionalEndTag               = %HTML::Valid::Tagset::optionalEndTag;
+    %HTML::Tagset::linkElements                 = %HTML::Valid::Tagset::linkElements;
+    %HTML::Tagset::boolean_attr                 = %HTML::Valid::Tagset::boolean_attr;
+    %HTML::Tagset::isPhraseMarkup               = %HTML::Valid::Tagset::isPhraseMarkup;
+    %HTML::Tagset::is_Possible_Strict_P_Content = %HTML::Valid::Tagset::is_Possible_Strict_P_Content;
+    %HTML::Tagset::isHeadElement                = %HTML::Valid::Tagset::isHeadElement;
+    %HTML::Tagset::isList                       = %HTML::Valid::Tagset::isList;
+    %HTML::Tagset::isTableElement               = %HTML::Valid::Tagset::isTableElement;
+    %HTML::Tagset::isFormElement                = %HTML::Valid::Tagset::isFormElement;
+    %HTML::Tagset::isHeadOrBodyElement          = %HTML::Valid::Tagset::isHeadOrBodyElement;
+    %HTML::Tagset::isKnown                      = %HTML::Valid::Tagset::isKnown;
+    %HTML::Tagset::canTighten                   = %HTML::Valid::Tagset::canTighten;
+    %HTML::Tagset::isCDATA_Parent               = %HTML::Valid::Tagset::isCDATA_Parent;
+
+    foreach my $key (keys %HTML::Valid::Tagset::isBodyElement) {
+        if ($key ne 'html' && $key ne 'body' && $HTML::Valid::Tagset::isBodyElement{$key}) {
+            $HTML::Tagset::isBodyElement{$key} = $HTML::Valid::Tagset::isBodyElement{$key};
+        }
+    }
+}
+
+BEGIN {
+    updateTagsets();
+}
+
+foreach my $hashName (qw(isKnown
+                         isHeadElement
+                         isBodyElement
+                         isHeadOrBodyElement
+                         isTableElement
+                         is_Possible_Strict_P_Content
+                         isList
+                         isFormElement
+                         isPhraseMarkup
+                         canTighten)) {
+    printf("%-32s", $hashName);
+    foreach my $tagName (qw(html body div article main section aside)) {
+        no strict 'refs';
+        printf("  %s %s", $tagName, ${"HTML::Tagset::$hashName"}{$tagName} ? 'Y' : 'N');
+    }
+    print "\n";
+}
+
+use HTML::TreeBuilder;
+use strictures;
+use Getopt::Long;
 use File::Find qw();
 
 our $opt_show_attributes;
@@ -25,6 +80,7 @@ our $opt_recurse;
 our $opt_list_files_only;
 our $opt_files_with_matches;
 our $opt_verbose = 0;
+our $opt_as_html = 0;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -50,6 +106,17 @@ Getopt::Long::GetOptions(
     "last-child|show-last-child"   => \$opt_show_last_child,
     "t|tree"                       => \$opt_tree,
     "l|files-with-matches"         => \$opt_files_with_matches,
+    "empty-anchors" => sub {
+        push(@opt_search, (
+            'a:not([href])',
+            'a[href=""]',
+            'a[href="#"]',
+            'a[href="FIXME"]',
+            'a[href="TODO"]',
+            'a[href="PUT_URL_HERE"]',
+            'a[href="PUTURLHERE"]',
+        ));
+    },
     "T|theme|tree-theme=s" => sub {
         my $value = $_[1];
         if ($value ne "blank" && $value ne "ascii" && $value ne "light" && $value ne "heavy") {
@@ -57,6 +124,7 @@ Getopt::Long::GetOptions(
         }
         $opt_tree = 1;
     },
+    'H|as-html' => \$opt_as_html,
     "blank" => sub { $opt_theme = "blank"; $opt_tree = 1; },
     "ascii" => sub { $opt_theme = "ascii"; $opt_tree = 1; },
     "light" => sub { $opt_theme = "light"; $opt_tree = 1; },
@@ -92,6 +160,7 @@ options:
       --[show-]first-child
       --[show-]last-child
   -t, --tree                    (not for use with -s/--search)
+  -H, --as-html
   -T, --tree-theme=<theme>      blank, ascii, light, heavy
       --blank
       --ascii
@@ -136,43 +205,23 @@ if ($opt_list_files_only) {
     exit;
 }
 
-local $/ = undef;
-while (<>) {
-    if ($opt_verbose) {
-        printf STDERR ("%s...\n", $ARGV);
+if (!defined $opt_recurse) {
+    if (scalar @opt_search) {
+        $opt_recurse = 0;
+    } else {
+        $opt_recurse = 1;
     }
+}
 
-    # required for unknown tags to work
-    if ($_ !~ m{<body[^>]*>.*</body>}smi) {
-        $_ = '<body>' . $_ . '</body>';
+###############################################################################
+
+my $tree;
+my $inspector;
+
+sub done {
+    if (!defined $tree || !defined $inspector) {
+        return;
     }
-    if ($_ !~ m{<html[^>]*>.*</html>}smi) {
-        $_ = '<html>' . $_ . '</html>';
-    }
-
-    if (!defined $opt_recurse) {
-        if (scalar @opt_search) {
-            $opt_recurse = 0;
-        } else {
-            $opt_recurse = 1;
-        }
-    }
-
-    my $inspector = My::HTML::Inspector->new();
-    $inspector->show_ancestors($opt_show_ancestors)         if defined $opt_show_ancestors;
-    $inspector->show_attributes($opt_show_attributes)       if defined $opt_show_attributes;
-    $inspector->show_first_child($opt_show_first_child)     if defined $opt_show_first_child;
-    $inspector->show_last_child($opt_show_last_child)       if defined $opt_show_last_child;
-    $inspector->tree($opt_tree)                             if defined $opt_tree;
-    $inspector->theme($opt_theme)                           if defined $opt_theme;
-    $inspector->fancy($opt_fancy)                           if defined $opt_fancy;
-    $inspector->recurse($opt_recurse)                       if defined $opt_recurse;
-    $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
-
-    my $tree = HTML::TreeBuilder::XPath->new();
-    $tree->ignore_unknown(0);
-    $tree->parse($_);
-    $tree->eof();
 
     if ($opt_files_with_matches) {
         if (scalar @opt_search) {
@@ -193,7 +242,48 @@ while (<>) {
     } else {
         $inspector->inspect($tree, $ARGV);
     }
+
+    $inspector = undef;
+    $tree = undef;
 }
+
+while (<>) {
+    s{\R\z}{};
+    $_ .= "\n";
+    if (!defined $tree) {
+        $tree = HTML::TreeBuilder::XPath->new();
+        $tree->ignore_unknown(0);
+    }
+    if (!defined $inspector) {
+        $inspector = My::HTML::Inspector->new();
+        $inspector->show_ancestors($opt_show_ancestors)         if defined $opt_show_ancestors;
+        $inspector->show_attributes($opt_show_attributes)       if defined $opt_show_attributes;
+        $inspector->show_first_child($opt_show_first_child)     if defined $opt_show_first_child;
+        $inspector->show_last_child($opt_show_last_child)       if defined $opt_show_last_child;
+        $inspector->tree($opt_tree)                             if defined $opt_tree;
+        $inspector->theme($opt_theme)                           if defined $opt_theme;
+        $inspector->fancy($opt_fancy)                           if defined $opt_fancy;
+        $inspector->recurse($opt_recurse)                       if defined $opt_recurse;
+        $inspector->as_html($opt_as_html)                       if defined $opt_as_html;
+        $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
+    }
+    $tree->parse($_);
+    if (eof(\*ARGV)) {
+        done();
+    }
+}
+done();
+
+# if ($opt_verbose) {
+#     printf STDERR ("%s...\n", $ARGV);
+# }
+# # required for unknown tags to work
+# if ($_ !~ m{<body[^>]*>.*</body>}smi) {
+#     $_ = '<body>' . $_ . '</body>';
+# }
+# if ($_ !~ m{<html[^>]*>.*</html>}smi) {
+#     $_ = '<html>' . $_ . '</html>';
+# }
 
 package My::HTML::Inspector {
     use Class::Tiny qw(show_ancestors
@@ -204,7 +294,10 @@ package My::HTML::Inspector {
                        tree
                        theme
                        fancy
+                       as_html
                        files_with_matches);
+
+    use HTML::Entities qw(encode_entities);
 
     INIT {
         eval 'use HTML::Selector::XPath 0.20 qw(selector_to_xpath);';
@@ -307,7 +400,7 @@ package My::HTML::Inspector {
 
         print($element_string, "\n");
 
-        if ($self->recurse) {
+        if ($self->recurse && !$self->as_html) {
             my @children = grep { ref $_ } $element->content_list();
             my $index = 0;
             my $nchildren = scalar @children;
@@ -328,8 +421,39 @@ package My::HTML::Inspector {
         }
     }
 
+    sub element_string_html {
+        my ($self, $element) = @_;
+        my $tagname = $element->tag;
+
+        my $result = '<' . $tagname;
+
+        foreach my $attr_name ($element->all_external_attr_names) {
+            my $attr_value = $element->attr($attr_name);
+            $result .= ' ' . $attr_name;
+
+            if ($attr_name =~ m{^data-} || $attr_name eq 'checked' || $attr_name eq 'selected' || $attr_name eq 'disabled') {
+                if ($attr_name eq $attr_value) {
+                    next;
+                }
+            }
+            if ($attr_name ne 'href') {
+                if ($attr_value eq '') {
+                    next;
+                }
+            }
+
+            $result .= '="' . encode_entities($attr_value) . '"';
+        }
+        $result .= '>';
+
+        return $result;
+    }
+
     sub element_string {
         my ($self, $element) = @_;
+
+        return $self->element_string_html($element) if $self->as_html;
+
         my $tagname = $element->tag;
 
         my $result = $tagname;
