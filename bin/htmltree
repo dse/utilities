@@ -6,6 +6,21 @@ use v5.10.0;
 use open IO => ":locale";
 
 use HTML::TreeBuilder;
+use Data::Dumper;
+use Getopt::Long;
+
+my $format = 'tree';
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignorecase');
+Getopt::Long::GetOptions(
+    'd|dumper' => sub { $format = 'dumper'; },
+) or die;
+
+local $Data::Dumper::Indent   = 1;
+local $Data::Dumper::Terse    = 1;
+local $Data::Dumper::Deepcopy = 1;
+local $Data::Dumper::Sortkeys = 1;
+local $Data::Dumper::Useqq    = 1;
 
 local $/ = undef;
 while (<>) {
@@ -13,5 +28,9 @@ while (<>) {
     $tree->parse($_);
     $tree->eof();
     $tree->elementify();
-    $tree->dump();
+    if ($format eq 'dumper') {
+        print Dumper($tree);
+    } else {
+        $tree->dump();
+    }
 }
