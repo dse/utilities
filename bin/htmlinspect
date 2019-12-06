@@ -40,26 +40,28 @@ sub updateTagsets {
     }
 }
 
-BEGIN {
-    updateTagsets();
+sub checkTagsets {
+    foreach my $hashName (qw(isKnown
+                             isHeadElement
+                             isBodyElement
+                             isHeadOrBodyElement
+                             isTableElement
+                             is_Possible_Strict_P_Content
+                             isList
+                             isFormElement
+                             isPhraseMarkup
+                             canTighten)) {
+        printf("%-32s", $hashName);
+        foreach my $tagName (qw(html body div article main section aside)) {
+            no strict 'refs';
+            printf("  %s %s", $tagName, ${"HTML::Tagset::$hashName"}{$tagName} ? 'Y' : 'N');
+        }
+        print "\n";
+    }
 }
 
-foreach my $hashName (qw(isKnown
-                         isHeadElement
-                         isBodyElement
-                         isHeadOrBodyElement
-                         isTableElement
-                         is_Possible_Strict_P_Content
-                         isList
-                         isFormElement
-                         isPhraseMarkup
-                         canTighten)) {
-    printf("%-32s", $hashName);
-    foreach my $tagName (qw(html body div article main section aside)) {
-        no strict 'refs';
-        printf("  %s %s", $tagName, ${"HTML::Tagset::$hashName"}{$tagName} ? 'Y' : 'N');
-    }
-    print "\n";
+BEGIN {
+    updateTagsets();
 }
 
 use HTML::TreeBuilder;
