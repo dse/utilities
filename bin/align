@@ -17,6 +17,8 @@
 # gco () { git checkout "$@" ; }
 # gd () { git difff "$@" ; }
 # gl () { git logg "$@" ; }
+#
+# TODO: align --repeat --after ',' hangs
 use warnings;
 use strict;
 use v5.10.0;
