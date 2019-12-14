@@ -3,6 +3,22 @@ use warnings;
 use strict;
 use v5.10.0;
 
+# cutt - extract selected fields, separated by a perl regular expression
+#
+# description:
+#     Outputs tab-separated fields.
+#
+# options:
+#     -d <separator>
+#     -f <fields>
+#
+# -d <separator>
+#     Optional.  Default is /\s{2,}/, any contiguous sequence
+#     of two or more spaces.
+#
+# -f <fields>
+#     Optional.  Defaults to printing out every field.
+
 our $separator = qr{\s{2,}};
 our $fields;
 
