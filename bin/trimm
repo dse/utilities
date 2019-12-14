@@ -1,0 +1,15 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+# trimm - outputs its input, chopping off any leading and trailing spaces
+#
+# No options.
+
+while (<>) {
+    s{\R\z}{};
+    s{^\s+}{};
+    s{\s+$}{};
+    say $_;
+}
