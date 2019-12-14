@@ -3,6 +3,22 @@
 # align - a utility influenced by M-x align-regexp.
 # But more powerful because it uses Perl regular expressions.
 #
+# TODO: align --debug --fixed -e '()' -e ';' doesn't work
+# gc () { git commit "$@" ; }
+# gpull () { git pull "$@" ; }
+# gpush () { git push "$@" ; }
+# gcj () { git commit-js "$@" ; }
+# gcc () { git commit-css "$@" ; }
+# gccj () { git commit-css-js "$@" ; }
+# gcjc () { git commit-js-css "$@" ; }
+# gaa () { git add --all "$@" ; }
+# gau () { git add --update "$@" ; }
+# gs () { git status "$@" ; }
+# gco () { git checkout "$@" ; }
+# gd () { git difff "$@" ; }
+# gl () { git logg "$@" ; }
+#
+# TODO: align --repeat --after ',' hangs
 use warnings;
 use strict;
 use v5.10.0;
@@ -104,7 +120,6 @@ foreach my $pattern (@patterns) {
     }
     if ($pattern->{patternType} eq 'fixed') {
         $p = quotemeta($p);
-        # $p = '\Q' . $p . '\E';
     }
     if ($pattern->{caseInsensitive}) {
         $p = qr{(\s*)($p)(\s*)}i;
