@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our $separator = qr{\s{2,}};
+our $fields;
+
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignorecase');
+Getopt::Long::GetOptions(
+    'd|separator=s' => \$separator,
+    'f|fields=s'    => \$fields,
+);
+
+if (defined $separator) {
+    $separator = qr{$separator};
+}
+
+my @fields;
+if (defined $fields) {
+    @fields = split(/[,\s]+/, $fields);
+    foreach my $range (@fields) {
+        if ($range =~ m{^(\d+)-(\d+)$}) {
+            $range = [$1, $2];
+        } elsif ($range =~ m{^(\d+)$}) {
+            $range = [$1, $1];
+        } elsif ($range =~ m{^-(\d+)$}) {
+            $range = [undef, $1];
+        } elsif ($range =~ m{^(\d+)-$}) {
+            $range = [$1, undef];
+        }
+    }
+}
+if (!scalar @fields) {
+    push(@fields, [undef, undef]);
+}
+
+while (<>) {
+    s{\R\z}{};
+    my @data = split($separator, $_);
+    my @out;
+    foreach my $range (@fields) {
+        my ($a, $b) = @$range;
+        $a //= 1;
+        $b //= scalar @data;
+        for (my $i = $a; $i <= $b; $i += 1) {
+            push(@out, $data[$i - 1]) if $i <= scalar @data;
+        }
+    }
+    say join("\t", @out);
+}
