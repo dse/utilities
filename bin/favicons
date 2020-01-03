@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+progname="${0##*/}"
+
+if (( $# < 1 )) ; then
+    >&2 echo "$progname: not enough arguments"
+    exit 1
+fi
+
+filename="$1"
+iconsdir="${1%.*}-favicons"
+
+if [[ -d "$iconsdir" ]] ; then
+    >&2 echo "$progname: $iconsdir already exists"
+    exit 1
+fi
+
+mkdir "$iconsdir"
+
+generate () {
+    size="$1"
+    old="$2"
+    new="$3"
+    convert "${old}" \
+            -resize "${size}^" \
+            -gravity center \
+            -extent "${size}" \
+            "${new}"
+}
+
+# These are easy.
+# ---------------
+
+generate "144x144" "$filename" "$iconsdir/android-chrome-144x144.png" # PNG image data, 144 x 144, 8-bit/color RGB, non-interlaced
+generate "192x192" "$filename" "$iconsdir/android-chrome-192x192.png" # PNG image data, 192 x 192, 8-bit/color RGB, non-interlaced
+generate "36x36"   "$filename" "$iconsdir/android-chrome-36x36.png"   # PNG image data, 36 x 36, 8-bit/color RGB, non-interlaced
+generate "48x48"   "$filename" "$iconsdir/android-chrome-48x48.png"   # PNG image data, 48 x 48, 8-bit/color RGB, non-interlaced
+generate "72x72"   "$filename" "$iconsdir/android-chrome-72x72.png"   # PNG image data, 72 x 72, 8-bit/color RGB, non-interlaced
+generate "96x96"   "$filename" "$iconsdir/android-chrome-96x96.png"   # PNG image data, 96 x 96, 8-bit/color RGB, non-interlaced
+generate "180x180" "$filename" "$iconsdir/apple-touch-icon.png"       # PNG image data, 180 x 180, 8-bit/color RGB, non-interlaced
+generate "32x32"   "$filename" "$iconsdir/favicon.png"                # PNG image data, 32 x 32, 8-bit/color RGB, non-interlaced
+generate "16x16"   "$filename" "$iconsdir/favicon-16x16.png"          # PNG image data, 16 x 16, 8-bit/color RGB, non-interlaced
+generate "32x32"   "$filename" "$iconsdir/favicon-32x32.png"          # PNG image data, 32 x 32, 8-bit/color RGB, non-interlaced
+generate "144x144" "$filename" "$iconsdir/mstile-144x144.png"         # PNG image data, 144 x 144, 8-bit/color RGB, non-interlaced
+generate "150x150" "$filename" "$iconsdir/mstile-150x150.png"         # PNG image data, 150 x 150, 8-bit/color RGB, non-interlaced
+generate "310x150" "$filename" "$iconsdir/mstile-310x150.png"         # PNG image data, 310 x 150, 8-bit/color RGB, non-interlaced
+generate "310x310" "$filename" "$iconsdir/mstile-310x310.png"         # PNG image data, 310 x 310, 8-bit/color RGB, non-interlaced
+generate "70x70"   "$filename" "$iconsdir/mstile-70x70.png"           # PNG image data, 70 x 70, 8-bit/color RGB, non-interlaced
+
+# This one should work.
+# ---------------------
+
+convert "$filename" -define icon:auto-resize=64,48,32,16 "$iconsdir/favicon.ico"
+
+# Done.
+# -----
+
+>&2 echo "Favicons generated in $iconsdir directory."
+>&2 echo ""
+>&2 echo "Be sure to check $iconsdir/mstile-310x150.png."
+>&2 echo ""
+exit 0
