@@ -30,11 +30,14 @@ generate () {
             "${new}"
 }
 
+version="$(dd if=/dev/urandom count=1 ibs=16 | sha1sum | awk '{print $1}')"
+
 # These are easy.
 # ---------------
 
 generate "144x144" "$filename" "$iconsdir/android-chrome-144x144.png" # PNG image data, 144 x 144, 8-bit/color RGB, non-interlaced
 generate "192x192" "$filename" "$iconsdir/android-chrome-192x192.png" # PNG image data, 192 x 192, 8-bit/color RGB, non-interlaced
+generate "512x512" "$filename" "$iconsdir/android-chrome-512x512.png" # PNG image data, 512 x 512, 8-bit/color RGB, non-interlaced
 generate "36x36"   "$filename" "$iconsdir/android-chrome-36x36.png"   # PNG image data, 36 x 36, 8-bit/color RGB, non-interlaced
 generate "48x48"   "$filename" "$iconsdir/android-chrome-48x48.png"   # PNG image data, 48 x 48, 8-bit/color RGB, non-interlaced
 generate "72x72"   "$filename" "$iconsdir/android-chrome-72x72.png"   # PNG image data, 72 x 72, 8-bit/color RGB, non-interlaced
@@ -53,6 +56,51 @@ generate "70x70"   "$filename" "$iconsdir/mstile-70x70.png"           # PNG imag
 # ---------------------
 
 convert "$filename" -define icon:auto-resize=64,48,32,16 "$iconsdir/favicon.ico"
+
+cat <<EOF >"$iconsdir/site.webmanifest"
+{
+    "name": "",
+    "short_name": "",
+    "icons": [
+        {
+            "src": "/android-chrome-192x192.png?v=${version}",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/android-chrome-512x512.png?v=${version}",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
+    "theme_color": "#ffffff",
+    "background_color": "#ffffff",
+    "display": "standalone"
+}
+EOF
+
+cat <<EOF >"$iconsdir/browserconfig.xml"
+<?xml version="1.0" encoding="utf-8"?>
+<browserconfig>
+    <msapplication>
+        <tile>
+            <square150x150logo src="/mstile-150x150.png?v=${version}"/>
+            <TileColor>#da532c</TileColor>
+        </tile>
+    </msapplication>
+</browserconfig>
+EOF
+
+cat <<EOF >"$iconsdir/head.htm"
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=${version}">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=${version}">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=${version}">
+<link rel="manifest" href="/site.webmanifest?v=${version}">
+<!-- <link rel="mask-icon" href="/safari-pinned-tab.svg?v=${version}" color="#5bbad5"> -->
+<link rel="shortcut icon" href="/favicon.ico?v=${version}">
+<meta name="msapplication-TileColor" content="#da532c">
+<meta name="theme-color" content="#ffffff">
+EOF
 
 # Done.
 # -----
