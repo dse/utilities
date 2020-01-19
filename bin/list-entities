@@ -1,0 +1,104 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use open ':locale';
+
+use Getopt::Long;
+use Unicode::UCD qw(charinfo);
+
+our $html5 = 0;
+our $format = undef;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'html4' => sub { $html5 = 0; },
+    'html5' => sub { $html5 = 1; },
+    'format=s' => \$format,
+    'table' => sub { $format = '| `%{c}` | %{d} | %{u} | %{n} | `%{h}` |'; },
+) or die;
+
+if ($html5) {
+    require HTML::HTML5::Entities;
+    import HTML::HTML5::Entities qw();
+} else {
+    require HTML::Entities;
+    import HTML::Entities qw();
+}
+
+our %char2entity;
+our %entity2char;
+if ($html5) {
+    no warnings 'once';
+    %char2entity = %HTML::HTML5::Entities::char2entity;
+    %entity2char = %HTML::HTML5::Entities::entity2char;
+} else {
+    no warnings 'once';
+    %char2entity = %HTML::Entities::char2entity;
+    %entity2char = %HTML::Entities::entity2char;
+}
+
+my @entities;
+my %entities;
+
+foreach my $key (keys %entity2char) {
+    if (exists $entity2char{$key . ';'}) {
+        next;
+    }
+    my $ent = '&' . $key;
+    my $chr = $entity2char{$key};
+    my @chrs = split('', $chr);
+    my @ords = map { ord($_) } @chrs;
+    my $multi = ((scalar @ords) != 1) ? 1 : 0;
+    push(@entities, {
+        ent => $ent,
+        chr => $chr,
+        chrs => \@chrs,
+        ords => \@ords,
+        multi => $multi,
+    });
+}
+
+@entities = sort {
+    $a->{multi} <=> $b->{multi} || $a->{ords}->[0] <=> $b->{ords}->[0] || $a->{ent} cmp $b->{ent}
+} @entities;
+
+foreach my $hash (@entities) {
+    my $ent = $hash->{ent};
+    my $chr = $hash->{chr};
+    if ($ent eq $chr) {
+        next;
+    }
+    if (scalar @{$hash->{ords}} == 1) {
+        my $ord = $hash->{ords}->[0];
+        if ($ord < 32 || ($ord >= 127 && $ord <= 159)) {
+            next;
+        }
+    }
+    my $first = 1;
+    foreach my $ord (@{$hash->{ords}}) {
+        if ($format) {
+            my $charinfo = charinfo($ord);
+            my $line = $format;
+            if ($first) {
+                $line =~ s{%\{c\}}{$chr}g;
+                $line =~ s{%\{h\}}{$ent}g;
+            } else {
+                $line =~ s{%\{c\}}{}g;
+                $line =~ s{%\{h\}}{}g;
+            }
+            $line =~ s{%\{d\}}{$ord}g;
+            $line =~ s{%\{n\}}{$charinfo->{name}}g;
+            $line =~ s{%\{u\}}{sprintf('U+%04X', $ord)}ge;
+            $line =~ s{\R\z}{};
+            say $line;
+        } else {
+            printf("%s   %s\n", $chr, $ent);
+        }
+        $first = 0;
+    }
+    my $codepoint = ord($chr);
+}
+
+# | `%{c}` | %{u} | %{n} | %{d} | `%{h}` |
