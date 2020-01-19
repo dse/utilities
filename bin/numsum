@@ -4,6 +4,7 @@ use strict;
 use v5.10.0;
 
 use Regexp::Common qw(number);
+
 our $rx = $RE{num}{real};
 our $sum = 0;
 
