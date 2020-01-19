@@ -19,7 +19,7 @@ Getopt::Long::GetOptions(
     'W|no-width'  => \$noWidth,
     'H|no-height' => \$noHeight,
     'h|help' => sub { usage(); exit(0); },
-);
+) or die("Type '$0 --help' for help.\n");
 
 sub usage { print <<"END"; }
 usage:
