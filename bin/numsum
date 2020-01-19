@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Regexp::Common qw(number);
+our $rx = $RE{num}{real};
+our $sum = 0;
+
+while (<>) {
+    if ($_ =~ $rx) {
+        $sum += $&;
+    }
+}
+
+printf("%.6g\n", $sum);
