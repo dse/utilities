@@ -13,7 +13,7 @@ our $ratio = 1;
 our $noWidth = 0;
 our $noHeight = 0;
 
-Getopt::Long::Configure('bundling', 'gnu_compat', 'noignore_case');
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'r|radio=f'   => \$ratio,
     'W|no-width'  => \$noWidth,

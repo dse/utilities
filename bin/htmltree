@@ -11,7 +11,7 @@ use Getopt::Long;
 
 my $format = 'tree';
 
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignorecase');
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'd|dumper' => sub { $format = 'dumper'; },
 ) or die;

@@ -23,7 +23,7 @@ our $separator = qr{\s{2,}};
 our $fields;
 
 use Getopt::Long;
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignorecase');
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'd|separator=s' => \$separator,
     'f|fields=s'    => \$fields,
