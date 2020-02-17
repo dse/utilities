@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use Getopt::Long;
+
+my $columns;
+
+Getopt::Long::Configure("bundling", "gnu_compat");
+Getopt::Long::GetOptions("w|width|columns=i" => \$columns);
+
+if (!$columns) {
+    if ($ENV{COLUMNS}) {
+        $columns = $ENV{COLUMNS};
+    } else {
+        eval {
+            my $junk;
+            ($junk, $columns) = get_screen_size();
+        };
+        if (!$columns) {
+            $columns = 80;
+        }
+    }
+}
+
+my @str = ('') x length($columns); # bottom line to top line
+foreach my $num (1 .. $columns) {
+    my $mun = ($num % 5) ? '.' : scalar(reverse($num));
+    my $i;
+    for ($i = 0; $i < length($mun); ++$i) {
+        $str[$i] .= substr($mun, $i, 1);
+    }
+    for (; $i < length($columns); ++$i) {
+        $str[$i] .= ' ';
+    }
+}
+print map { "$_\n" } reverse @str;
+
+my %GOTTEN;
+BEGIN {
+    eval { require "sys/ioctl.ph"; $GOTTEN{ioctl} = 1;    };
+    eval { require Term::Size;     $GOTTEN{TermSize} = 1; };
+}
+sub get_screen_size {
+    my $tty;
+    if ($GOTTEN{ioctl}) {
+        my $winsize;
+        my ($row, $col, $xpixel, $ypixel);
+        eval {
+            die "no TIOCGWINSZ\n" unless defined &TIOCGWINSZ;
+            open($tty, "+</dev/tty") or die "No tty: $!";
+            unless (ioctl($tty, &TIOCGWINSZ, $winsize='')) {
+                die sprintf("$0: ioctl TIOCGWINSZ (%08x: $!)\n",
+                            &TIOCGWINSZ);
+            }
+            ($row, $col, $xpixel, $ypixel) = unpack('S4', $winsize);
+        };
+        if (!$@) {
+            return ($row, $col);
+        }
+    }
+    if ($GOTTEN{TermSize}) {
+        open($tty, "+</dev/tty") or die "No tty: $!";
+        my ($columns, $rows) = Term::Size::chars $tty;
+        return ($rows, $columns);
+    }
+    my $rows = `tput lines`;
+    my $columns = `tput cols`;
+    chomp($rows);
+    chomp($columns);
+    return ($rows, $columns);
+}
