@@ -22,18 +22,33 @@ if (!$columns) {
     }
 }
 
-my @str = ('') x length($columns); # bottom line to top line
-foreach my $num (1 .. $columns) {
-    my $mun = ($num % 5) ? '.' : scalar(reverse($num));
-    my $i;
-    for ($i = 0; $i < length($mun); ++$i) {
-        $str[$i] .= substr($mun, $i, 1);
+ruler2();
+
+sub ruler1 {
+    my @str = ('') x length($columns); # bottom line to top line
+    foreach my $num (1 .. $columns) {
+        my $mun = ($num % 5) ? '.' : scalar(reverse($num));
+        my $i;
+        for ($i = 0; $i < length($mun); ++$i) {
+            $str[$i] .= substr($mun, $i, 1);
+        }
+        for (; $i < length($columns); ++$i) {
+            $str[$i] .= ' ';
+        }
     }
-    for (; $i < length($columns); ++$i) {
-        $str[$i] .= ' ';
-    }
+    print map { "$_\n" } reverse @str;
 }
-print map { "$_\n" } reverse @str;
+
+sub ruler2 {
+    for (my $col = 10; $col <= $columns; $col += 10) {
+        printf("%10d", $col);
+    }
+    print("\n");
+    for (my $col = 10; $col <= $columns; $col += 10) {
+        print("....:....|");
+    }
+    print substr("....:....|", 0, $columns % 10);
+}
 
 my %GOTTEN;
 BEGIN {
