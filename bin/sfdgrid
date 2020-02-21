@@ -1,0 +1,51 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+sub usage { print <<"EOF"; }
+usage:
+    sfdgrid x1 y1 x2 y2 stepx [stepy]
+EOF
+
+if (scalar @ARGV < 5) {
+    usage();
+    exit(1);
+}
+
+my ($x1, $y1, $x2, $y2, $stepx, $stepy) = @ARGV;
+$stepy //= $stepx;
+
+if ($x1 > $x2) {
+    ($x1, $x2) = ($x2, $x1);
+}
+if ($y1 > $y2) {
+    ($y1, $y2) = ($y2, $y1);
+}
+
+my @coords = ($x1, $y1,
+              $x1, $y2,
+              $x2, $y2,
+              $x2, $y1,
+              $x1, $y1);
+
+printf(<<"END", @coords);
+%g %g m 25
+ %g %g l 25
+ %g %g l 25
+ %g %g l 25
+ %g %g l 1049
+END
+
+for (my $x = $x1 + $stepx; $x < $x2; $x += $stepx) {
+    printf("%g %g m 25\n", $x, $y1);
+    printf(" %g %g l 1049\n", $x, $y2);
+}
+
+for (my $y = $y1 + $stepy; $y < $y2; $y += $stepy) {
+    printf("%g %g m 25\n", $x1, $y);
+    for (my $x = $x1 + $stepx; $x < $x2; $x += $stepx) {
+        printf(" %g %g l 25\n", $x, $y);
+    }
+    printf(" %g %g l 1049\n", $x2, $y);
+}
