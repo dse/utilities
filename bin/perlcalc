@@ -6,6 +6,9 @@ use v5.14.0;                # required for srand() to return the seed.
 use utf8;
 use open IO => ":locale";
 use Getopt::Long;
+use File::Basename qw(basename);
+
+our $PROGNAME = basename($0, '.pl');
 
 sub importeach (*@) {
     my $module = shift;
@@ -90,13 +93,13 @@ Getopt::Long::GetOptions(
     "m=s"                         => \&opt_module,
     "M=s"                         => \&opt_module,
     "h|help" => sub { usage(); exit 0; }
-) or die("Type '$0 --help' for help.\n");
+) or die("Type '$PROGNAME --help' for help.\n");
 
 sub usage { print <<"END"; }
 usage:
-  $0 [<option> ...]                             read from stdin
-  $0 [<option> ...] <expr> ...                  evaluate expressions
-  $0 [<option> ...] --files [<filename> ...]    read from specified files
+  $PROGNAME [<option> ...]                             read from stdin
+  $PROGNAME [<option> ...] <expr> ...                  evaluate expressions
+  $PROGNAME [<option> ...] --files [<filename> ...]    read from specified files
 options:
   -p, --printf, --format=<format>               examples:    %d    %.3f
   -f, --files                                   interp. non-options as filenames
