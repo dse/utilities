@@ -97,15 +97,15 @@ Getopt::Long::GetOptions(
 
 sub usage { print <<"END"; }
 usage:
-  $PROGNAME [<option> ...]                             read from stdin
-  $PROGNAME [<option> ...] <expr> ...                  evaluate expressions
-  $PROGNAME [<option> ...] --files [<filename> ...]    read from specified files
+    $PROGNAME [<option> ...]                             read from stdin
+    $PROGNAME [<option> ...] <expr> ...                  evaluate expressions
+    $PROGNAME [<option> ...] --files [<filename> ...]    read specified files
 options:
-  -p, --printf, --format=<format>               examples:    %d    %.3f
-  -f, --files                                   interp. non-options as filenames
-  -c, --curly, --curly-brackets-only
-  -h, --help
-  -m<module>, -M<module>                        same as in Perl itself
+    -p, --printf, --format=<format>         examples:    %d    %.3f
+    -f, --files                             interp. non-options as filenames
+    -c, --curly, --curly-brackets-only
+    -h, --help
+    -m<module>, -M<module>                  same as in Perl itself
 END
 
 if (-t 0 && -t 1 && !scalar @ARGV) {
