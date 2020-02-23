@@ -99,13 +99,15 @@ usage:
   $0 [<option> ...] --files [<filename> ...]    read from specified files
 options:
   -p, --printf, --format=<format>               examples:    %d    %.3f
-  -f, --files
+  -f, --files                                   interp. non-options as filenames
   -c, --curly, --curly-brackets-only
   -h, --help
   -m<module>, -M<module>                        same as in Perl itself
 END
 
-if ($opt_files) {
+if (-t 0 && -t 1 && !scalar @ARGV) {
+    interactive();
+} elsif ($opt_files) {
     magic_filehandle();
 } else {
     if (scalar @ARGV) {
@@ -123,6 +125,28 @@ if ($opt_files) {
          }
     } else {
         magic_filehandle();
+    }
+}
+
+use Term::ReadLine;
+
+sub interactive {
+    my $term = Term::ReadLine->new('perlcalc');
+    my $prompt = 'perlcalc> ';
+    my $OUT = $term->OUT || \*STDOUT;
+    local $_;
+    while (defined ($_ = $term->readline($prompt))) {
+        s{\R\z}{};
+        if ($opt_curly_brackets_only) {
+            curly_brackets();
+        } elsif (m{[\{\}]}) {
+            # If any {...} expressions are found, replace them.
+            curly_brackets();
+        } else {
+            # Treat the whole line as an expression.
+            whole_line();
+        }
+        print "\n";
     }
 }
 
