@@ -105,7 +105,7 @@ options:
     -f, --files                             interp. non-options as filenames
     -c, --curly, --curly-brackets-only
     -h, --help
-    -m<module>, -M<module>                  same as in Perl itself
+    -m<module>, -M<module>       load a Perl module -- same as in Perl itself
 END
 
 if (-t 0 && -t 1 && !scalar @ARGV) {
