@@ -1,0 +1,35 @@
+#!/usr/bin/env fontforge
+# -*- mode: python; coding: utf-8 -*-
+
+import fontforge
+import argparse
+import os
+
+class SFD2TTF:
+    def sfd2ttf(self, filename, destfilename = None):
+        if destfilename == None:
+            (rootdestfilename, junk) = os.path.splitext(filename)
+            destfilename = rootdestfilename + '.ttf'
+        font = fontforge.open(filename)
+        font.generate(destfilename)
+
+sfd2ttf = SFD2TTF()
+
+parser = argparse.ArgumentParser(
+    description = "Convert SFD fonts to TTF."
+)
+parser.add_argument("filename")
+parser.add_argument("destfilename", nargs = '?')
+
+args = parser.parse_args()
+sfd2ttf.args = args
+
+sfd2ttf.sfd2ttf(filename = args.filename, destfilename = args.destfilename)
+
+# FontName: Arial-BoldItalicMT
+# FullName: Arial Bold Italic
+# FamilyName: Arial
+# Weight: Bold
+# FontName: ComicSansMS
+# FullName: Comic Sans MS
+# FamilyName: Comic Sans MS
