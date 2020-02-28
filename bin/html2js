@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Encode qw(encode decode);
+use open ':locale';
+
+sub finish {
+    if ($.) {
+        print("\n");
+        print("    /*jshint -W060 */\n");
+        print("    document.write(html);\n");
+        print("    /*jshint +W060 */\n");
+        print("}());\n\n");
+    }
+    $. = 0;
+}
+
+while (<>) {
+    s{\R\z}{};
+    $_ = jsSingleQuote($_);
+    if ($. == 1) {
+        print("/**\n");
+        print(" * $ARGV\n");
+        print(" */\n\n");
+        print("(function () {\n");
+        print("    var html = '';\n\n");
+    }
+    if (m{\S}) {
+        printf("    html += '%s\\n';\n", $_);
+    } else {
+        print("\n");
+    }
+    if (eof) {
+        finish();
+    }
+}
+finish();
+
+sub jsSingleQuote {
+    my $string = shift;
+    $string =~ s{\\}{\\\\}g;
+    $string =~ s{\'}{\\'}g;
+    # no need to escape double quotes (")
+    $string =~ s{\x0d}{\\r}g;
+    $string =~ s{\x0a}{\\n}g;
+    $string =~ s{\x09}{\\t}g;
+    $string =~ s{\x0b}{\\v}g;
+    $string =~ s{\x08}{\\b}g;
+    $string =~ s{\x0c}{\\f}g;
+    $string =~ s{[\x00-\x1f\x7f-\xff]}{"\\x" . sprintf("%02x", ord($&))}ge;
+    # TODO: replace [\x{0100}-\x{ffff}] with \u{xxxx}
+    # TODO: replace [\x{10000}-\x{10ffff}] with \u{xxxx} UTF-16
+    return $string;
+}

@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our $RE_NUM = qr{[\-\+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[\-\+]?\d+)?}xi;
+
+if (!scalar @ARGV) {
+    exit(0);
+}
+
+my $x = shift @ARGV;
+$x = eval $x;
+
+my $mindiff;
+for (my $denom = 2; $denom <= 4096; $denom += 1) {
+    my $num = $x * $denom;
+
+    my $diff = abs($num - int($num + 0.5));
+    if (!defined $mindiff) {
+        $mindiff = $diff;
+    } elsif ($diff < $mindiff) {
+        $mindiff = $diff;
+    }
+    if ($diff <= 0.01 && $diff == $mindiff) {
+        printf("%g = %d / %d [%g]\n", $x, int($num + 0.5), $denom, $diff);
+    }
+    if ($diff <= 0.000001) {
+        printf("%g = %d / %d\n", $x, int($num + 0.5), $denom);
+        last;
+    }
+}
+
+my $golden = (1 + sqrt(5)) / 2;
+
+my $diff;
+
+if (($diff = abs($x - sqrt(2))) < 0.01) {
+    printf("%g = sqrt(2) [%g]\n", $x, $diff);
+}
+if (($diff = abs($x - sqrt(0.5))) < 0.01) {
+    printf("%g = sqrt(0.5) [%g]\n", $x, $diff);
+}
+if (($diff = abs($x - $golden)) < 0.01) {
+    printf("%g = golden [%g]\n", $x, $diff);
+}
+if (($diff = abs($x - 1/$golden)) < 0.01) {
+    printf("%g = 1/golden [%g]\n", $x, $diff);
+}
