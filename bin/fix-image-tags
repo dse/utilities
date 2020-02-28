@@ -1,0 +1,58 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our $documentRoot;
+our $widthOnly;
+
+use HTML::Entities qw(encode_entities decode_entities);
+use Getopt::Long;
+use Image::Size qw(imgsize);
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignorecase');
+Getopt::Long::GetOptions(
+    'document-root' => \$documentRoot,
+    'width-only' => \$widthOnly,
+) or die("Do not type '$0 --help' for help.\n");
+
+local $/ = undef;
+while (<>) {
+    s{<\s*img\s+[^>]*>}{fix_image_tag($&)}gesi;
+    print $_;
+}
+
+sub fix_image_tag {
+    my ($tag) = @_;
+    if ($tag !~ m{\s+src=\"([^"]*)\"}) {
+        return $tag;
+    }
+    my $src = decode_entities($1);
+    my $pathname;
+    if ($src =~ m{^//}) {
+        return $tag;
+    } elsif ($src =~ m{://}) {
+        return $tag;
+    } elsif ($src =~ m{^/}) {
+        if (defined $documentRoot) {
+            $pathname = $documentRoot . $src;
+        } else {
+            $pathname = '.' . $src;
+        }
+    } else {
+        $pathname = $src;
+    }
+    my ($width, $height) = imgsize($pathname);
+    if (!$width || !$height) {
+        return $tag;
+    }
+    $tag =~ s{\s+(width|height)=\"(.*?)\"}{}g;
+    my $attr;
+    if ($widthOnly) {
+        $attr = sprintf(' width="%s"', encode_entities($width));
+    } else {
+        $attr = sprintf(' width="%s" height="%s"', encode_entities($width), encode_entities($height));
+    }
+    $tag =~ s{\s+src=\"([^"]*)\"}{$&$attr};
+    return $tag;
+}

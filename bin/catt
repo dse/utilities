@@ -1,0 +1,12 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+while (<>) {
+    s{\R\z}{};
+    printf("%s:%s:%s\n", $ARGV, $., $_);
+    if (eof(\*ARGV)) {
+        $. = 0;
+    }
+}

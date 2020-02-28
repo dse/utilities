@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+my $align = Text::Align->new();
+
+my $pattern = shift @ARGV;
+
+my $default = 1;
+my $alignSpacesBefore = 0;
+my $alignSpacesAfter = 0;
+if ($pattern =~ s{^\s+(?=\S)}{}) {
+    $alignSpacesBefore = 1;
+    $default = 0;
+}
+if ($pattern =~ s{(?!\S)\s+$}{}) {
+    $alignSpacesAfter = 1;
+    $default = 0;
+}
+if ($default) {
+    $alignSpacesBefore = 1;
+}
+
+$pattern = qr{$pattern};
+push(@{$align->patterns}, Text::Align::Pattern->new(
+    pattern => $pattern,
+    alignSpacesBefore => $alignSpacesBefore,
+    alignSpacesAfter => $alignSpacesAfter,
+));
+
+my @lines;
+
+while (<>) {
+    $align->parse($_);
+}
+$align->run();
+
+package Text::Align {
+    use Moo;
+    BEGIN {
+        has lines    => (is => 'rw', default => sub { return []; });
+        has patterns => (is => 'rw', default => sub { return []; });
+        has repeat   => (is => 'rw', default => 0);
+    }
+    sub parse {
+        my ($self, $text) = @_;
+        my $line = Text::Align::Line->new(text => $text);
+        $line->test(@{$self->patterns});
+    }
+    sub finalize {
+        my ($self) = @_;
+    }
+    sub run {
+        my ($self) = @_;
+        $self->finalize();
+    }
+};
+
+package Text::Align::Line {
+    use Moo;
+    BEGIN {
+        has text    => (is => 'rw');
+        has matches => (is => 'rw', default => sub { return []; });
+    }
+    sub test {
+        my ($self, @patterns) = @_;
+        local $_ = $self->text;
+        s{\R\z}{};
+        $self->text($_);
+    }
+};
+
+package Text::Align::Match {
+    use Moo;
+    BEGIN {
+        has preMatch    => (is => 'rw');
+        has spaceBefore => (is => 'rw');
+        has match       => (is => 'rw');
+        has spaceAfter  => (is => 'rw');
+        has postMatch   => (is => 'rw');
+    }
+};
+
+package Text::Align::Pattern {
+    use Moo;
+    BEGIN {
+        has pattern           => (is => 'rw');
+        has alignSpacesBefore => (is => 'rw', default => 0);
+        has alignSpacesAfter  => (is => 'rw', default => 0);
+        has minSpacesBefore   => (is => 'rw');
+        has minSpacesAfter    => (is => 'rw');
+    }
+    sub finalize {
+        my ($self) = @_;
+        if (!defined $self->minSpacesBefore) {
+            if ($self->alignSpacesBefore) {
+                $self->minSpacesBefore(1);
+            }
+        }
+        if (!defined $self->minSpacesAfter) {
+            if ($self->alignSpacesAfter) {
+                $self->minSpacesAfter(1);
+            }
+        }
+    }
+}

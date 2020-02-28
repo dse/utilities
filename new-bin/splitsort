@@ -1,0 +1,102 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+my @sortOptions;
+
+sub passThroughOption {
+    my ($string) = @_;
+    ($string, my $requiredOrOptional, my $type) = split(/([:=])/, $string);
+    my @string = split(/\|/, $string);
+    my $option = $string[0];
+    my $dashOption = ((length($option) == 1) ? '-' : '--') . $option;
+    if (!defined $requiredOrOptional) {
+        return sub {
+            push(@sortOptions, $dashOption);
+        };
+    }
+    my $dashOptionEquals = ((length($option) == 1) ? ('-' . $option) : ('--' . $option . '='));
+    if (!defined $type || $type eq '') {
+        $type = 's';
+    }
+    # $type should be 's', 'f', or 'i'.
+    if ($requiredOrOptional eq ':') {
+        return sub {
+            push(@sortOptions, (defined $_[1] && $_[1] ne '') ? $dashOptionEquals . $_[1] : $dashOption);
+        };
+    }
+    return sub {
+        push(@sortOptions, $dashOptionEquals . $_[1]);
+    };
+}
+
+sub passThrough {
+    return map { ($_ => passThroughOption($_)) } @_;
+}
+
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    passThrough(
+        'b|ignore-leading-blanks',
+        'd|directory-order',
+        'f|ignore-case',
+        'g|general-numeric-sort',
+        'i|ignore-nonprinting',
+        'M|month-sort',
+        'h|human-numeric-sort',
+        'n|numeric-sort',
+        'R|random-sort',
+        'random-source=s',
+        'r|reverse',
+        'sort=s',
+        'V|version-sort',
+        'batch-size=s',
+        'c|check:s',
+        'compress-program=s',
+        'debug',
+        'files0-from=F',
+        'k|key=s',
+        'm|merge',
+        'o|output=s',
+        's|stable',
+        'S|buffer-size=s',
+        't|field-separator=s',
+        'T|temporary-directory=s',
+        'parallel=s',
+        'u|unique',
+        'z|zero-terminated',
+    ),
+    'sort-help'    => sub { system('sort', '--help'); exit(0); },
+    'sort-version' => sub { system('sort', '--version'); exit(0); },
+    'help' => sub { usage(); exit(0); },
+) or die;
+
+my @lines;
+
+my $rx = shift @ARGV;
+$rx = qr{$rx};
+
+while (<>) {
+    if ($_ =~ $rx) {
+        splitsort();
+        print;
+    } else {
+        push(@lines, $_);
+    }
+}
+splitsort();
+
+sub splitsort {
+    local $_;
+    return unless scalar @lines;
+    @lines = sort { $a cmp $b } @lines;
+    foreach my $line (@lines) {
+        print $line;
+    }
+    @lines = ();
+}
+
+sub usage { print <<"END"; }
+END
