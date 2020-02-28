@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use HTML::Parser;
+
+local $/ = undef;
+while (<>) {
+    my $html = $_;
+    my $printer = sub {
+        print shift;
+    };
+    my $p = HTML::Parser->new(
+        api_version => 3,
+    );
+    $p->handler(
+        text => $printer, 'text'
+    );
+    $p->handler(
+        start => $printer, 'text'
+    );
+    $p->handler(
+        end => $printer, 'text'
+    );
+    $p->handler(
+        declaration => $printer, 'text'
+    );
+    $p->handler(
+        process => $printer, 'text'
+    );
+    $p->handler(
+        start_document => $printer, 'text'
+    );
+    $p->handler(
+        end_document => $printer, 'text'
+    );
+    $p->parse($html);
+    $p->eof();
+}

@@ -3,44 +3,84 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-declare -a cygwin_pkgs
-declare -a debian_pkgs
-declare -a cpan_pkgs
+declare -a cygwin_pkgs=()
+declare -a debian_pkgs=()
+declare -a cpan_pkgs=()
+declare -a pkgs=()
 
-cygwin_pkgs=()
-debian_pkgs=()
-cpan_pkgs=()
+die () {
+    >&2 echo "$@"
+    exit 1
+}
+
+pkg () {
+    >&2 echo "[$@]"
+    "$@" || die "$@"
+}
 
 add-perl-module () {
     local cygwin=''
     local debian=''
+    local OPTIND
+    local OPTION
+    local OPTERR
+    local OPTARG
+    local -a cygwin_requires=()
+    local -a debian_requires=()
+
     while getopts 'C:D:' OPTION ; do
         case "$OPTION" in
-            C) cygwin="$OPTARG";;
-            D) debian="$OPTARG";;
+            C)
+                case "$OPTARG" in
+                    ,*)
+                        cygwin_requires+=("${OPTARG#,}")
+                        ;;
+                    *)
+                        cygwin="$OPTARG"
+                        ;;
+                esac
+                ;;
+            D)
+                debian="$OPTARG"
+                ;;
         esac
     done
     shift $((OPTIND - 1))
-    echo "$@"
-    if perl -M"$1" -e exit ; then
+    if perl -M"$1" -e exit 2>/dev/null ; then
         >&2 echo "$1 is already installed."
         return 0
     else
+        pkgs+=("$1")
         if [[ "$OSTYPE" = "cygwin" ]] ; then
             if [[ "$cygwin" != "" ]] ; then
-                cygwin_pkgs+=("$cygwin")
+                if pkg apt-cyg install "$cygwin" && perl -M"$1" -e exit 2>/dev/null ; then
+                    :
+                else
+                    for i in "${cygwin_requires[@]}" ; do
+                        pkg apt-cyg install "$i"
+                    done
+                    pkg cpan "$1"
+                fi
             else
-                cpan_pkgs+=("$1")
+                pkg cpan "$1"
             fi
         else
-            cpan_pkgs+=("$1")
+            pkg cpan "$1"
         fi
     fi
 }
 
+check-all-perl-modules () {
+    for i in "${pkgs[@]}" ; do
+        echo "need to install $i"
+    done
+}
+
 install-all-perl-modules () {
     if (( "${#cygwin_pkgs[@]}" )) ; then
-        apt-cyg install "${cygwin_pkgs[@]}"
+        for i in "${cygwin_pkgs[@]}" ; do
+            apt-cyg install "${i}" || cpan_pkgs+=("${i}")
+        done
     fi
     if (( "${#cpan_pkgs[@]}" )) ; then
         cpan "${cpan_pkgs[@]}"
@@ -50,111 +90,125 @@ install-all-perl-modules () {
 add-perl-module -C perl-DBI            DBI
 add-perl-module -C perl-DBD-mysql      DBD::mysql
 add-perl-module -C perl-DBD-SQLite     DBD::SQLite
-# add-perl-module -C perl-DateTime       DateTime
-# add-perl-module -C perl-common-sense   common::sense
-# add-perl-module -C perl-Class-Tiny     Class::Tiny
-# add-perl-module -C perl-List-MoreUtils List::MoreUtils
-# add-perl-module -C perl-Archive-Zip    Archive::Zip
-# add-perl-module -C perl-Encode-Locale  Encode::Locale
-# add-perl-module -C perl-GD             GD
-# add-perl-module -C perl-Image-Magick   Image::Magick
-# add-perl-module -C perl-JSON           JSON
-# add-perl-module -C perl-JSON-XS        JSON::XS
-# add-perl-module -C perl-JSON-PP        JSON::PP
-# add-perl-module -C perl-LWP            LWP
-# add-perl-module -C perl-Regexp-Common  Regexp::Common
-# add-perl-module -C perl-URI            URI
-# add-perl-module -C perl-XML-LibXML     XML::LibXML
-# add-perl-module -C perl-YAML           YAML
-# add-perl-module -C perl-File-Which     File::Which
-# add-perl-module -C perl-File-Slurp     File::Slurp
-# add-perl-module -C perl-Path-Tiny      Path::Tiny
-# add-perl-module -C perl-Glib           Glib
-# add-perl-module -C perl-HTML-Parser    HTML::Parser
-# add-perl-module -C perl-HTTP-Cookies   HTTP::Cookies
-# add-perl-module -C perl-HTTP-Date      HTTP::Date
-# add-perl-module -C perl-HTML-Tagset    HTML::Tagset
-# add-perl-module -C perl-HTML-Tree      HTML::Tree
-# add-perl-module -C perl-IPC-Run        IPC::Run
-# add-perl-module -C perl-Text-CSV       Text::CSV
-# add-perl-module -C perl-Text-CSV_XS    Text::CSV_XS
-# add-perl-module -C perl-Text-Diff      Text::Diff
-# add-perl-module -C perl-Gtk2           Gtk2
+add-perl-module -C perl-DateTime       DateTime
+add-perl-module -C perl-common-sense   common::sense
+add-perl-module -C perl-Class-Tiny     Class::Tiny
+add-perl-module -C perl-List-MoreUtils List::MoreUtils
+add-perl-module -C perl-Archive-Zip    Archive::Zip
+add-perl-module -C perl-Encode-Locale  Encode::Locale
+add-perl-module -C perl-GD -C ,libgd-devel GD
+add-perl-module -C perl-Image-Magick   Image::Magick
+add-perl-module -C perl-JSON           JSON
+add-perl-module -C perl-JSON-XS        JSON::XS
+add-perl-module -C perl-JSON-PP        JSON::PP
+add-perl-module -C perl-LWP            LWP
+add-perl-module -C perl-Regexp-Common  Regexp::Common
+add-perl-module -C perl-URI            URI
+add-perl-module -C perl-XML-LibXML     XML::LibXML
+add-perl-module -C perl-YAML           YAML
+add-perl-module -C perl-File-Which     File::Which
+add-perl-module -C perl-File-Slurp     File::Slurp
+add-perl-module -C perl-Path-Tiny      Path::Tiny
+add-perl-module -C perl-Glib           Glib
+add-perl-module -C perl-HTML-Parser    HTML::Parser
+add-perl-module -C perl-HTTP-Cookies   HTTP::Cookies
+add-perl-module -C perl-HTTP-Date      HTTP::Date
+add-perl-module -C perl-HTML-Tagset    HTML::Tagset
+add-perl-module -C perl-HTML-Tree      HTML::Tree
+add-perl-module -C perl-IPC-Run        IPC::Run
+add-perl-module -C perl-Text-CSV       Text::CSV
+add-perl-module -C perl-Text-CSV_XS    Text::CSV_XS
+add-perl-module -C perl-Text-Diff      Text::Diff
+add-perl-module -C perl-Gtk2           Gtk2
 
-# add-perl-module Carp::Always
-# add-perl-module Curses
-# add-perl-module List::Util
-# add-perl-module HTML::Entities
-# add-perl-module Moo
-# add-perl-module Moose
-# add-perl-module Expect
-# add-perl-module Time::ParseDate
-# add-perl-module Date::Parse
-# add-perl-module DateTime::Format::DateParse
-# add-perl-module PDF::API2
-# add-perl-module Sort::Naturally
-# add-perl-module String::ShellQuote
-# add-perl-module String::Unescape
+add-perl-module Carp::Always
+add-perl-module Curses
+add-perl-module List::Util
+add-perl-module HTML::Entities
+add-perl-module Moo
+add-perl-module Moose
+add-perl-module Expect
+add-perl-module Time::ParseDate
+add-perl-module Date::Parse
+add-perl-module DateTime::Format::DateParse
+add-perl-module PDF::API2
+add-perl-module Sort::Naturally
+add-perl-module String::ShellQuote
+add-perl-module String::Unescape
 
-# add-perl-module Class::MethodMaker
-# add-perl-module Expect
-# add-perl-module File::MMagic
-# add-perl-module Glib
-# add-perl-module Google::ProtocolBuffers
-# add-perl-module Graphics::ColorUtils
-# add-perl-module HTML::Entities
-# add-perl-module HTML::Form
-# add-perl-module HTML::LinkChanger
-# add-perl-module HTML::LinkChanger::Absolutizer
-# add-perl-module HTML::LinkExtor
-# add-perl-module HTML::Mason
-# add-perl-module HTML::Selector::XPath
-# add-perl-module HTML::Valid::Tagset
-# add-perl-module HTTP::Cache::Transparent
-# add-perl-module HTTP::Request
-# add-perl-module HTTP::Request::Common
-# add-perl-module HTTP::Status
-# add-perl-module Image::Size
-# add-perl-module Inline::MakeMaker
-# add-perl-module IPC::Open2
-# add-perl-module Irssi
-# add-perl-module List::MoreUtils
-# add-perl-module List::Util
-# add-perl-module   LWP::Simple
-# add-perl-module   LWP::UserAgent
-# add-perl-module   LWP::UserAgent::WithCache
-# add-perl-module Math::Trig
-# add-perl-module MP3::Info
-# add-perl-module MP3::Tag
+add-perl-module Class::MethodMaker
+add-perl-module Expect
+add-perl-module File::MMagic
+add-perl-module Glib
+add-perl-module Google::ProtocolBuffers
+add-perl-module Graphics::ColorUtils
+add-perl-module HTML::Entities
+add-perl-module HTML::Form
+add-perl-module HTML::LinkChanger
+add-perl-module HTML::LinkChanger::Absolutizer
+add-perl-module HTML::LinkExtor
+add-perl-module HTML::Mason
+add-perl-module HTML::Selector::XPath
+add-perl-module HTML::Valid::Tagset
+add-perl-module HTTP::Cache::Transparent
+add-perl-module HTTP::Request
+add-perl-module HTTP::Request::Common
+add-perl-module HTTP::Status
+add-perl-module Image::Size
+add-perl-module Inline::MakeMaker
+add-perl-module IPC::Open2
+add-perl-module Irssi
+add-perl-module List::MoreUtils
+add-perl-module List::Util
+add-perl-module LWP::Simple
+add-perl-module LWP::UserAgent
+add-perl-module LWP::UserAgent::WithCache
+add-perl-module Math::Trig
+add-perl-module MP3::Info
+add-perl-module MP3::Tag
 # add-perl-module Net::IRC
-# add-perl-module SOAP::Lite
-# add-perl-module Spreadsheet::ParseExcel
-# add-perl-module Spreadsheet::ParseXLSX
-# add-perl-module Spreadsheet::WriteExcel
-# add-perl-module Term::ANSIColor
-# add-perl-module Term::Cap
-# add-perl-module Term::ReadPassword
-# add-perl-module Term::Size
-# add-perl-module Test::More
-# add-perl-module Text::ASCIITable
-# add-perl-module Text::FormatTable
-# add-perl-module Text::ParseWords
-# add-perl-module Text::SimpleTable
-# add-perl-module Text::Table
-# add-perl-module Text::Tabs
-# add-perl-module Text::Trim
-# add-perl-module Text::Wrap
-# add-perl-module Time::HiRes
-# add-perl-module Time::Local
-# add-perl-module Time::ParseDate
-# add-perl-module Transit::GTFS::Feed
-# add-perl-module Transit::GTFS::FeedFile
-# add-perl-module Transit::GTFS::ProgressLog
-# add-perl-module WebService::Spotify
-# add-perl-module WebService::Spotify::Util
-# add-perl-module WWW::Shorten::Bitly
-# add-perl-module WWW::Shorten::TinyURL
-# add-perl-module YAML::Any
-# add-perl-module YAML::Syck
+add-perl-module SOAP::Lite
+add-perl-module Spreadsheet::ParseExcel
+add-perl-module Spreadsheet::ParseXLSX
+add-perl-module Spreadsheet::WriteExcel
+add-perl-module Term::ANSIColor
+add-perl-module Term::Cap
+add-perl-module Term::ReadPassword
+add-perl-module Term::Size
+add-perl-module Test::More
+add-perl-module Text::ASCIITable
+add-perl-module Text::FormatTable
+add-perl-module Text::ParseWords
+add-perl-module Text::SimpleTable
+add-perl-module Text::Table
+add-perl-module Text::Tabs
+add-perl-module Text::Trim
+add-perl-module Text::Wrap
+add-perl-module Time::HiRes
+add-perl-module Time::Local
+add-perl-module Time::ParseDate
+add-perl-module Transit::GTFS::Feed
+add-perl-module Transit::GTFS::FeedFile
+add-perl-module Transit::GTFS::ProgressLog
+add-perl-module WebService::Spotify
+add-perl-module WebService::Spotify::Util
+add-perl-module WWW::Shorten::Bitly
+add-perl-module WWW::Shorten::TinyURL
+add-perl-module YAML::Any
+add-perl-module YAML::Syck
 
-install-all-perl-modules
+command=install
+
+if (( $# )) ; then
+    command="$1"
+    shift
+fi
+
+case "$command" in
+    install)
+        install-all-perl-modules
+        ;;
+    check)
+        check-all-perl-modules
+        ;;
+esac
