@@ -7,8 +7,12 @@ main () {
     command=install
 
     if (( $# )) ; then
-        command="$1"
-        shift
+        case "$1" in
+            install|check)
+                command="$1"
+                shift
+                ;;
+        esac
     fi
 
     case "$command" in
