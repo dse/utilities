@@ -150,6 +150,8 @@ add-module () {
 
     if [[ "$cygwin_package" != "" ]] ; then
         cygwin_packages["$1"]="$cygwin_package"
+    else
+        cygwin_packages["$1"]=""
     fi
 
     if (( "${#cygwin__requires[@]}" )) ; then
@@ -185,7 +187,7 @@ add-modules () {
     add-module -C perl-File-Which     File::Which
     add-module -C perl-File-Slurp     File::Slurp
     add-module -C perl-Path-Tiny      Path::Tiny
-    add-module -C perl-Glib           Glib
+    add-module                        Glib # cygwin has package for perl 5.26; latest perl package is different version
     add-module -C perl-HTML-Parser    HTML::Parser
     add-module -C perl-HTTP-Cookies   HTTP::Cookies
     add-module -C perl-HTTP-Date      HTTP::Date
