@@ -120,6 +120,8 @@ add-perl-module -C perl-Text-CSV       Text::CSV
 add-perl-module -C perl-Text-CSV_XS    Text::CSV_XS
 add-perl-module -C perl-Text-Diff      Text::Diff
 add-perl-module -C perl-Gtk2           Gtk2
+add-perl-module -C perl-Term-ReadLine-Gnu  Term::ReadLine::Gnu
+add-perl-module -C perl-Term-ReadLine-Perl Term::ReadLine::Perl
 
 add-perl-module Carp::Always
 add-perl-module Curses
