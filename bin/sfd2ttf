@@ -6,25 +6,94 @@ import argparse
 import os
 
 class SFD2TTF:
-    def sfd2ttf(self, filename, destfilename = None):
+
+    def __init__(self):
+        self.filename     = None
+        self.destfilename = None
+        self.lineHeight   = None
+        self.fontName     = None
+        self.familyName   = None
+        self.fullName     = None
+        self.version      = None
+        self.font         = None
+
+    def sfd2ttf(self):
+        filename = self.filename
+        destfilename = self.destfilename
         if destfilename == None:
             (rootdestfilename, junk) = os.path.splitext(filename)
             destfilename = rootdestfilename + '.ttf'
-        font = fontforge.open(filename)
-        font.generate(destfilename)
+        self.font = fontforge.open(filename)
+        self.font.os2_vendor = 'PfEd'
+        self.font.encoding = 'iso10646-1'
+        self.setMetrics()
+        self.setNames()
+        self.font.generate(destfilename)
 
-sfd2ttf = SFD2TTF()
+    def setNames(self):
+        if self.fontName != None:
+            self.font.fontname = self.fontName
+        if self.familyName != None:
+            self.font.familyname = self.familyName
+        if self.fullName != None:
+            self.font.fullname = self.fullName
+        if self.version != None:
+            self.font.version = self.version
+
+    def setMetrics(self):
+        if self.lineHeight != None:
+            height = self.font.em
+            finalHeight = int(0.5 + self.lineHeight * height)
+            add = finalHeight - height
+            addAscent = int(0.5 + 1.0 * add / 2)
+            addDescent = add - addAscent
+            finalAscent = self.font.ascent + addAscent
+            finalDescent = self.font.descent + addDescent
+            sys.stderr.write("BEFORE: hhea %d/%d typo %d/%d win %d/%d\n" % (
+                self.font.hhea_ascent, self.font.hhea_descent,
+                self.font.os2_typoascent, self.font.os2_typodescent,
+                self.font.os2_winascent, self.font.os2_windescent
+            ))
+            self.font.hhea_ascent     = finalAscent
+            self.font.os2_typoascent  = finalAscent
+            self.font.os2_winascent   = finalAscent
+            self.font.hhea_descent    = -finalDescent
+            self.font.os2_typodescent = -finalDescent
+            self.font.os2_windescent  = finalDescent
+            sys.stderr.write("AFTER: hhea %d/%d typo %d/%d win %d/%d\n" % (
+                self.font.hhea_ascent, self.font.hhea_descent,
+                self.font.os2_typoascent, self.font.os2_typodescent,
+                self.font.os2_winascent, self.font.os2_windescent
+            ))
+
+    def argparseArgs(self, args):
+        self.filename     = args.filename
+        self.destfilename = args.destfilename
+        self.lineHeight   = args.line_height
+        self.fontName     = args.font_name
+        self.familyName   = args.family_name
+        self.fullName     = args.full_name
+        self.version      = args.version
 
 parser = argparse.ArgumentParser(
     description = "Convert SFD fonts to TTF."
 )
+parser.add_argument("--ascent",      type = int,   help = "ascent for metrics, positive above baseline, e.g., 1853")
+parser.add_argument("--descent",     type = int,   help = "descent for metrics, positive below baseline, e.g., 605")
+parser.add_argument("--line-height", type = float, help = "line height to use for final metrics, e.g., 1.2")
+parser.add_argument("--font-name",                 help = "specify a new FontName")
+parser.add_argument("--family-name",               help = "specify a new FamilyName")
+parser.add_argument("--full-name",                 help = "specify a new FullName")
+parser.add_argument("--version",                   help = "set version number")
 parser.add_argument("filename")
 parser.add_argument("destfilename", nargs = '?')
 
 args = parser.parse_args()
-sfd2ttf.args = args
 
-sfd2ttf.sfd2ttf(filename = args.filename, destfilename = args.destfilename)
+sfd2ttf = SFD2TTF()
+sfd2ttf.argparseArgs(args)
+
+sfd2ttf.sfd2ttf()
 
 # FontName: Arial-BoldItalicMT
 # FullName: Arial Bold Italic
