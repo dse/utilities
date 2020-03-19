@@ -1,0 +1,54 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Devel::Symdump;
+use Data::Dumper;
+
+local $Data::Dumper::Indent   = 1;
+local $Data::Dumper::Terse    = 1;
+local $Data::Dumper::Deepcopy = 1;
+local $Data::Dumper::Sortkeys = 1;
+local $Data::Dumper::Useqq    = 1;
+
+my $o = Devel::Symdump->new('main');
+
+foreach my $scalar (sort $o->scalars) {
+    $scalar =~ s{[\x00-\x1f]}{'^' . chr(ord($&) + 64)}ge;
+    $scalar =~ s{^main::(?=.)}{};
+    next if $scalar =~ m{::$};
+    no strict 'refs';
+    printf('$%s = %s', $scalar, Dumper ${$scalar});
+}
+foreach my $array (sort $o->arrays) {
+    $array =~ s{[\x00-\x1f]}{'^' . chr(ord($&) + 64)}ge;
+    $array =~ s{^main::(?=.)}{};
+    next if $array =~ m{::$};
+    no strict 'refs';
+    printf('@%s = %s', $array, Dumper \@{$array});
+}
+foreach my $hash (sort $o->hashes) {
+    $hash =~ s{[\x00-\x1f]}{'^' . chr(ord($&) + 64)}ge;
+    $hash =~ s{^main::(?=.)}{};
+    next if $hash =~ m{::$};
+    no strict 'refs';
+    printf('%%%s = %s', $hash, Dumper \%{$hash});
+}
+foreach my $io (sort $o->ios) {
+    $io =~ s{[\x00-\x1f]}{'^' . chr(ord($&) + 64)}ge;
+    $io =~ s{^main::(?=.)}{};
+    next if $io =~ m{::$};
+    no strict 'refs';
+    printf('*%s = %s', $io, Dumper \*{$io});
+}
+foreach my $function (sort $o->functions) {
+    $function =~ s{[\x00-\x1f]}{'^' . chr(ord($&) + 64)}ge;
+    $function =~ s{^main::(?=.)}{};
+    next if $function =~ m{::$};
+    no strict 'refs';
+    printf('&%s = %s', $function, Dumper \&{$function});
+}
+foreach my $package (sort $o->packages) {
+    say 'package ' . $package;
+}

@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use open IO => ":locale";
+
+use HTML::TreeBuilder;
+use HTML::TreeBuilder::XPath;
+use HTML::Selector::XPath 0.20 qw(selector_to_xpath);
+
+use strictures;
+use File::Find qw();
+use Getopt::Long;
+
+our @selectors;
+our $verbose = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'noignore_case');
+Getopt::Long::GetOptions(
+    'e|selector|search=s' => \@selectors,
+    'v|verbose+' => \$verbose,
+) or die("Type '$0 --help' for help.\n");
+
+if (!scalar @selectors) {
+    push(@selectors, shift(@ARGV));
+}
+
+@ARGV = replaceDirectories(@ARGV);
+processFiles(\&processContents, @ARGV);
+
+sub processContents {
+    my $html = shift;
+    my $tree = HTML::TreeBuilder::XPath->new();
+    $tree->ignore_unknown(0);
+    $tree->no_space_compacting(1);
+    $tree->ignore_ignorable_whitespace(0);
+    $tree->parse($html);
+    $tree->eof();
+    processTree($tree);
+}
+
+sub processTree {
+    my $tree = shift;
+    foreach my $selector (@selectors) {
+        my $xpath = selector_to_xpath($selector, './');
+        my @nodes = $tree->findnodes($xpath);
+        if ($verbose) {
+            warn(sprintf("Search for %s (%s) yielded %d nodes.\n",
+                         $selector, $xpath, scalar(@nodes)));
+        }
+        foreach my $node (@nodes) {
+            my $attrs = join(', ',
+                             grep { !/^_/ }
+                                 $node->all_attr_names);
+            $node->delete();
+        }
+    }
+    print $tree->as_HTML;
+    print "\n";
+}
+
+sub processFiles {
+    my $sub = shift;
+    local @ARGV = @_;
+
+    local $_ = undef;     # $ARG (the default input and pattern-matching space)
+    local $" = " ";       # $LIST_SEPARATOR (for print "@array\n";)
+    local $ARGV = undef;
+    local $, = undef;           # $OUTPUT_FIELD_SEPARATOR
+    local $. = undef;           # $INPUT_LINE_NUMBER
+    local $/ = undef;           # $INPUT_RECORD_SEPARATOR
+    local $\ = undef;           # $OUTPUT_RECORD_SEPARATOR
+
+    while (<>) {
+        s{\R}{\n}g;
+        $sub->($_);
+    }
+}
+
+sub replaceDirectories {
+    my @result;
+    foreach my $arg (@_) {
+        if (-d $arg) {
+            my $wanted = sub {
+                my ($dev,$ino,$mode,$nlink,$uid,$gid);
+                (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+                    -f _ &&
+                    /^.*\.html?\z/si
+                    && push(@result, $File::Find::name);
+            };
+            File::Find::find({ wanted => $wanted }, $arg);
+        } else {
+            push(@result, $arg);
+        }
+    }
+    return @result;
+}
