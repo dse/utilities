@@ -8,14 +8,17 @@ import os
 class SFD2TTF:
 
     def __init__(self):
-        self.filename     = None
-        self.destfilename = None
-        self.lineHeight   = None
-        self.fontName     = None
-        self.familyName   = None
-        self.fullName     = None
-        self.version      = None
-        self.font         = None
+        self.filename         = None
+        self.destfilename     = None
+        self.lineHeight       = None
+        self.fontName         = None
+        self.familyName       = None
+        self.fullName         = None
+        self.version          = None
+        self.sfntRevision     = None
+        self.font             = None
+        self.noHints          = False
+        self.omitInstructions = False
 
     def sfd2ttf(self):
         filename = self.filename
@@ -28,7 +31,13 @@ class SFD2TTF:
         self.font.encoding = 'iso10646-1'
         self.setMetrics()
         self.setNames()
-        self.font.generate(destfilename)
+        generateFlags = []
+        if self.noHints:
+            generateFlags += ['no-hints']
+        if self.omitInstructions:
+            generateFlags += ['omit-instructions']
+        generateFlags = tuple(generateFlags)
+        self.font.generate(destfilename, flags = generateFlags)
 
     def setNames(self):
         if self.fontName != None:
@@ -39,6 +48,8 @@ class SFD2TTF:
             self.font.fullname = self.fullName
         if self.version != None:
             self.font.version = self.version
+        if self.sfntRevision != None:
+            self.font.sfntRevision = self.sfntRevision
 
     def setMetrics(self):
         if self.lineHeight != None:
@@ -67,24 +78,30 @@ class SFD2TTF:
             ))
 
     def argparseArgs(self, args):
-        self.filename     = args.filename
-        self.destfilename = args.destfilename
-        self.lineHeight   = args.line_height
-        self.fontName     = args.font_name
-        self.familyName   = args.family_name
-        self.fullName     = args.full_name
-        self.version      = args.version
+        self.filename         = args.filename
+        self.destfilename     = args.destfilename
+        self.lineHeight       = args.line_height
+        self.fontName         = args.font_name
+        self.familyName       = args.family_name
+        self.fullName         = args.full_name
+        self.version          = args.version
+        self.sfntRevision     = args.sfnt_revision
+        self.noHints          = args.no_hints
+        self.omitInstructions = args.omit_instructions
 
 parser = argparse.ArgumentParser(
     description = "Convert SFD fonts to TTF."
 )
-parser.add_argument("--ascent",      type = int,   help = "ascent for metrics, positive above baseline, e.g., 1853")
-parser.add_argument("--descent",     type = int,   help = "descent for metrics, positive below baseline, e.g., 605")
-parser.add_argument("--line-height", type = float, help = "line height to use for final metrics, e.g., 1.2")
-parser.add_argument("--font-name",                 help = "specify a new FontName")
-parser.add_argument("--family-name",               help = "specify a new FamilyName")
-parser.add_argument("--full-name",                 help = "specify a new FullName")
-parser.add_argument("--version",                   help = "set version number")
+parser.add_argument("--ascent",        type = int,   help = "ascent for metrics, positive above baseline, e.g., 1853")
+parser.add_argument("--descent",       type = int,   help = "descent for metrics, positive below baseline, e.g., 605")
+parser.add_argument("--line-height",   type = float, help = "line height to use for final metrics, e.g., 1.2")
+parser.add_argument("--font-name",                   help = "specify a new FontName")
+parser.add_argument("--family-name",                 help = "specify a new FamilyName")
+parser.add_argument("--full-name",                   help = "specify a new FullName")
+parser.add_argument("--version",                     help = "set version number")
+parser.add_argument("--sfnt-revision", type = float, help = "set sfnt revision number (e.g., 2020.03)")
+parser.add_argument("--no-hints",          action = 'store_true')
+parser.add_argument("--omit-instructions", action = 'store_true')
 parser.add_argument("filename")
 parser.add_argument("destfilename", nargs = '?')
 
