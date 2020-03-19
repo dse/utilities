@@ -3,6 +3,8 @@ use warnings;
 use strict;
 use v5.10.0;
 
+# FIXME: don't clobber the second line unless it looks like a divider
+
 use open IO => ':locale';
 
 use lib "$ENV{HOME}/git/dse.d/utilities/lib/perl";
