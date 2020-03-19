@@ -21,7 +21,7 @@ foreach my $inc (@INC) {
             printf("%-32s %s\n", $module, $canonpath);
         },
         no_chdir => 1
-    }, $inc);
+    }, $inc) if -d $inc;
 }
 
 sub path2module {
