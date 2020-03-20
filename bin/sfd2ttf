@@ -4,12 +4,13 @@
 import fontforge
 import argparse
 import os
+import re
 
 class SFD2TTF:
 
     def __init__(self):
-        self.filename         = None
-        self.destfilename     = None
+        self.sourceFilename   = None
+        self.destFilename     = None
         self.lineHeight       = None
         self.fontName         = None
         self.familyName       = None
@@ -21,23 +22,26 @@ class SFD2TTF:
         self.omitInstructions = False
 
     def sfd2ttf(self):
-        filename = self.filename
-        destfilename = self.destfilename
-        if destfilename == None:
-            (rootdestfilename, junk) = os.path.splitext(filename)
-            destfilename = rootdestfilename + '.ttf'
-        self.font = fontforge.open(filename)
+        sourceFilename = self.sourceFilename
+        destFilename = self.destFilename
+        if destFilename == None:
+            (rootDestFilename, junk) = os.path.splitext(sourceFilename)
+            destFilename = rootDestFilename + '.ttf'
+        self.font = fontforge.open(sourceFilename)
         self.font.os2_vendor = 'PfEd'
         self.font.encoding = 'iso10646-1'
         self.setMetrics()
         self.setNames()
-        generateFlags = []
-        if self.noHints:
-            generateFlags += ['no-hints']
-        if self.omitInstructions:
-            generateFlags += ['omit-instructions']
-        generateFlags = tuple(generateFlags)
-        self.font.generate(destfilename, flags = generateFlags)
+        if re.search(r'\.sfd$', destFilename):
+            self.font.save(destFilename)
+        else:
+            flags = []
+            if self.noHints:
+                flags += ['no-hints']
+            if self.omitInstructions:
+                flags += ['omit-instructions']
+            flags = tuple(flags)
+            self.font.generate(destFilename, flags = flags)
 
     def setNames(self):
         if self.fontName != None:
@@ -78,8 +82,8 @@ class SFD2TTF:
             ))
 
     def argparseArgs(self, args):
-        self.filename         = args.filename
-        self.destfilename     = args.destfilename
+        self.sourceFilename   = args.source_filename
+        self.destFilename     = args.dest_filename
         self.lineHeight       = args.line_height
         self.fontName         = args.font_name
         self.familyName       = args.family_name
@@ -102,8 +106,8 @@ parser.add_argument("--version",                     help = "set version number"
 parser.add_argument("--sfnt-revision", type = float, help = "set sfnt revision number (e.g., 2020.03)")
 parser.add_argument("--no-hints",          action = 'store_true')
 parser.add_argument("--omit-instructions", action = 'store_true')
-parser.add_argument("filename")
-parser.add_argument("destfilename", nargs = '?')
+parser.add_argument("source-filename")
+parser.add_argument("dest-filename", nargs = '?')
 
 args = parser.parse_args()
 
