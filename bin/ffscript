@@ -14,6 +14,13 @@ class FontForgeScript:
         self.omitInstructions = False
         self.encodeUnicode    = False
         self.noOS2Vendor      = False
+        self.lineHeight       = None
+        self.fontName         = None
+        self.familyName       = None
+        self.fullName         = None
+        self.version          = None
+        self.sfntRevision     = None
+        self.font             = None
         if args != None:
             self.setFromArgs(args)
     def run(self):
@@ -44,12 +51,20 @@ class FontForgeScript:
             flags = tuple(flags)
             self.font.generate(filename, flags = flags)
     def setFromArgs(self, args):
+        print(args)
         self.sourceFilename   = args.source_filename
         self.destFilename     = args.dest_filename
+        self.lineHeight       = args.line_height
+        self.fontName         = args.font_name
+        self.familyName       = args.family_name
+        self.fullName         = args.full_name
+        self.version          = args.version
+        self.sfntRevision     = args.sfnt_revision
         self.noHints          = args.no_hints
         self.omitInstructions = args.omit_instructions
         self.encodeUnicode    = args.encode_unicode
         self.noOS2Vendor      = args.no_os2_vendor
+        self.lineHeight       = args.line_height
     def setNames(self):
         if self.fontName != None:
             self.font.fontname = self.fontName
@@ -90,8 +105,8 @@ class FontForgeScript:
 parser = argparse.ArgumentParser(
     description = "Various font manipulation and conversion tasks"
 )
-parser.add_argument("source-filename")
-parser.add_argument("dest-filename")
+parser.add_argument("source_filename")
+parser.add_argument("dest_filename")
 parser.add_argument("--no-hints",          action = 'store_true')
 parser.add_argument("--omit-instructions", action = 'store_true')
 parser.add_argument("--encode-unicode",    action = 'store_true')
