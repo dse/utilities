@@ -103,20 +103,20 @@ class FontForgeScript:
             ))
 
 parser = argparse.ArgumentParser(
-    description = "Various font manipulation and conversion tasks"
+    description = 'Various font manipulation and conversion tasks'
 )
-parser.add_argument("source_filename")
-parser.add_argument("dest_filename")
-parser.add_argument("--no-hints",          action = 'store_true')
-parser.add_argument("--omit-instructions", action = 'store_true')
-parser.add_argument("--encode-unicode",    action = 'store_true')
-parser.add_argument("--line-height",       type = float, help = "line height to use for final metrics, e.g., 1.2")
-parser.add_argument("--font-name",                       help = "specify a new FontName")
-parser.add_argument("--family-name",                     help = "specify a new FamilyName")
-parser.add_argument("--full-name",                       help = "specify a new FullName")
-parser.add_argument("--version",                         help = "set version number")
-parser.add_argument("--sfnt-revision",     type = float, help = "set sfnt revision number (e.g., 2020.03)")
-parser.add_argument("--no-os2-vendor",     action = 'store_true')
+parser.add_argument('source_filename')
+parser.add_argument('dest_filename')
+parser.add_argument('--no-hints',          action = 'store_true')
+parser.add_argument('--omit-instructions', action = 'store_true')
+parser.add_argument('--encode-unicode',    action = 'store_true')
+parser.add_argument('--line-height',       type = float, help = 'line height to use for final metrics, e.g., 1.2')
+parser.add_argument('--font-name',                       help = 'specify a new FontName')
+parser.add_argument('--family-name',                     help = 'specify a new FamilyName')
+parser.add_argument('--full-name',                       help = 'specify a new FullName')
+parser.add_argument('--version',                         help = 'set version number')
+parser.add_argument('--sfnt-revision',     type = float, help = 'set sfnt revision number (e.g., 2020.03)')
+parser.add_argument('--no-os2-vendor',     action = 'store_true')
 
 args = parser.parse_args()
 ffs = FontForgeScript(args)
