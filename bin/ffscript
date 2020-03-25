@@ -32,10 +32,25 @@ class FontForgeScript:
             self.font.os2_vendor = 'PfEd'
         if self.encodeUnicode:
             self.font.encoding = 'iso10646-1'
+
+        if self.args.em != None:
+            self.font.em = self.args.em
+        if self.args.ascent != None:
+            self.font.ascent = self.args.ascent
+        if self.args.descent != None:
+            self.font.descent = self.args.descent
+        if self.args.underline_position != None:
+            self.font.upos = self.args.underline_position
+        if self.args.underline_width != None:
+            self.font.uwidth = self.args.underline_width
+
         self.setMetrics()
         self.setNames()
     def load(self):
-        self.font = fontforge.open(self.sourceFilename)
+        if self.sourceFilename == 'NEW':
+            self.font = fontforge.font()
+        else:
+            self.font = fontforge.open(self.sourceFilename)
     def save(self):
         filename = self.destFilename
         if not filename:
@@ -105,18 +120,37 @@ class FontForgeScript:
 parser = argparse.ArgumentParser(
     description = 'Various font manipulation and conversion tasks'
 )
-parser.add_argument('source_filename')
+parser.add_argument('source_filename',      help = 'Use \'NEW\' to start from a new font.')
 parser.add_argument('dest_filename')
-parser.add_argument('--no-hints',          action = 'store_true')
-parser.add_argument('--omit-instructions', action = 'store_true')
-parser.add_argument('--encode-unicode',    action = 'store_true')
-parser.add_argument('--line-height',       type = float, help = 'line height to use for final metrics, e.g., 1.2')
-parser.add_argument('--font-name',                       help = 'specify a new FontName')
-parser.add_argument('--family-name',                     help = 'specify a new FamilyName')
-parser.add_argument('--full-name',                       help = 'specify a new FullName')
-parser.add_argument('--version',                         help = 'set version number')
-parser.add_argument('--sfnt-revision',     type = float, help = 'set sfnt revision number (e.g., 2020.03)')
-parser.add_argument('--no-os2-vendor',     action = 'store_true')
+parser.add_argument('--no-hints',           action = 'store_true')
+parser.add_argument('--omit-instructions',  action = 'store_true')
+parser.add_argument('--encode-unicode',     action = 'store_true')
+parser.add_argument('--line-height',        type = float, help = 'line height to use for final metrics, e.g., 1.2')
+parser.add_argument('--font-name',                        help = 'specify a new FontName')
+parser.add_argument('--family-name',                      help = 'specify a new FamilyName')
+parser.add_argument('--full-name',                        help = 'specify a new FullName')
+parser.add_argument('--version',                          help = 'set version number')
+parser.add_argument('--sfnt-revision',      type = float, help = 'set sfnt revision number (e.g., 2020.03)')
+parser.add_argument('--no-os2-vendor',      action = 'store_true')
+parser.add_argument('--em',                 type = int,   help = 'specify em units     (e.g., 1024 or 2048)')
+parser.add_argument('--ascent',             type = int,   help = 'specify font ascent  (e.g., 819 or 1638)')
+parser.add_argument('--descent',            type = int,   help = 'specify font descent (e.g., 205 or 410)')
+parser.add_argument('--italic-angle',       type = float, help = 'specify italic angle (e.g., -11.25)')
+parser.add_argument('--underline-position', type = int,   help = 'specify underline position')
+parser.add_argument('--underline-height',   type = int,   help = 'specify underline height')
+# --grid=16|clear
+# --hguides=clear|<guides>|+<guides>
+# --vguides=clear|<guides>|+<guides>
+# <guides>:
+#     --hguides='0,48,96'
+#     --hguides='0,48=baseline,96'
+#     --hguides='1152,1200=cap,1248'
+#     --hguides='768,816=ex,864'
+#     --vguides='456,512,568'
+#     --vguides='144,200,256,312'
+#     --vguides='712,768,824,880'
+# --generate-ascii-blanks (32..126)
+# --generate-latin-1-blanks (160..255)
 
 args = parser.parse_args()
 ffs = FontForgeScript(args)
