@@ -4,7 +4,7 @@
 import fontforge
 import argparse
 import unicodedata
-import cgi                      # lol
+import html
 
 class FontForgeGlyphs:
     def run(self):
@@ -28,7 +28,7 @@ class FontForgeGlyphs:
                     elif self.format == 'html':
                         self.endHTMLTable()
                         print('<h2>')
-                        print('    %s' % cgi.escape(block))
+                        print('    %s' % html.escape(block))
                         print('</h2>')
                 lastBlock = block
             try:
@@ -74,6 +74,7 @@ class FontForgeGlyphs:
         self.format = 'text'
         self.listBlocks = False
         self.inHTMLTable = False
+        self.htmlClass = None
         if args != None:
             self.setFromArgs(args)
     def setFromArgs(self, args):
@@ -86,6 +87,8 @@ class FontForgeGlyphs:
             self.format = args.format
         if args.list_blocks != None:
             self.listBlocks = args.list_blocks
+        if args.html_class != None:
+            self.htmlClass = args.html_class
     def uPlusHex(self, codepoint):
         return "U+%04X" % codepoint
     def isTabSeparatedValues(self):
@@ -94,7 +97,10 @@ class FontForgeGlyphs:
         if self.inHTMLTable:
             return
         self.inHTMLTable = True
-        print('<table>')
+        if self.htmlClass != None:
+            print('<table class="%s">' % self.htmlClass)
+        else:
+            print('<table>')
         print('    <thead>')
         print('        <tr>')
         print('            <th>Codepoint</th>')
@@ -111,17 +117,17 @@ class FontForgeGlyphs:
         print('        <tr>')
         print('            <td data-title="Codepoint">%s</td>' % hexCodepoint)
         print('            <td data-title="Decimal">%d</td>' % codepoint)
-        print('            <td data-title="Symbol">%s</td>' % cgi.escape(char))
-        print('            <td data-title="Name">%s</td>' % cgi.escape(name))
+        print('            <td data-title="Symbol">%s</td>' % html.escape(char))
+        print('            <td data-title="Name">%s</td>' % html.escape(name))
         if block != None:
-            print('            <td data-title="Block">%s</td>' % cgi.escape(block))
+            print('            <td data-title="Block">%s</td>' % html.escape(block))
         print('        </tr>')
     def endHTMLTable(self):
         if not self.inHTMLTable:
             return
         self.inHTMLTable = False
-        print('    <tbody>')
-        print('<table>')
+        print('    </tbody>')
+        print('</table>')
 
 # https://stackoverflow.com/questions/243831/unicode-block-of-a-character-in-python
 class UnicodeBlocks:
@@ -508,6 +514,7 @@ parser.add_argument('source_filename')
 parser.add_argument('--no-sort', action = 'store_true')
 parser.add_argument('--format', type = str)
 parser.add_argument('--list-blocks', action = 'store_true')
+parser.add_argument('--class', type = str, dest = 'html_class')
 
 args = parser.parse_args()
 ffg = FontForgeGlyphs(args)
