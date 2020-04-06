@@ -5,6 +5,7 @@ import fontforge
 import argparse
 import os
 import re
+import string
 
 class FontForgeScript:
     def __init__(self, args):
@@ -21,6 +22,7 @@ class FontForgeScript:
         self.version          = None
         self.sfntRevision     = None
         self.font             = None
+        self.gridSize         = None
         if args != None:
             self.setFromArgs(args)
     def run(self):
@@ -41,10 +43,14 @@ class FontForgeScript:
             self.font.descent = self.args.descent
         if self.args.underline_position != None:
             self.font.upos = self.args.underline_position
-        if self.args.underline_width != None:
-            self.font.uwidth = self.args.underline_width
+        if self.args.underline_height != None:
+            self.font.uwidth = self.args.underline_height
+
+        if self.args.grid_size != None:
+            self.gridSize = args.grid_size
 
         self.setMetrics()
+        self.updateGuides()
         self.setNames()
     def load(self):
         if self.sourceFilename == 'NEW':
@@ -58,7 +64,7 @@ class FontForgeScript:
         if re.search(r'\.sfd$', filename):
             self.font.save(filename)
         else:
-            flags = []
+            flags = ['opentype']
             if self.noHints:
                 flags += ['no-hints']
             if self.omitInstructions:
@@ -66,7 +72,7 @@ class FontForgeScript:
             flags = tuple(flags)
             self.font.generate(filename, flags = flags)
     def setFromArgs(self, args):
-        print(args)
+        self.args             = args
         self.sourceFilename   = args.source_filename
         self.destFilename     = args.dest_filename
         self.lineHeight       = args.line_height
@@ -116,6 +122,96 @@ class FontForgeScript:
                 self.font.os2_typoascent, self.font.os2_typodescent,
                 self.font.os2_winascent, self.font.os2_windescent
             ))
+    def updateGuides(self):
+        for contour in self.font.guide:
+            if contour.name:
+                print("%r" % contour.name)
+        if self.args.clear_guides:
+            self.clearGuides()
+        if self.args.horizontal_guides != None:
+            self.setHorizontalGuides(self.args.horizontal_guides)
+        if self.args.vertical_guides != None:
+            self.setVerticalGuides(self.args.vertical_guides)
+        if self.args.grid_size != None:
+            self.clearGrid()
+            if self.args.grid_size > 1:
+                self.setGrid(self.args.grid_size)
+    def clearGuides(self):
+        sys.stderr.write("Clearing all guides...\n")
+        self.font.guide = fontforge.layer()
+    def clearHorizontalGuides(self):
+        keepContours = []
+        recreate = False
+        for contour in self.font.guide:
+            if len(contour) == 2 and contour[0].y == contour[1].y:
+                recreate = True
+            else:
+                keepContours += [contour]
+        if recreate:
+            sys.stderr.write("Clearing horizontal guides...\n")
+            self.font.guide = fontforge.layer()
+            for contour in keepContours:
+                self.font.guide += contour
+    def clearVerticalGuides(self):
+        keepContours = []
+        recreate = False
+        for contour in self.font.guide:
+            if len(contour) == 2 and contour[0].x == contour[1].x:
+                recreate = True
+            else:
+                keepContours += [contour]
+        if recreate:
+            sys.stderr.write("Clearing vertical guides...\n")
+            self.font.guide = fontforge.layer()
+            for contour in keepContours:
+                self.font.guide += contour
+    def clearGrid(self):
+        sys.stderr.write("Clearing grid...\n")
+        return
+    def setHorizontalGuides(self, guides):
+        if guides[0] == '+':
+            guides = guides[1:]
+        else:
+            self.clearHorizontalGuides()
+        guides = self.parseGuides(guides, 'y')
+        for guide in guides:
+            contour = fontforge.contour()
+            contour.moveTo(-1024, guide['y'])
+            contour.lineTo(5120, guide['y'])
+            contour.closed = False
+            name = guide['name']
+            if name:
+                contour['name'] = name
+            self.font.guide += contour
+    def setVerticalGuides(self, guides):
+        if guides[0] == '+':
+            guides = guides[1:]
+        else:
+            self.clearVerticalGuides()
+        guides = self.parseGuides(guides, 'x')
+        for guide in guides:
+            contour = fontforge.contour()
+            contour.moveTo(guide['x'], -font.descent - 1024)
+            contour.lineTo(guide['x'], font.ascent + 1024)
+            contour.closed = False
+            name = guide['name']
+            if name:
+                contour['name'] = name
+            self.font.guide += contour
+    def setGrid(self, gridSize):
+        return
+    def parseGuides(self, guides, coordinateName):
+        result = []
+        guides = guides.split(',')
+        for guide in guides:
+            y = None
+            name = None
+            match = re.match(r'(-?\d+)(?:=(.+))?$', guide)
+            if match:
+                y = int(match.group(1))
+                name = match.group(2)
+                result += [{ coordinateName: y, 'name': name }]
+        return result
 
 parser = argparse.ArgumentParser(
     description = 'Various font manipulation and conversion tasks'
@@ -138,6 +234,11 @@ parser.add_argument('--descent',            type = int,   help = 'specify font d
 parser.add_argument('--italic-angle',       type = float, help = 'specify italic angle (e.g., -11.25)')
 parser.add_argument('--underline-position', type = int,   help = 'specify underline position')
 parser.add_argument('--underline-height',   type = int,   help = 'specify underline height')
+parser.add_argument('--clear-guides',       action = 'store_true')
+parser.add_argument('--horizontal-guides',  type = str,   help = 'specify horizontal guides')
+parser.add_argument('--vertical-guides',    type = str,   help = 'specify vertical guides')
+parser.add_argument('--grid-size',          type = int,   help = 'specify grid width/height (e.g., 16)')
+
 # --grid=16|clear
 # --hguides=clear|<guides>|+<guides>
 # --vguides=clear|<guides>|+<guides>
