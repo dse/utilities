@@ -20,6 +20,8 @@ class FontForgeGlyphs:
         block = None
         for glyph in glyphs:
             codepoint = glyph.unicode
+            if codepoint < 0:
+                continue
             block = UnicodeBlocks.block(codepoint)
             if block != lastBlock:
                 if self.listBlocks and self.sort:
