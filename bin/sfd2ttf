@@ -106,8 +106,8 @@ parser.add_argument("--version",                     help = "set version number"
 parser.add_argument("--sfnt-revision", type = float, help = "set sfnt revision number (e.g., 2020.03)")
 parser.add_argument("--no-hints",          action = 'store_true')
 parser.add_argument("--omit-instructions", action = 'store_true')
-parser.add_argument("source-filename")
-parser.add_argument("dest-filename", nargs = '?')
+parser.add_argument("source_filename")
+parser.add_argument("dest_filename", nargs = '?')
 
 args = parser.parse_args()
 
