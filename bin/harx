@@ -1,0 +1,112 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+our $EXTENSIONS = {
+    # File::MimeInfo returns a list of extensions given a mime type
+    # but the first one isn't always a good "canonical" one.
+    'text/html'                => { ext => '.html' },
+    'text/css'                 => { ext => '.css'  },
+    'application/javascript'   => { ext => '.js'   },
+    'text/javascript'          => { ext => '.js'   },
+    'application/x-javascript' => { ext => '.js'   },
+    'text/plain'               => { ext => '.txt'  },
+    'image/png'                => { ext => '.png'  },
+    'application/json'         => { ext => '.json' },
+    'image/jpeg'               => { ext => '.jpg'  },
+    'image/gif'                => { ext => '.gif'  },
+};
+
+our %exclude;
+
+use JSON::XS qw();
+use Path::Tiny qw(path);
+use File::Path qw(make_path remove_tree);
+use Sort::Naturally qw(nsort);
+use File::MimeInfo qw(extensions);
+use MIME::Base64 qw(decode_base64);
+use Getopt::Long;
+use File::Glob qw(:bsd_glob);
+
+# we have to make a function call like this at somewhere around this
+# point in order for future extensions() calls to work.
+extensions('text/html');
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'x|exclude=s' => sub {
+        my $ext = lc $_[1];
+        $ext =~ s{^\.}{};
+        $exclude{$ext} = 1;
+    },
+);
+
+my $json = JSON::XS->new();
+my $harcounter = 0;
+my $counter = 0;                # for generating filenames
+local $/ = undef;               # slurp entire files at once
+while (<>) {
+    my $o = $json->decode($_);
+    my $base;
+    if ($ARGV eq '-') {
+        $base = sprintf('%04.har', ++$harcounter);
+    } else {
+        $base = $ARGV;          # usually something like 'www.xxx.com.har'
+    }
+    my $dir           = $ARGV . '.d';
+    my $indexFilename = $ARGV . '.index.txt';
+    if (-d $dir) {
+        # leave files not matching harx-####.xxx alone.
+        unlink(bsd_glob("$dir/harx-*"));
+    } else {
+        make_path($dir);
+    }
+    my $log = $o->{log};
+    my $entries = $log->{entries};
+    my $fh;
+    open($fh, '>', $indexFilename) or die("cannot write $indexFilename: $!\n");
+  entry:
+    foreach my $entry (@$entries) {
+        my $request  = $entry->{request};
+        my $url      = $request->{url};
+        my $response = $entry->{response};
+        my $status   = $response->{status};
+        next if $status == 307; # internal redirect
+        next if $status > 399;  # failed request
+        next if $status < 100;  # invalid response code
+        my $content  = $response->{content};
+        my $type     = $content->{mimeType};
+        my @ext;
+        if (defined $type && $type ne '') {
+            next entry if $exclude{$type};
+            @ext = extensions($type);
+            @ext = grep { defined $_ && $_ ne '' } @ext;
+            foreach my $ext (@ext) {
+                next entry if $exclude{$ext};
+            }
+        } else {
+            $type = '-';
+        }
+        my $ext      = $ext[0] // '';
+        my $filename = sprintf('%s/harx-%04d%s', $dir, ++$counter, $ext);
+        my $encoding = $content->{encoding};
+        my $size     = $content->{size};
+        my $text     = $content->{text};
+        if (!defined $text || !$size) {
+            next entry;
+        }
+        say $fh sprintf('%s %s %s', $filename, $type, $url);
+        if (defined $encoding) {
+            if ($encoding eq 'base64') {
+                path($filename)->spew({ binmode => ':raw' }, $text);
+            } else {
+                warn "WARNING: unrecognized encoding '$encoding': $url\n";
+            }
+        } else {
+            path($filename)->spew($text);
+        }
+    }
+    close($fh);
+    say "Index generated: $indexFilename";
+}
