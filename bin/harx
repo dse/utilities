@@ -3,62 +3,89 @@ use warnings;
 use strict;
 use v5.10.0;
 
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
 our $EXTENSIONS = {
     # File::MimeInfo returns a list of extensions given a mime type
     # but the first one isn't always a good "canonical" one.
-    'text/html'                => { ext => '.html' },
-    'text/css'                 => { ext => '.css'  },
-    'application/javascript'   => { ext => '.js'   },
-    'text/javascript'          => { ext => '.js'   },
-    'application/x-javascript' => { ext => '.js'   },
-    'text/plain'               => { ext => '.txt'  },
-    'image/png'                => { ext => '.png'  },
-    'application/json'         => { ext => '.json' },
-    'image/jpeg'               => { ext => '.jpg'  },
-    'image/gif'                => { ext => '.gif'  },
+    'text/html'                => { ext => 'html' },
+    'text/css'                 => { ext => 'css'  },
+    'application/javascript'   => { ext => 'js'   },
+    'text/javascript'          => { ext => 'js'   },
+    'application/x-javascript' => { ext => 'js'   },
+    'text/plain'               => { ext => 'txt'  },
+    'image/png'                => { ext => 'png'  },
+    'application/json'         => { ext => 'json' },
+    'image/jpeg'               => { ext => 'jpg'  },
+    'image/gif'                => { ext => 'gif'  },
 };
 
-our %exclude;
+our @exclude;
+our $verbose;
 
 use JSON::XS qw();
 use Path::Tiny qw(path);
 use File::Path qw(make_path remove_tree);
 use Sort::Naturally qw(nsort);
-use File::MimeInfo qw(extensions);
+use File::MimeInfo qw(extensions mimetype);
 use MIME::Base64 qw(decode_base64);
 use Getopt::Long;
 use File::Glob qw(:bsd_glob);
+use Regexp::Wildcards;
 
 # we have to make a function call like this at somewhere around this
 # point in order for future extensions() calls to work.
 extensions('text/html');
 
+my $rw = Regexp::Wildcards->new(type => 'unix');
+
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
+    'v|verbose+' => \$verbose,
     'x|exclude=s' => sub {
         my $ext = lc $_[1];
-        $ext =~ s{^\.}{};
-        $exclude{$ext} = 1;
+
+        # make '*.jpg', '.jpg', and 'jpg' equivalent.
+        $ext =~ s{^\*?\.}{};
+
+        push(@exclude, $rw->convert($ext));
     },
+    'h|help' => sub { usage(); exit(0); },
 );
 
+sub usage { print(<<"END"); }
+usage: $PROGNAME [<option> ...] [<harfile> ...]
+options:
+    -x, --exclude=<ext|mimetype>     Exclude file extensions or MIME types.
+                                     Accepts wildcards.
+    -h, --help                       Show this message.
+END
+
 my $json = JSON::XS->new();
-my $harcounter = 0;
-my $counter = 0;                # for generating filenames
+my $harCounter = 0;
 local $/ = undef;               # slurp entire files at once
 while (<>) {
+    my $filenameCounter = 0;    # for generating filenames
     my $o = $json->decode($_);
     my $base;
     if ($ARGV eq '-') {
-        $base = sprintf('%04.har', ++$harcounter);
+        $base = sprintf('%04d.har', ++$harCounter);
     } else {
         $base = $ARGV;          # usually something like 'www.xxx.com.har'
     }
-    my $dir           = $ARGV . '.d';
-    my $indexFilename = $ARGV . '.index.txt';
+    $base =~ s{\.har$}{};
+
+    my $dir           = $base . '.harx';
+    my $indexFilename = $base . '.harx.txt';
+
     if (-d $dir) {
         # leave files not matching harx-####.xxx alone.
-        unlink(bsd_glob("$dir/harx-*"));
+        my @cleanup = bsd_glob("$dir/harx-*");
+        if (scalar @cleanup) {
+            warn(sprintf("cleaning up %d files in %s\n", scalar @cleanup, $dir)) if $verbose;
+            unlink(@cleanup);
+        }
     } else {
         make_path($dir);
     }
@@ -66,6 +93,7 @@ while (<>) {
     my $entries = $log->{entries};
     my $fh;
     open($fh, '>', $indexFilename) or die("cannot write $indexFilename: $!\n");
+    my $col1len = length(sprintf('%s/harx-%04d%s', $dir, 0, '.xxxxxxxx'));
   entry:
     foreach my $entry (@$entries) {
         my $request  = $entry->{request};
@@ -76,27 +104,45 @@ while (<>) {
         next if $status > 399;  # failed request
         next if $status < 100;  # invalid response code
         my $content  = $response->{content};
-        my $type     = $content->{mimeType};
+
+        my $type = $content->{mimeType};
+        $type = undef if $type eq '';
+        $type = undef if $type eq 'application/octet-stream';
+
         my @ext;
-        if (defined $type && $type ne '') {
-            next entry if $exclude{$type};
+        if (defined $type) {
             @ext = extensions($type);
             @ext = grep { defined $_ && $_ ne '' } @ext;
-            foreach my $ext (@ext) {
-                next entry if $exclude{$ext};
-            }
-        } else {
-            $type = '-';
         }
-        my $ext      = $ext[0] // '';
-        my $filename = sprintf('%s/harx-%04d%s', $dir, ++$counter, $ext);
+
+        if (!scalar @ext) {
+            if ($url =~ m{\.([0-9A-Za-z]+)(?:\?.*)?$}) {
+                my $ext = $1;
+                if (!defined $type) {
+                    $type = mimetype("/thisdirectorydoesnotexist/thisfiledoesnotexist.$ext");
+                }
+                push(@ext, $ext);
+            }
+        }
+
+        foreach my $rx (@exclude) {
+            next entry if $type =~ $rx;
+            foreach my $ext (@ext) {
+                next entry if $ext =~ $rx;
+            }
+        }
+
+        my $ext = eval { $EXTENSIONS->{$type}->{ext} } // $ext[0] // '';
+        $ext = ".$ext" if $ext ne '';
+
         my $encoding = $content->{encoding};
         my $size     = $content->{size};
         my $text     = $content->{text};
         if (!defined $text || !$size) {
             next entry;
         }
-        say $fh sprintf('%s %s %s', $filename, $type, $url);
+        my $filename = sprintf('%s/harx-%04d%s', $dir, ++$filenameCounter, $ext);
+        say $fh sprintf('%-*s %-32s %s', $col1len, $filename, $type, $url);
         if (defined $encoding) {
             if ($encoding eq 'base64') {
                 path($filename)->spew({ binmode => ':raw' }, $text);
@@ -108,5 +154,5 @@ while (<>) {
         }
     }
     close($fh);
-    say "Index generated: $indexFilename";
+    printf("wrote %d files into %s directory; index generated: %s\n", $filenameCounter, $dir, $indexFilename);
 }
