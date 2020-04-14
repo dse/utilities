@@ -1,0 +1,43 @@
+#!/usr/bin/env perl
+# parse/reformat shazam data you downloaded from shazam
+use warnings;
+use strict;
+use feature 'say';
+
+use open IO => ":locale";
+
+use Text::CSV       qw();
+use Time::ParseDate qw(parsedate);
+use POSIX           qw(strftime mktime);
+use Data::Dumper    qw(Dumper);
+
+my $csv = Text::CSV->new ({ binary => 1, auto_diag => 1 });
+while (my $row = $csv->getline(\*ARGV)) {
+    my ($artist, $title, $status, $timestamp, $altitude, $longitude, $latitude) = @$row;
+    next if $timestamp eq 'date';
+    my $time_t;
+    if ($timestamp =~ m{^\s*(\S+)\s+(\d{2})\.(\d{2})\.(\d{4}),\s+(\d{2}):(\d{2}):(\d{2})\s+(AM|PM)\s*$}i) {
+        my ($day, $date, $month, $year, $hour, $minute, $second, $ampm) = ($1, $2, $3, $4, $5, $6, $7, $8);
+        if ($month > 12) {
+            ($month, $date) = ($date, $month);
+        }
+        if (lc $ampm eq 'am') {
+            $hour = ($hour % 12);
+        } elsif (lc $ampm eq 'pm') {
+            $hour = ($hour % 12) + 12;
+        }
+        $timestamp = sprintf('%04d-%02d-%02d %02d:%02d:%02d', $year, $month, $date, $hour, $minute, $second);
+        $time_t = parsedate($timestamp, GMT => 1);
+        $timestamp = strftime('%a %Y-%m-%d %H:%M:%S %z %Z', localtime($time_t));
+    }
+    foreach my $field ($timestamp, $artist, $title) {
+        if ($field !~ m{\S}) {
+            $field = '-';
+        }
+    }
+    my $line = sprintf("%s  %-32s  %s", $timestamp, $artist, $title);
+    if ($status eq 'deleted') {
+        $line .= '  (deleted)';
+    }
+    say $line;
+}
