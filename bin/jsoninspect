@@ -5,21 +5,32 @@ use v5.10.0;
 
 use open IO => ":locale";
 
-use JSON;
+use JSON::XS;
 use Getopt::Long;
 
 our $opt_tabs = 0;
+our %exclude;
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-    "tabs" => \$opt_tabs
+    "tabs" => \$opt_tabs,
+    "x|exclude=s" => sub { $exclude{$_[1]} = 1; },
+    "h|help"      => sub { usage(); exit(0); },
 ) or die();
+
+sub usage { print(<<"END"); }
+usage:
+    jsoninspect [<file> ...]
+options:
+        --tabs
+    -x, --exclude=<key>
+END
 
 ###############################################################################
 
 local $/ = undef;
 
-my $json = JSON->new()->allow_nonref(1)->ascii(1);
+my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
 my $i = My::JSON::Inspector->new();
 $i->{tabs} = $opt_tabs;
 if (scalar @ARGV) {
@@ -89,6 +100,7 @@ sub inspect {
         } elsif (ref $o eq "HASH") {
             my @keys = sort keys %$o;
             foreach my $key (@keys) {
+                next if $exclude{$key};
                 push(@result, $self->inspect($o->{$key}, $prefix . $self->accessor($key)));
             }
         }
