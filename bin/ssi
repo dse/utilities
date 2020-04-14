@@ -1,0 +1,38 @@
+#!/usr/bin/env perl
+# shitty command line server-side includes utility
+use warnings;
+use strict;
+use v5.10.0;
+
+use File::Basename qw(dirname);
+
+local $/ = undef;
+while (<>) {
+    $_ = ssi($_, $ARGV);
+    print;
+}
+
+sub ssi {
+    my ($text, $filename) = @_;
+    my $dirname = dirname($filename);
+    $text =~ s{< \s* ! \s* -- \s* \# \s*
+               include \s+ virtual \s* = \s*
+               (?:"([^"]*)"|'([^']*)')
+               \s* -->}
+              {include($dirname . '/' . ($1 // $2))}gsxei;
+    return $text;
+}
+
+sub include {
+    my ($filename) = @_;
+    my $contents = getContents($filename);
+    return ssi($contents, dirname($filename));
+}
+
+sub getContents {
+    my ($filename) = @_;
+    my $fh;
+    open($fh, '<', $filename) or return '';
+    local $/ = undef;
+    return <$fh>;
+}
