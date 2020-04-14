@@ -136,16 +136,15 @@ while (<>) {
         $ext = ".$ext" if $ext ne '';
 
         my $encoding = $content->{encoding};
-        my $size     = $content->{size};
-        my $text     = $content->{text};
-        if (!defined $text || !$size) {
+        my $text = $content->{text};
+        if (!defined $text || $text eq '') {
             next entry;
         }
         my $filename = sprintf('%s/harx-%04d%s', $dir, ++$filenameCounter, $ext);
         say $fh sprintf('%-*s %-32s %s', $col1len, $filename, $type, $url);
         if (defined $encoding) {
             if ($encoding eq 'base64') {
-                path($filename)->spew({ binmode => ':raw' }, $text);
+                path($filename)->spew({ binmode => ':raw' }, decode_base64($text));
             } else {
                 warn "WARNING: unrecognized encoding '$encoding': $url\n";
             }
