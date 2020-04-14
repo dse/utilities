@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/env perl
 use warnings;
 use strict;
 use v5.10.0;
@@ -9,6 +9,7 @@ use Time::Local qw(timelocal timegm);
 use POSIX qw(strftime);
 
 our $format;
+our $now;
 
 our $STRFTIME = {
     # Formats listed in http://php.net/manual/en/class.datetime.php
@@ -63,7 +64,7 @@ our $STRFTIME = {
     },
     "epoch" => { format => "%s" },
 };
-our $NOW;
+our $CURRENT_TIME;
 
 our %parsedate_options;
 
@@ -83,6 +84,7 @@ Getopt::Long::GetOptions(
     "rss"                  => sub { $format = 'rss'; },
     "w3c"                  => sub { $format = 'w3c'; },
     "epoch"                => sub { $format = 'epoch'; },
+    "now=s"                => \$now,
     "fuzzy"                => sub { $parsedate_options{FUZZY}         = 1; delete $parsedate_options{WHOLE}; },
     "whole"                => sub { $parsedate_options{WHOLE}         = 1; delete $parsedate_options{FUZZY}; },
     "gmt"                  => sub { $parsedate_options{GMT}           = 1; },
@@ -100,7 +102,7 @@ Getopt::Long::GetOptions(
 sub usage {
     my $time_t = time();
     foreach my $key (keys %$STRFTIME) {
-        $NOW->{$key} = format_time($key, $time_t);
+        $CURRENT_TIME->{$key} = format_time($key, $time_t);
     }
     print <<"END";
 usage:
@@ -111,7 +113,7 @@ date parsing options:
       --fuzzy            Okay to not parse entire string
       --whole            Entire string must be parsed
       --gmt              Input times are GMT, not local
-      --uuk              Prefer DD/MM dates over MM/DD
+      --uk               Prefer DD/MM dates over MM/DD
       --date-required    Do not default the date
       --time-required    Do not default the time
       --no-relative      Input time is not relative to now
@@ -121,23 +123,31 @@ date parsing options:
       --subsecond        Parse fraction seconds.
       --validate         See Time::ParseDate.
 predefined formats and examples:
-      --atom             Atom            $NOW->{'atom'}
-      --iso-8601         ISO-8601        $NOW->{'iso-8601'}
-      --cookie           HTTP Cookies    $NOW->{'cookie'}
-      --rfc-822          RFC 822         $NOW->{'rfc-822'}
-      --rfc-850          RFC 850         $NOW->{'rfc-850'}
-      --rfc-1036         RFC 1036        $NOW->{'rfc-1036'}
-      --rfc-1123         RFC 1123        $NOW->{'rfc-1123'}
-      --rfc-2822         RFC 2822        $NOW->{'rfc-2822'}
-      --rfc-3339         RFC 3339        $NOW->{'rfc-3339'}
-      --rss              RSS             $NOW->{'rss'}
-      --w3c              W3C             $NOW->{'w3c'}
-      --php-iso-8601                     $NOW->{'php-iso-8601'}
-      --epoch            Unix time       $NOW->{'epoch'}
+      --atom             Atom            $CURRENT_TIME->{'atom'}
+      --iso-8601         ISO-8601        $CURRENT_TIME->{'iso-8601'}
+      --cookie           HTTP Cookies    $CURRENT_TIME->{'cookie'}
+      --rfc-822          RFC 822         $CURRENT_TIME->{'rfc-822'}
+      --rfc-850          RFC 850         $CURRENT_TIME->{'rfc-850'}
+      --rfc-1036         RFC 1036        $CURRENT_TIME->{'rfc-1036'}
+      --rfc-1123         RFC 1123        $CURRENT_TIME->{'rfc-1123'}
+      --rfc-2822         RFC 2822        $CURRENT_TIME->{'rfc-2822'}
+      --rfc-3339         RFC 3339        $CURRENT_TIME->{'rfc-3339'}
+      --rss              RSS             $CURRENT_TIME->{'rss'}
+      --w3c              W3C             $CURRENT_TIME->{'w3c'}
+      --php-iso-8601                     $CURRENT_TIME->{'php-iso-8601'}
+      --epoch            Unix time       $CURRENT_TIME->{'epoch'}
 END
 }
 
 ###############################################################################
+
+if (defined $now) {
+    my $time_t = parsedate($now);
+    if (!defined $time_t) {
+        die("invalid date/time for --now: $now\n");
+    }
+    $parsedate_options{NOW} = $time_t;
+}
 
 if (!scalar @ARGV) {
     @ARGV = ('now');
