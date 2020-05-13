@@ -54,7 +54,7 @@ while (<>) {
         $output = $_ . "\n";
     }
     if ($number) {
-        $output = sprintf('%6d  ', $.) . $output;
+        $output = sprintf('%6d', $.) . "\t" . $output;
     }
     print $output;
 }
