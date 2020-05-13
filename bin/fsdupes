@@ -1,0 +1,222 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use File::Basename qw(basename);
+use Getopt::Long qw();
+use Fcntl qw(:mode);
+use POSIX qw(BUFSIZ);
+use File::Find qw(find);
+use Sort::Naturally qw(nsort);
+use Cwd qw(getcwd abs_path);
+
+our $PROGNAME = basename($0);
+our $verbose = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'h|help' => sub { usage(); exit(0); },
+    'v|verbose+' => \$verbose,
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] <filesystem1> <filesystem2>
+END
+
+if (scalar @ARGV < 2) {
+    die("$PROGNAME: not enough arguments\n");
+}
+
+fsdupes(@ARGV);
+
+sub fsdupes {
+    my ($dir1, $dir2) = @_;
+
+    my %file1;
+    my %file2;
+
+    my $wanted1 = sub {
+        my $name = $File::Find::name;
+        $file1{$name} = 1;
+    };
+    my $wanted2 = sub {
+        my $name = $File::Find::name;
+        $file2{$name} = 1;
+    };
+
+    my $pwd = getcwd();
+
+    warn("$PROGNAME: finding files in $dir1...\n") if $verbose >= 1;
+    if (!chdir($dir1)) {
+        die("$PROGNAME: cannot chdir $dir1: $!\n");
+    }
+    find($wanted1, '.');
+
+    if (!chdir($pwd)) {
+        die("$PROGNAME: cannot chdir back to $pwd: $!\n");
+    }
+
+    warn("$PROGNAME: finding files in $dir2...\n") if $verbose >= 1;
+    if (!chdir($dir2)) {
+        die("$PROGNAME: cannot chdir $dir2: $!\n");
+    }
+    find($wanted2, '.');
+
+    if (!chdir($pwd)) {
+        die("$PROGNAME: cannot chdir back to $pwd: $!\n");
+    }
+
+    warn("$PROGNAME: sorting...\n") if $verbose >= 1;
+    my @filenames = sort keys %file1;
+    warn("$PROGNAME: checking for duplicate files...\n") if $verbose >= 1;
+    foreach my $filename (@filenames) {
+        next if !$file2{$filename};
+        1 while $filename =~ s{^\.\/(?=.)}{};
+        my $pathname1 = "$dir1/$filename";
+        my $pathname2 = "$dir2/$filename";
+        warn("$PROGNAME: checking $pathname1 and $pathname2 for duplicate\n") if $verbose >= 2;
+        my $isdupe = isdupe($pathname1, $pathname2);
+        if ($isdupe) {
+            if ($isdupe == 2) {
+                # same file; do nothing
+            } else {
+                print("$pathname2\n");
+            }
+        }
+    }
+}
+
+# return 0 if there's a difference
+# return 1 if files are the same
+sub isdupe {
+    my ($filename1, $filename2) = @_;
+    my @lstat1 = lstat($filename1);
+    my @lstat2 = lstat($filename2);
+
+    # if both files don't exist, they're not duplicates.
+    if (!scalar @lstat1 && !scalar @lstat2) {
+        warn("$PROGNAME: neither $filename1 nor $filename2 exist\n") if $verbose >= 2;
+        return 0;
+    }
+
+    # if either file doesn't exist, treat as a difference.
+    if (scalar @lstat1 && !scalar @lstat2) {
+        warn("$PROGNAME: $filename1 exists but $filename2 does not\n") if $verbose >= 2;
+        return 0;
+    }
+    if (scalar @lstat2 && !scalar @lstat1) {
+        warn("$PROGNAME: $filename2 exists but $filename1 does not\n") if $verbose >= 2;
+        return 0;
+    }
+
+    my ($dev1,$ino1,$mode1,$nlink1,$uid1,$gid1,$rdev1,$size1,$atime1,$mtime1,$ctime1,$blksize1,$blocks1) = @lstat1;
+    my ($dev2,$ino2,$mode2,$nlink2,$uid2,$gid2,$rdev2,$size2,$atime2,$mtime2,$ctime2,$blksize2,$blocks2) = @lstat2;
+
+    # same file?  not a duplicate as far as disk usage is concerned
+    if ($dev1 == $dev2 && $ino1 == $ino2) {
+        warn("$PROGNAME: $filename1 and $filename2 are the same file\n") if $verbose >= 2;
+        return 2;
+    }
+
+    if ($verbose >= 3) {
+        warn(sprintf("%s: 0%o %s  S_IFMT 0%o  S_IFDIR 0%o 0%o\n", $PROGNAME, $mode1, $filename1, $mode1 & S_IFMT, S_IFDIR, $mode1 & S_IFDIR));
+        warn(sprintf("%s: 0%o %s  S_IFMT 0%o  S_IFDIR 0%o 0%o\n", $PROGNAME, $mode2, $filename2, $mode2 & S_IFMT, S_IFDIR, $mode2 & S_IFDIR));
+    }
+
+    # both files must be of the same type.
+    if (($mode1 & S_IFMT) != ($mode2 & S_IFMT)) {
+        warn("$PROGNAME: $filename1 and $filename2 are different types\n") if $verbose >= 2;
+        return 0;
+    }
+
+    # if both files are symbolic links...
+    if ((($mode1 & S_IFLNK) == S_IFLNK) && (($mode2 & S_IFLNK) == S_IFLNK)) {
+        my $readlink1 = readlink($filename1);
+        if (!defined $readlink1) {
+            warn("$PROGNAME: cannot read symlink contents of $filename1\n") if $verbose >= 2;
+            return 0;
+        }
+        my $readlink2 = readlink($filename2);
+        if (!defined $readlink2) {
+            warn("$PROGNAME: cannot read symlink contents of $filename2\n") if $verbose >= 2;
+            return 0;
+        }
+        if ($readlink1 ne $readlink2) {
+            warn("$PROGNAME: $filename1 and $filename2 are different symlinks\n") if $verbose >= 2;
+            return 0;
+        }
+        warn("$PROGNAME: $filename1 and $filename2 are duplicate symlinks\n") if $verbose >= 3;
+        return 1;
+    }
+
+    # if both files are directories, doesn't mean duplicates.
+    if ((($mode1 & S_IFDIR) == S_IFDIR) && (($mode2 & S_IFDIR) == S_IFDIR)) {
+        warn("$PROGNAME: $filename1 and $filename2 are directories\n") if $verbose >= 2;
+        return 0;
+    }
+
+    # if either file is NOT regular, treat them as different regardless.
+    if (($mode1 & S_IFREG) != S_IFREG) {
+        warn("$PROGNAME: $filename1 is not a regular file\n") if $verbose >= 2;
+        return 0;
+    }
+    if (($mode2 & S_IFREG) != S_IFREG) {
+        warn("$PROGNAME: $filename2 is not a regular file\n") if $verbose >= 2;
+        return 0;
+    }
+
+    # both files are regular; they must be the same size.
+    if ($size1 != $size2) {
+        warn("$PROGNAME: $filename1 and $filename2 are different sizes\n") if $verbose >= 2;
+        return 0;
+    }
+
+    my $fh1;
+    my $fh2;
+    if (!open($fh1, '<', $filename1)) {
+        warn("$PROGNAME: cannot open $filename1: $!\n");
+        return 0;
+    }
+    if (!binmode($fh1)) {
+        warn("$PROGNAME: cannot binmode $filename1: $!\n");
+        return 0;
+    }
+    if (!open($fh2, '<', $filename2)) {
+        warn("$PROGNAME: cannot open $filename2: $!\n");
+        return 0;
+    }
+    if (!binmode($fh2)) {
+        warn("$PROGNAME: cannot binmode $filename2: $!\n");
+        return 0;
+    }
+
+    my $data1;
+    my $data2;
+    while (1) {
+        my $bytes1 = sysread($fh1, $data1, BUFSIZ);
+        if (!defined $bytes1) {
+            warn("$PROGNAME: (1) error reading $filename1: $!\n");
+            return 0;
+        }
+        my $bytes2 = sysread($fh2, $data2, BUFSIZ);
+        if (!defined $bytes2) {
+            warn("$PROGNAME: (2) error reading $filename2: $!\n");
+            return 0;
+        }
+        if ($bytes1 == 0 && $bytes2 == 0) {
+            last;
+        }
+        if ($bytes1 != $bytes2) {
+            warn("$PROGNAME: different sizes of data read from $filename1 and $filename2\n") if $verbose >= 2;
+            return 0;
+        }
+        if ($data1 ne $data2) {
+            warn("$PROGNAME: different data read from $filename1 and $filename2\n") if $verbose >= 2;
+            return 0;
+        }
+    }
+    warn("$PROGNAME: $filename1 and $filename2 are duplicates!\n") if $verbose >= 3;
+    return 1;
+}
