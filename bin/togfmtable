@@ -45,7 +45,7 @@ while (<>) {
         $gfmTable = Table::GFM->new();
         $gfmTable->{spaces} = $spaces;
     }
-    s{\R\z}{};
+    s{\R\z}{};                  # safer chomp
     my @data;
     if ($csv) {
         $csv->parse($_);
