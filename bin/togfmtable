@@ -8,9 +8,12 @@ use Getopt::Long qw();
 our $PROGNAME = basename($0);
 
 our $spaces = 0;
+our $inputFormat = 'tsv';
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
+    'csv' => sub { $inputFormat = 'csv'; },
+    'tsv' => sub { $inputFormat = 'tsv'; },
     'spaces=i' => \$spaces,
     'h|help' => sub { usage(); exit(0); },
 ) or die("Type '$PROGNAME --help' for help.\n");
@@ -22,6 +25,11 @@ options:
     -h, --help           display this message
         --spaces=<int>   specify spaces to left and right of `|`
 END
+
+if ($inputFormat eq 'csv') {
+    require Text::CSV_XS;
+}
+our $csv = ($inputFormat eq 'csv') && Text::CSV_XS->new({ binary => 1, auto_diag => 1 });
 
 my $gfmTable;
 my $oldARGV;
@@ -38,7 +46,13 @@ while (<>) {
         $gfmTable->{spaces} = $spaces;
     }
     s{\R\z}{};
-    my @data = split("\t");
+    my @data;
+    if ($csv) {
+        $csv->parse($_);
+        @data = $csv->fields();
+    } else {
+        @data = split("\t");
+    }
     if ($. == 1) {
         $gfmTable->setHeadings(@data);
     } else {
