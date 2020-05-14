@@ -1,6 +1,19 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+
+#------------------------------------------------------------------------------
+# interpret i/o in locale
+use open qw(:locale);
+
+# interpret arguments in locale
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+#------------------------------------------------------------------------------
+
 use Getopt::Long;
 
 my $columns;
