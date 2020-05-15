@@ -32,9 +32,9 @@ INIT {
     importeach Math::Trig, qw(:pi);
 }
 
-our $opt_format;
-our $opt_curly_brackets_only;
-our $opt_files;
+our $optFormat;
+our $optCurlyBracketsOnly;
+our $optFiles;
 
 # ! operator
 # " quote
@@ -66,7 +66,7 @@ our $opt_files;
 # } paren
 # ~ operator
 
-sub opt_module {
+sub optModule {
     # -m<module>              => use <module> ();
     # -m-<module>             => no  <module> ();
     # -m<module>=arg[,arg]... => use <module> split(/,/,q{arg,arg});
@@ -87,11 +87,11 @@ sub opt_module {
 
 Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
-    "c|curly|curly-brackets-only" => \$opt_curly_brackets_only,
-    "p|printf|format=s"           => \$opt_format,
-    "f|files"                     => \$opt_files,
-    "m=s"                         => \&opt_module,
-    "M=s"                         => \&opt_module,
+    "c|curly|curly-brackets-only" => \$optCurlyBracketsOnly,
+    "p|printf|format=s"           => \$optFormat,
+    "f|files"                     => \$optFiles,
+    "m=s"                         => \&optModule,
+    "M=s"                         => \&optModule,
     "h|help" => sub { usage(); exit 0; }
 ) or die("Type '$PROGNAME --help' for help.\n");
 
@@ -110,24 +110,24 @@ END
 
 if (-t 0 && -t 1 && !scalar @ARGV) {
     interactive();
-} elsif ($opt_files) {
-    magic_filehandle();
+} elsif ($optFiles) {
+    magicFilehandle();
 } else {
     if (scalar @ARGV) {
         foreach (@ARGV) {
-            if ($opt_curly_brackets_only) {
-                curly_brackets();
+            if ($optCurlyBracketsOnly) {
+                curlyBrackets();
             } elsif (m{[\{\}]}) {
                 # If any {...} expressions are found, replace them.
-                curly_brackets();
+                curlyBrackets();
             } else {
                 # Treat the whole line as an expression.
-                whole_line();
+                wholeLine();
             }
             print "\n";
          }
     } else {
-        magic_filehandle();
+        magicFilehandle();
     }
 }
 
@@ -140,74 +140,77 @@ sub interactive {
     local $_;
     while (defined ($_ = $term->readline($prompt))) {
         s{\R\z}{};
-        if ($opt_curly_brackets_only) {
-            curly_brackets();
+        if ($optCurlyBracketsOnly) {
+            curlyBrackets();
         } elsif (m{[\{\}]}) {
             # If any {...} expressions are found, replace them.
-            curly_brackets();
+            curlyBrackets();
         } else {
             # Treat the whole line as an expression.
-            whole_line();
+            wholeLine();
         }
         print "\n";
     }
 }
 
-sub magic_filehandle {
-    if ($opt_curly_brackets_only) {
+sub magicFilehandle {
+    if ($optCurlyBracketsOnly) {
         # Only replace {...} expressions.
         while (<>) {
-            curly_brackets();
+            curlyBrackets();
         }
     } else {
         # Magic behavior goes here.
-        my $first_line = <>;
+        my $firstLine = <>;
         while (<>) {
             # If we've reached this point, there's more than one line.
             # Only replace {...} expressions.
-            if (defined $first_line) {
-                for ($first_line) {
-                    curly_brackets();
+            if (defined $firstLine) {
+                for ($firstLine) {
+                    curlyBrackets();
                 }
-                $first_line = undef;
+                $firstLine = undef;
             }
-            curly_brackets();
+            curlyBrackets();
         }
-        if (defined $first_line) {
+        if (defined $firstLine) {
             # If we've reached this point, there's only one line.
-            for ($first_line) {
+            for ($firstLine) {
                 if (m{[\{\}]}) {
                     # If any {...} expressions are found, replace them.
-                    curly_brackets();
+                    curlyBrackets();
                 } else {
                     # Treat the whole line as an expression.
-                    whole_line();
+                    wholeLine();
                 }
             }
         }
     }
 }
 
-sub curly_brackets {
+sub curlyBrackets {
     s{\{([^\{\}\r\n]*?)(?:\#([^\#]*))?\}}
-     {result_of($1, $2)}ge;
+     {resultOf($1, $2)}ge;
     print $_;
 }
 
-sub whole_line {
+sub wholeLine {
     s{\R\z}{};                  # safer chomp
     my $chewed = $& // "";
-    $_ = result_of($_);
+    $_ = resultOf($_);
     print $_ . $chewed;
 }
 
-sub result_of {
+sub resultOf {
     my ($string, $format) = @_;
-    $format //= $opt_format;
-    my $orig_string = $string;
+    $format //= $optFormat;
+    my $origString = $string;
     $string =~ s{\N{MINUS SIGN}}{-}g;
     $string =~ s{\N{MULTIPLICATION SIGN}}{*}g;
     $string =~ s{\N{DIVISION SIGN}}{/}g;
+
+
+
     my $result = eval $string;
     if ($@) {
         warn $@;
