@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# lfcr - output every line on the same line on a terminal
+
+use File::Basename qw(basename);
+use Getopt::Long qw();
+use Time::HiRes qw(time);
+
+our $PROGNAME = basename($0);
+our $number = 0;
+our $every = 0;
+our $secs = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'h|help' => sub { usage(); exit(0); },
+    'n|number' => \$number,
+    'every=i' => \$every,
+    'secs|seconds=f' => \$secs,
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print <<"END"; }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help           Print this message
+    -n, --number         Precede every line by a line number
+        --every=<int>    Print every <int>'th line
+        --secs=<float>   Print a line every <float> seconds
+END
+
+$| = 1;
+our $clrEol = clrEol();
+
+my $start;
+my $now;
+while (<>) {
+    s{\R\z}{};
+    if ($every) {
+        next unless $. % $every == 0;
+    }
+    if ($secs) {
+        $now = time();
+        $start //= $now;
+        next unless ($now - $start) >= $secs;
+        $start = $now;
+    }
+    my $output;
+    if (-t 1) {
+        $output = $_ . $clrEol . "\r";
+    } else {
+        $output = $_ . "\n";
+    }
+    if ($number) {
+        $output = sprintf('%6d  ', $.) . $output;
+    }
+    print $output;
+}
+print "\n";
+
+sub clrEol {
+    if (exists $ENV{TERM} && $ENV{TERM} =~ m{^(screen|xterm|vt\d|linux|putty)}) {
+        return "\e[K";
+    }
+    return `tput el`;
+}
