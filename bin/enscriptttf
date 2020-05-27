@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# usage:
+#     enscriptttf <filename.ttf> ...
+
+main () {
+    local font
+    for font ; do
+        basename="$(basename "$font")"
+
+        # enscript afmlib has problems with filenames containing spaces
+        fontname="${basename%.*}"
+        fontname="${fontname// /}"
+
+        mkdir -p "${HOME}/Fonts/enscript"
+        ttf2pt1 -W 0 -e "$font" "$HOME/Fonts/enscript/$fontname"
+        ttf2pt1 -W 0 -a "$font" "$HOME/Fonts/enscript/$fontname"
+        ttf2pt1 -W 0 -b "$font" "$HOME/Fonts/enscript/$fontname"
+    done
+
+    cd "${HOME}/Fonts/enscript"
+    mkafmmap *.afm
+}
+
+main "$@"
