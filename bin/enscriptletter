@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+# usage:
+#     enscriptletter [<enscript-option> ...] <filename>
+
+enscript \
+    --baselineskip=0 \
+    --download-font="CourierPrime" \
+    --font='CourierPrime@12' \
+    --no-header \
+    --media=Letter1Inch \
+    "$@"
