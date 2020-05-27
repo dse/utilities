@@ -1,0 +1,103 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use List::Util qw(max);
+
+our @header       = ('--no-header');
+our @orientation  = ('--landscape');
+our @media        = ('--media=Env10');
+our @baselineskip = ('--baselineskip=0');
+
+my @fromLines = ();
+my @toLines   = ();
+my $state = 0;
+while (<>) {
+    s{\R\z}{};                  # safer chomp
+    if (m{\S}) {                # non-blank line
+        if ($state == 0) {
+            push(@fromLines, trim($_));
+        } elsif ($state == 1) {
+            push(@toLines, trim($_));
+        }
+    } else {                    # blank line
+        if ($state == 0 && scalar @fromLines) {
+            $state = 1;
+        } elsif ($state == 1 && scalar @toLines) {
+            $state = 2;
+        }
+    }
+}
+
+if (!scalar @fromLines && !scalar @toLines) {
+    exit(0);
+}
+
+if (!hasEnv10()) {
+    addEnv10();
+}
+
+my @cmd = ("enscript", "-e\e", @header, @orientation, @media, @baselineskip, @ARGV);
+
+my $fh;
+if (-t 1) {
+    warn("@cmd\n");
+    if (!open($fh, '|-', @cmd)) {
+        die("pipe @toLines enscript failed: $!\n");
+    }
+} else {
+    if (!open($fh, '>&STDOUT')) {
+        die("open @toLines STDOUT failed: $!\n");
+    }
+}
+
+print $fh ("\efont{Courier-Bold12}\n");
+if (scalar @fromLines) {
+    foreach my $line (@fromLines) {
+        print $fh ("$line\n");
+    }
+    if (scalar @toLines) {
+        my $blankLines = max(2, (7 - scalar @fromLines));
+        print $fh ("\n" x $blankLines);
+        foreach my $line (@toLines) {
+            print $fh ((" " x 32), "$line\n");
+        }
+    }
+}
+close($fh);
+
+sub trim {
+    my $s = shift;
+    $s =~ s{^\s*}{};
+    $s =~ s{\s*$}{};
+    return $s;
+}
+
+sub hasEnv10 {
+    my $fh;
+    if (!open($fh, '-|', 'enscript', '--list-media')) {
+        return;
+    }
+    while (<$fh>) {
+        s{\R\z}{};              # safer chomp
+        next if /^known media:/;
+        next if /^name\s+width/;
+        next if /^----/;
+        my ($name) = split();
+        if ($name eq 'Env10') {
+            return 1;
+        }
+    }
+    close($fh);
+    return;
+}
+
+sub addEnv10 {
+    my $fh;
+    my $filename = $ENV{HOME} . '/.enscriptrc';
+    if (!open($fh, '>>', $filename)) {
+        die("Cannot write $filename: $!\n");
+    }
+    print $fh "Media: Env10 297	684 18 36 279 648\n";
+    close($fh);
+}
