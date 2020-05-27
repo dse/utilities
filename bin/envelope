@@ -2,13 +2,27 @@
 use warnings;
 use strict;
 
+sub usage { print <<"END"; };
+usage:
+    envelope [<option> ...] [<filename> ...]
+each file specified contains:
+    zero or more blank lines
+    the return address: a set of contiguous non-blank lines
+    one or more blank lines
+    the recipient address: a set of contiguous non-blank lines
+        (up to and not including the next blank line, or EOF)
+options:
+    -o, --output=<filename>      output PostScript file; use '-' for stdout
+END
+
 our $output;
 
 use Getopt::Long;
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
-    'o|p|output=s' => \$output
-);
+    'o|p|output=s' => \$output,
+    'h|help' => sub { usage(); exit(0); },
+) or die("Type '$0 --help' for help.\n");
 
 our $envelope = My::Envelope->new();
 
@@ -36,7 +50,8 @@ package My::Envelope {
             lazy => 1,
             default => sub {
                 my ($self) = @_;
-                my @cmd = ("enscript", "--escapes=\e", "--no-header");
+                my @cmd = ("enscript", "--no-header");
+                push(@cmd, "--font=Courier-Bold\@12");
                 push(@cmd, "--landscape");
                 push(@cmd, "--baselineskip=0");
                 push(@cmd, "--media=Env10");
@@ -88,9 +103,7 @@ package My::Envelope {
         my ($self) = @_;
         my $fh = $self->fh;
         $self->count($self->count + 1);
-        if ($self->count == 1) {
-            print $fh ("\efont{Courier-Bold12}");
-        } else {
+        if ($self->count != 1) {
             print $fh ("\f");
         }
         if (scalar @{$self->from}) {
