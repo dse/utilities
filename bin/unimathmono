@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+perl -C'' -pe '
+    s/([A-Z])/chr(0x1d670 + ord($1) - ord("A"))/ge;
+    s/([a-z])/chr(0x1d68a + ord($1) - ord("a"))/ge;
+    s/([0-9])/chr(0x1d7f6 + ord($1) - ord("0"))/ge;
+' "$@"

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+perl -C'' -pe '
+    s/([!-~])/chr(0xff00 + ord($1) - 0x20)/ge; s/ /\x{3000}/g;
+' "$@"
