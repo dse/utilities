@@ -154,6 +154,7 @@ find_command=(
     "${global_options[@]}"
     "${starting_points[@]}"
     \! \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+    # \! \( -exec test -f '{}/.finddexclude' \; -prune \)
     \! \( "${find_file_excludes[@]}" \)
     "$@"
 )
@@ -165,6 +166,7 @@ if (( list_excludes_only )) ; then
         "${starting_points[@]}"
         \(
         \( -type d \( "${find_directory_excludes[@]}" \) -prune \)
+        # \! \( -exec test -f '{}/.finddexclude' \; -prune \)
         -o
         \( "${find_file_excludes[@]}" \)
         \)
