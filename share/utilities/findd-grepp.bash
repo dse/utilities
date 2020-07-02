@@ -166,6 +166,12 @@ file_excludes_binary=(
     '*.vrs'
     '*.pyc'
     '*.pyo'
+
+    # anroid lol
+    '*.apk'
+    '*.aab'
+    '*.dex'
+    '*.ap_'
 )
 
 file_excludes=(
