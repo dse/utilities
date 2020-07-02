@@ -83,6 +83,7 @@ our $opt_list_files_only;
 our $opt_files_with_matches;
 our $opt_verbose = 0;
 our $opt_as_html = 0;
+our $opt_max_ancestors = 0;
 
 BEGIN {
     if (grep { $_ eq "--carp" } @ARGV) {
@@ -100,6 +101,7 @@ Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
 Getopt::Long::GetOptions(
     "s|search=s"                   => \@opt_search,
     "A|ancestors|show-ancestors"   => \$opt_show_ancestors,
+    "m|max-ancestors=i"            => \$opt_max_ancestors,
     "R|no-recurse"                 => sub { $opt_recurse = 0; },
     "r|recurse"                    => sub { $opt_recurse = 1; },
     "f|fancy"                      => \$opt_fancy,
@@ -158,6 +160,7 @@ options:
   -r, --recurse                 (default if --search is not specified)
   -R, --no-recurse              (default if --search is specified)
   -A, --[show-]ancestors        only when searching
+  -m, --max-ancestors=<int>
   -f, --fancy
       --[show-]first-child
       --[show-]last-child
@@ -259,6 +262,7 @@ while (<>) {
     if (!defined $inspector) {
         $inspector = My::HTML::Inspector->new();
         $inspector->show_ancestors($opt_show_ancestors)         if defined $opt_show_ancestors;
+        $inspector->max_ancestors($opt_max_ancestors)           if defined $opt_max_ancestors;
         $inspector->show_attributes($opt_show_attributes)       if defined $opt_show_attributes;
         $inspector->show_first_child($opt_show_first_child)     if defined $opt_show_first_child;
         $inspector->show_last_child($opt_show_last_child)       if defined $opt_show_last_child;
@@ -292,6 +296,7 @@ package My::HTML::Inspector {
                        show_first_child
                        show_last_child
                        show_attributes
+                       max_ancestors
                        recurse
                        tree
                        theme
@@ -355,7 +360,7 @@ package My::HTML::Inspector {
         my $prefix    = $args{prefix} // "";
 
         my @parents = @$parents;
-        my $parents_string = join("", map { "$_ " } @$parents);
+        my $parents_string = join("", map { "$_ > " } @$parents);
 
         if ($self->fancy) {
             if (!$filename_printed{$filename}) {
@@ -392,10 +397,15 @@ package My::HTML::Inspector {
 
         if ($self->show_ancestors) {
             my $ancestors = "";
+            my $count = 0;
             for (my $parent = $element->parent;
                  $parent;
                  $parent = $parent->parent) {
+                if ($self->max_ancestors && $count >= $self->max_ancestors) {
+                    last;
+                }
                 $ancestors = $self->element_string($parent) . " " . $ancestors;
+                $count += 1;
             }
             print($ancestors);
         }

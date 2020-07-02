@@ -42,6 +42,8 @@ directory_excludes_binary=(
 directory_excludes=(
     'vendor'
     'node_modules'
+    '.cache'
+    '.cpan'
 
     # version control
     '.git'
@@ -180,6 +182,12 @@ file_excludes=(
     '#*#'
     '.*~'
     '.#*'
+    '*.bak'
+    '*.tmp'
+    '*.old'
+    '*.bak.*'
+    '*.tmp.*'
+    '*.old.*'
 
     # archives
     '*.zip'
