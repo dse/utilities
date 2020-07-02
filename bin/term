@@ -208,6 +208,7 @@ cmd_fullscreen_toggle                   () { echo -n "${csi}10;2t"; }
 cmd_80                                  () { echo -n "${csi}80\$|"; }
 cmd_132                                 () { echo -n "${csi}132\$|"; }
 
+# "returns", by echoing, a #rrggbb color from whatever you provided
 color () {
     color="$1"; shift
     local r
@@ -238,6 +239,48 @@ color () {
         return
     fi
     echo "${color}"
+}
+
+cmd_colors () {
+    local -a bolds=('' 1)
+    local -a fgs=('' 30 31 32 33 34 35 36 37)
+    local -a bgs=('' 40 41 42 43 44 45 46 47)
+    local fg bold bg
+    local seq row
+    echo "          40m     41m     42m     43m     44m     45m     46m     47m"
+    for fg in "${fgs[@]}" ; do
+        for bold in "${bolds[@]}" ; do
+            row=""
+            if [[ "$bold" != "" ]] ; then
+                row="$row;$bold"
+            fi
+            if [[ "$fg" != "" ]] ; then
+                row="$row;$fg"
+            fi
+            row="${row#;}"
+            printf "%7s" "${row}m"
+
+            for bg in "${bgs[@]}" ; do
+                seq=""
+                if [[ "$bold" != "" ]] ; then
+                    seq="$seq;$bold"
+                fi
+                if [[ "$fg" != "" ]] ; then
+                    seq="$seq;$fg"
+                fi
+                if [[ "$bg" != "" ]] ; then
+                    seq="$seq;$bg"
+                fi
+                seq="${seq#;}"
+                if [[ "$seq" = "" ]] ; then
+                    seq="0"
+                fi
+                seq="${csi}${seq}m"
+                echo -n " ${seq}  gYw  ${csi}0m"
+            done
+            echo ""
+        done
+    done
 }
 
 #------------------------------------------------------------------------------
