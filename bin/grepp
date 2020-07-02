@@ -62,6 +62,7 @@ usage () {
     echo "      --split"
     echo "      --split-by-file"
     echo "      --no-split"
+    echo "      --xtrace"
     echo "grep options having no effect if grepp uses find to recurse:"
     echo "      --directories=ACTION"
     echo "  -r, --recursive"
@@ -179,6 +180,7 @@ longopts=(
     no-split      no
 
     emacs                  no
+    xtrace no
 )
 
 require_matcher () {
@@ -352,6 +354,9 @@ while getlongopts 'VEFGPivwxycLloqsbHhnTuZaIrRUze:f:m:A:B:C:D:d:' OPTION "${long
             )
             ;;
 
+        "xtrace")
+            set -o xtrace
+            ;;
         "help")
             usage
             exit 0
