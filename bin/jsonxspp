@@ -5,11 +5,74 @@ use strict;
 use v5.10.0;
 
 use JSON::XS qw();
+use Getopt::Long qw();
+use POSIX qw(strftime);
 
-my $json = JSON::XS->new()->pretty(1);
+our %exclude;
+our %timestamp;
+our $clean;
+
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+    "x|exclude=s"    => sub { $exclude{$_[1]} = 1; },
+    "t|timestamp=s"  => sub { $timestamp{$_[1]} = 1; },
+    "c|clean"        => \$clean,
+    "h|help"         => sub { usage(); exit(0); },
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    jsonxspp [<file> ...]
+options:
+    -x, --exclude=<key>
+    -t, --timestamp=<key>
+    -c, --clean
+    -h, --help
+END
+
+my $json = JSON::XS->new()->pretty(1)->canonical(1);
 
 local $/ = undef;
 while (<>) {
     my $o = $json->decode($_);
+    exclude($o) if scalar keys %exclude;
+    clean($o) if $clean;
     print $json->encode($o);
+}
+
+sub exclude {
+    my $o = shift;
+    if (ref $o eq 'HASH') {
+        delete $o->{$_} foreach keys %exclude;
+        foreach my $k (keys %$o) {
+            if ($exclude{$k . '=' . $o->{$k}}) {
+                delete $o->{$k};
+            }
+        }
+        foreach my $k (keys %timestamp) {
+            if (defined $o->{$k}) {
+                $o->{$k} .= ' (' . strftime('%a %Y-%m-%d %H:%M:%S %z %Z', localtime($o->{$k})) . ')';
+            }
+        }
+        exclude($_) foreach values %$o;
+    } elsif (ref $o eq 'ARRAY') {
+        exclude($_) foreach @$o;
+    }
+    return $o;
+}
+
+sub clean {
+    my $o = shift;
+    if (ref $o eq 'HASH') {
+        clean($_) foreach values %$o;
+        foreach my $k (keys %$o) {
+            delete $o->{$k} if ref $o->{$k} eq 'ARRAY' && !scalar @{$o->{$k}};
+            delete $o->{$k} if ref $o->{$k} eq 'HASH'  && !scalar keys %{$o->{$k}};
+        }
+    } elsif (ref $o eq 'ARRAY') {
+        clean($_) foreach @$o;
+        @$o = grep { !(ref $_ eq 'HASH' && !scalar keys %$_) } @$o;
+        @$o = grep { !(ref $_ eq 'ARRAY' && !scalar @$_) } @$o;
+    }
+    return $o;
 }
