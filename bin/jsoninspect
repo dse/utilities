@@ -10,13 +10,19 @@ use Getopt::Long;
 
 our $opt_tabs = 0;
 our %exclude;
+our %timestamp;
+our %noArrayIndex;
+our $width;
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-    "tabs" => \$opt_tabs,
-    "x|exclude=s" => sub { $exclude{$_[1]} = 1; },
-    "h|help"      => sub { usage(); exit(0); },
-) or die();
+    "tabs"           => \$opt_tabs,
+    "x|exclude=s"    => sub { $exclude{$_[1]} = 1; },
+    "t|timestamp=s"  => sub { $timestamp{$_[1]} = 1; },
+    "w|width=i"      => \$width,
+    "h|help"         => sub { usage(); exit(0); },
+    "no-array-index=s" => sub { $noArrayIndex{$_[1]} = 1; },
+) or die("Type '$0 --help' for help.\n");
 
 sub usage { print(<<"END"); }
 usage:
@@ -24,6 +30,9 @@ usage:
 options:
         --tabs
     -x, --exclude=<key>
+    -t, --timestamp=<key>
+    -w, --width=<int>
+    -h, --help
 END
 
 ###############################################################################
@@ -32,6 +41,12 @@ local $/ = undef;
 
 my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
 my $i = My::JSON::Inspector->new();
+
+$i->{exclude}      = \%exclude;
+$i->{timestamp}    = \%timestamp;
+$i->{width}        = $width;
+$i->{noArrayIndex} = \%noArrayIndex;
+
 $i->{tabs} = $opt_tabs;
 if (scalar @ARGV) {
     foreach my $arg (@ARGV) {
@@ -49,12 +64,14 @@ use v5.10.0;
 use List::MoreUtils;
 use JSON;
 use List::Util qw(max);
+use POSIX qw(strftime);
+use Tie::IxHash;
 
 sub new {
     my ($class, %args) = @_;
     my $self = bless(\%args, $class);
     $self->init if $self->can("init");
-    $self->{json} //= JSON->new()->allow_nonref(1)->ascii(1);
+    $self->{json} //= JSON->new()->ascii(1)->allow_nonref(1);
     $self->{tabs} //= 0;
     return $self;
 }
@@ -88,20 +105,40 @@ sub inspect_url {
 }
 
 sub inspect {
-    my ($self, $o, $prefix) = @_;
+    my ($self, $o, $prefix, $path) = @_;
+    my @path = eval { @$path };
     my $is_top_level = !defined $prefix;
-    $prefix //= "o";
+    if (!defined $prefix) {
+        $prefix = 'o';
+        @path = ('o');
+    }
     my @result;
     if (ref $o) {
         if (ref $o eq "ARRAY") {
+            my $noArrayIndex = scalar @path && $self->{noArrayIndex}->{$path[-1]};
             for (my $i = 0; $i < scalar @$o; $i += 1) {
-                push(@result, $self->inspect($o->[$i], $prefix . "[" . $i . "]"));
+                if ($noArrayIndex) {
+                    push(@result, [$prefix . '[++]', {}]);
+                }
+                my $newPrefix = "[" . $i . "]";
+                if ($noArrayIndex) {
+                    $newPrefix = '[]';
+                }
+                push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
             }
         } elsif (ref $o eq "HASH") {
             my @keys = sort keys %$o;
             foreach my $key (@keys) {
-                next if $exclude{$key};
-                push(@result, $self->inspect($o->{$key}, $prefix . $self->accessor($key)));
+                next if $self->{exclude}->{$key};
+                if ($self->{timestamp}->{$key} && !ref $o->{$key}) {
+                    my $hash = {};
+                    tie(%$hash, 'Tie::IxHash');
+                    $hash->{_timestamp} = $o->{$key};
+                    $hash->{_formatted} = strftime('%a %Y-%m-%d %H:%M:%S %z %Z', localtime($o->{$key}));
+                    $o->{$key} = $hash;
+                }
+                my $newPrefix = $self->accessor($key);
+                push(@result, $self->inspect($o->{$key}, $prefix . $newPrefix, [@path, $key]));
             }
         }
     } else {
@@ -112,7 +149,7 @@ sub inspect {
         }
     }
     if ($is_top_level) {
-        my $max_prefix_len = max map { length $_->[0] } @result;
+        my $max_prefix_len = $self->{width} // max map { length $_->[0] } @result;
         foreach my $result (@result) {
             if ($self->{tabs}) {
                 print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
