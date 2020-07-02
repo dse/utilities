@@ -2,7 +2,6 @@
 set -o errexit
 set -o pipefail
 set -o nounset
-set -o xtrace
 
 main () {
     command=install
@@ -12,7 +11,6 @@ main () {
         case "$OPTION" in
             v)
                 verbose=$((verbose + 1))
-                >&2 echo "verbose is now $verbose"
                 ;;
         esac
     done
@@ -29,26 +27,7 @@ main () {
         esac
     fi
 
-    >&2 echo "command is now $command"
-    >&2 echo "arguments are now [$#] $@"
-
-    add-modules
-
-    if (( $# )) ; then
-        run_all_modules=0
-        for i in "$@" ; do
-            requested_modules["$i"]=1
-        done
-    fi
-
-    case "$command" in
-        install)
-            install-all-modules
-            ;;
-        check)
-            check-all-modules
-            ;;
-    esac
+    run-modules
 }
 
 install-all-modules () {
@@ -82,14 +61,14 @@ install-module () {
         run apt-cyg install "${cygwin_package}"
         if ! module-is-installed "$1" ; then
             >&2 echo "Failed to install $1."
-            exit 1
+            return 1
         fi
         return 0
     fi
     run cpan "$1"
     if ! module-is-installed "$1" ; then
         >&2 echo "Failed to install $1."
-        exit 1
+        return 1
     fi
     return 0
 }
@@ -120,16 +99,20 @@ declare -a modules=()
 declare -A cygwin_packages
 declare -A cygwin_requires
 
-add-module () {
+run-module () {
     local cygwin_package=''
     local OPTIND
     local OPTION
     local OPTERR
     local OPTARG
     local -a cygwin__requires=()
+    local opt_T=''
 
-    while getopts 'C:' OPTION ; do
+    while getopts 'TC:' OPTION ; do
         case "$OPTION" in
+            T)
+                opt_T='-T'
+                ;;
             C)
                 case "$OPTARG" in
                     ,*)
@@ -145,6 +128,34 @@ add-module () {
     done
     shift $((OPTIND - 1))
 
+    if [[ "${command}" = "install" ]] ; then
+        if [[ "$OSTYPE" = "cygwin" ]] ; then
+            cygwin-run-module "$@"
+        elif [[ "$OSTYPE" = "darwin"* ]] && which brew >&- ; then
+            brew-run-module "$@"
+        else
+            >&2 echo "run-module can't do anything"
+        fi
+    elif [[ "${command}" = "check" ]] ; then
+        if module-is-installed "$@" ; then
+            echo "$@ is installed."
+        else
+            echo "$@ is not installed."
+        fi
+    fi
+}
+
+brew-run-module () {
+    for i ; do
+        if module-is-installed "$i" ; then
+            :
+        else
+            cpan $opt_T "$i"
+        fi
+    done
+}
+
+cygwin-run-module () {
     modules+=("$1")
     requested_modules["$1"]=0
 
@@ -161,123 +172,167 @@ add-module () {
     fi
 }
 
-add-modules () {
-    >&2 verbose echo "add-modules has begun."
+run-modules () {
+    >&2 verbose echo "run-modules has begun."
 
-    add-module -C perl-DBI            DBI
-    add-module -C perl-DBD-mysql      DBD::mysql
-    add-module -C perl-DBD-SQLite     DBD::SQLite
-    add-module -C perl-DateTime       DateTime
-    add-module -C perl-common-sense   common::sense
-    add-module -C perl-Class-Tiny     Class::Tiny
-    add-module -C perl-List-MoreUtils List::MoreUtils
-    add-module -C perl-Archive-Zip    Archive::Zip
-    add-module -C perl-Encode-Locale  Encode::Locale
-    add-module -C perl-GD \
-               -C ,libgd-devel        GD
-    add-module -C perl-Image-Magick   Image::Magick
-    add-module -C perl-JSON           JSON
-    add-module -C perl-JSON-XS        JSON::XS
-    add-module -C perl-JSON-PP        JSON::PP
-    add-module -C perl-LWP            LWP
-    add-module -C perl-Regexp-Common  Regexp::Common
-    add-module -C perl-URI            URI
-    add-module -C perl-XML-LibXML     XML::LibXML
-    add-module -C perl-YAML           YAML
-    add-module -C perl-File-Which     File::Which
-    add-module -C perl-File-Slurp     File::Slurp
-    add-module -C perl-Path-Tiny      Path::Tiny
-    add-module                        Glib # cygwin has package for perl 5.26; latest perl package is different version
-    add-module -C perl-HTML-Parser    HTML::Parser
-    add-module -C perl-HTTP-Cookies   HTTP::Cookies
-    add-module -C perl-HTTP-Date      HTTP::Date
-    add-module -C perl-HTML-Tagset    HTML::Tagset
-    add-module -C perl-HTML-Tree      HTML::Tree
-    add-module -C perl-IPC-Run        IPC::Run
-    add-module -C perl-Text-CSV       Text::CSV
-    add-module -C perl-Text-CSV_XS    Text::CSV_XS
-    add-module -C perl-Text-Diff      Text::Diff
-    add-module -C perl-Gtk2           Gtk2
-    add-module -C perl-Term-ReadLine-Gnu  Term::ReadLine::Gnu
-    add-module -C perl-Term-ReadLine-Perl Term::ReadLine::Perl
+    run-module -C perl-YAML           YAML # required for cpan utility to keep persistent settings
+    run-module -C perl-YAML-LibYAML   YAML::XS
+    run-module -C perl-JSON           JSON
+    run-module -C perl-JSON-XS        JSON::XS
+    run-module -C perl-JSON-PP        JSON::PP
+    run-module -C perl-DateTime       DateTime
+    run-module -C perl-common-sense   common::sense
+    run-module -C perl-Class-Tiny     Class::Tiny
+    run-module -C perl-List-MoreUtils List::MoreUtils
+    run-module -C perl-Archive-Zip    Archive::Zip
+    run-module -C perl-Encode-Locale  Encode::Locale
+    run-module -C perl-LWP            LWP
+    run-module -C perl-Regexp-Common  Regexp::Common
+    run-module -C perl-URI            URI
 
-    add-module Carp::Always
-    add-module Curses
-    add-module List::Util
-    add-module HTML::Entities
-    add-module Moo
-    add-module Moose
-    add-module Expect
-    add-module Time::ParseDate
-    add-module Date::Parse
-    add-module DateTime::Format::DateParse
-    add-module PDF::API2
-    add-module Sort::Naturally
-    add-module String::ShellQuote
-    add-module String::Unescape
+    # so much requires libxml so I run it early
+    if ! module-is-installed XML::LibXML ; then
+        if [[ "$command" = "install" ]] ; then
+            if [[ "$OSTYPE" = darwin* ]] ; then
+                if ! which xmllint ; then
+                    brew install libxml2
+                fi
+                run-module Alien::Libxml2 || true
+            fi
+        fi
+    fi
+    if [[ "$OSTYPE" = darwin* ]] ; then
+        LDFLAGS="-L/usr/local/opt/libxml2/lib" \
+               CPPFLAGS="-I/usr/local/opt/libxml2/include" \
+               PKG_CONFIG_PATH="/usr/local/opt/libxml2/lib/pkgconfig" \
+               run-module -C perl-XML-LibXML XML::LibXML || true
+    else
+        run-module -C perl-XML-LibXML XML::LibXML || true
+    fi
 
-    add-module Class::MethodMaker
-    add-module Expect
-    add-module File::MMagic
-    add-module Glib
-    add-module Google::ProtocolBuffers
-    add-module Graphics::ColorUtils
-    add-module HTML::Entities
-    add-module HTML::Form
-    add-module HTML::LinkChanger
-    add-module HTML::LinkChanger::Absolutizer
-    add-module HTML::LinkExtor
-    add-module HTML::Mason
-    add-module HTML::Selector::XPath
-    add-module HTML::Valid::Tagset
-    add-module HTTP::Cache::Transparent
-    add-module HTTP::Request
-    add-module HTTP::Request::Common
-    add-module HTTP::Status
-    add-module Image::Size
-    add-module Inline::MakeMaker
-    add-module IPC::Open2
-    add-module Irssi
-    add-module List::MoreUtils
-    add-module List::Util
-    add-module LWP::Simple
-    add-module LWP::UserAgent
-    add-module LWP::UserAgent::WithCache
-    add-module Math::Trig
-    add-module MP3::Info
-    add-module MP3::Tag
-    # add-module Net::IRC
-    add-module SOAP::Lite
-    add-module Spreadsheet::ParseExcel
-    add-module Spreadsheet::ParseXLSX
-    add-module Spreadsheet::WriteExcel
-    add-module Term::ANSIColor
-    add-module Term::Cap
-    add-module Term::ReadPassword
-    add-module Term::Size
-    add-module Test::More
-    add-module Text::ASCIITable
-    add-module Text::FormatTable
-    add-module Text::ParseWords
-    add-module Text::SimpleTable
-    add-module Text::Table
-    add-module Text::Tabs
-    add-module Text::Trim
-    add-module Text::Wrap
-    add-module Time::HiRes
-    add-module Time::Local
-    add-module Time::ParseDate
-    add-module Transit::GTFS::Feed
-    add-module Transit::GTFS::FeedFile
-    add-module Transit::GTFS::ProgressLog
-    add-module WebService::Spotify
-    add-module WebService::Spotify::Util
-    add-module WWW::Shorten::Bitly
-    add-module WWW::Shorten::TinyURL
-    add-module YAML::Any
-    add-module YAML::Syck
+    run-module -C perl-File-Which     File::Which
+    run-module -C perl-File-Slurp     File::Slurp
+    run-module -C perl-Path-Tiny      Path::Tiny
+    run-module -C perl-HTML-Parser    HTML::Parser
+    run-module -C perl-HTTP-Cookies   HTTP::Cookies
+    run-module -C perl-HTTP-Date      HTTP::Date
+    run-module -C perl-HTML-Tagset    HTML::Tagset
+    run-module -C perl-HTML-Tree      HTML::Tree
+    run-module -C perl-IPC-Run        IPC::Run
+    run-module -C perl-Text-CSV       Text::CSV
+    run-module -C perl-Text-CSV_XS    Text::CSV_XS
+    run-module -C perl-Text-Diff      Text::Diff
+    run-module -C perl-Term-ReadLine-Gnu  Term::ReadLine::Gnu
+    run-module -C perl-Term-ReadLine-Perl Term::ReadLine::Perl
+    run-module Carp::Always
+    run-module Curses
+    run-module List::Util
+    run-module HTML::Entities
+    run-module Moo
+    run-module Expect
+    run-module Time::ParseDate
+    run-module Date::Parse
+    run-module DateTime::Format::DateParse
+    run-module Sort::Naturally
+    run-module String::ShellQuote
+    run-module String::Unescape
+    run-module Class::MethodMaker
+    run-module Expect
+    run-module File::MMagic
+    run-module Google::ProtocolBuffers
+    run-module Graphics::ColorUtils
+    run-module HTML::Entities
+    run-module HTML::Form
+    run-module HTML::LinkChanger
+    run-module HTML::LinkChanger::Absolutizer
+    run-module HTML::LinkExtor
+    run-module HTML::Mason
+    run-module HTML::Selector::XPath
+    run-module HTML::Valid::Tagset
+    run-module HTTP::Cache::Transparent
+    run-module HTTP::Request
+    run-module HTTP::Request::Common
+    run-module HTTP::Status
+    run-module Image::Size
+    run-module Inline::MakeMaker
+    run-module IPC::Open2
+    run-module List::MoreUtils
+    run-module List::Util
+    run-module LWP::Simple
+    run-module LWP::UserAgent
+    run-module -T LWP::UserAgent::WithCache
+    run-module Math::Trig
+    run-module MP3::Info
+    run-module MP3::Tag
+    run-module SOAP::Lite
+    run-module Spreadsheet::ParseExcel
+    run-module Spreadsheet::ParseXLSX
+    run-module Spreadsheet::WriteExcel
+    run-module Term::ANSIColor
+    run-module Term::Cap
+    run-module Term::ReadPassword
+    run-module Term::Size
+    run-module Test::More
+    run-module Text::ASCIITable
+    run-module Text::FormatTable
+    run-module Text::ParseWords
+    run-module Text::SimpleTable
+    run-module Text::Table
+    run-module Text::Tabs
+    run-module Text::Trim
+    run-module Text::Wrap
+    run-module Time::HiRes
+    run-module Time::Local
+    run-module Time::ParseDate
+    run-module Transit::GTFS::Feed
+    run-module Transit::GTFS::FeedFile
+    run-module Transit::GTFS::ProgressLog
+    run-module WebService::Spotify
+    run-module WebService::Spotify::Util
+    run-module WWW::Shorten::Bitly
+    run-module WWW::Shorten::TinyURL
+    run-module YAML::Any
+    run-module YAML::Syck
 
-    >&2 verbose echo "add-modules is done."
+    # These modules take longer to install.
+
+    run-module PDF::API2
+    run-module Moose
+
+    if [[ "$command" = "install" ]] && ! module-is-installed GD ; then
+        if [[ "$OSTYPE" = cygwin ]] ; then
+            apt-cyg install libgd-devel
+        fi
+    fi
+    run-module -C perl-GD GD || true
+
+    run-module -C perl-DBI DBI
+
+    if [[ "$command" = "install" ]] && ! module-is-installed DBD::mysql ; then
+        if [[ "$OSTYPE" = darwin* ]] ; then
+            brew install mysql-client
+        fi
+    fi
+    run-module -C perl-DBD-mysql DBD::mysql || true
+
+    if [[ "$command" = "install" ]] && ! module-is-installed DBD::SQLite ; then
+        if [[ "$OSTYPE" = darwin* ]] ; then
+            brew install sqlite
+        fi
+    fi
+    run-module -C perl-DBD-mysql -T DBD::SQLite || true
+
+    if [[ "$command" = "install" ]] && ! module-is-installed Image::Magick ; then
+        if [[ "$OSTYPE" = darwin* ]] ; then
+            brew install imagemagick
+        fi
+    fi
+    run-module -C perl-Image-Magick Image::Magick || true
+
+    run-module -C perl-Gtk2 Gtk2
+    run-module Glib # cygwin has package for perl 5.26; latest perl package is different version
+
+    >&2 verbose echo "run-modules is done."
 }
 
 module-is-installed () {
