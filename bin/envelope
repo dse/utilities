@@ -40,6 +40,14 @@ package My::Envelope {
     use List::Util qw(max);
     use Moo;
     INIT {
+        has mediaName   => (is => 'rw', default => 'Env10');
+        has mediaHeight => (is => 'rw', default => 297);
+        has mediaWidth  => (is => 'rw', default => 684);
+        has mediaLeft   => (is => 'rw', default => 36);
+        has mediaRight  => (is => 'rw', default => 648);
+        has mediaTop    => (is => 'rw', default => 18);
+        has mediaBottom => (is => 'rw', default => 279);
+
         has 'state'  => (is => 'rw', default => 0);
         has 'from'   => (is => 'rw', default => sub { return []; });
         has 'to'     => (is => 'rw', default => sub { return []; });
@@ -54,7 +62,7 @@ package My::Envelope {
                 push(@cmd, "--font=Courier-Bold\@12");
                 push(@cmd, "--landscape");
                 push(@cmd, "--baselineskip=0");
-                push(@cmd, "--media=Env10");
+                push(@cmd, "--media=" . $self->mediaName);
                 if (defined $self->output) {
                     push(@cmd, "--output=" . $self->output);
                 }
@@ -64,7 +72,13 @@ package My::Envelope {
         has 'fh' => (
             is => 'rw', lazy => 1, default => sub {
                 my ($self) = @_;
-                $self->addEnv10('Env10', 297, 684, 18, 36, 279, 648);
+                $self->addMedia($self->mediaName,
+                                $self->mediaHeight,
+                                $self->mediaWidth,
+                                $self->mediaTop,
+                                $self->mediaLeft,
+                                $self->mediaBottom,
+                                $self->mediaRight);
                 my $fh;
                 my $cmd = $self->cmd;
                 if (!open($fh, '|-', @$cmd)) {
@@ -106,22 +120,26 @@ package My::Envelope {
         if ($self->count != 1) {
             print $fh ("\f");
         }
+
+        my $linesDown = 9;
+        my $columnsRight = 32;
+
         if (scalar @{$self->from}) {
             foreach my $line (@{$self->from}) {
                 print $fh ("$line\n");
             }
             if (scalar @{$self->to}) {
-                my $blankLines = max(2, (9 - scalar @{$self->from}));
+                my $blankLines = max(2, ($linesDown - scalar @{$self->from}));
                 print $fh ("\n" x $blankLines);
                 foreach my $line (@{$self->to}) {
-                    print $fh ((" " x 32), "$line\n");
+                    print $fh ((" " x $columnsRight), "$line\n");
                 }
             }
         }
     };
     sub hasMedia {
         my ($self, $media) = @_;
-        $media //= 'Env10';
+        $media //= $self->mediaName;
         my $fh;
         if (!open($fh, '-|', 'enscript', '--list-media')) {
             return;
@@ -139,7 +157,7 @@ package My::Envelope {
         close($fh);
         return;
     };
-    sub addEnv10 {
+    sub addMedia {
         my ($self, $media, $width, $height, $llx, $lly, $urx, $ury) = @_;
         if ($self->hasMedia($media)) {
             return;
