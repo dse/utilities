@@ -13,20 +13,106 @@ each file specified contains:
         (up to and not including the next blank line, or EOF)
 options:
     -o, --output=<filename>      output PostScript file; use '-' for stdout
+    -v, --verbose
+    -h, --help
+        --font=<font>            e.g., --font='CourierPrime'
+        --font=<font>[@<size>]         --font='Courier-Bold@14'
+        --font=@<size>                 --font='@14'
+        --6x9
+        --6x9landscape
+        --10lm                   No. 10 envelope with larger margins
 END
 
 our $output;
+our $verbose = 0;
+our $switch = 1;
+
+our $mediaName;
+our $mediaHeight;
+our $mediaWidth;
+our $mediaLeft;
+our $mediaRight;
+our $mediaTop;
+our $mediaBottom;
+
+our $fontName;
+our $fontSize;
 
 use Getopt::Long;
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'o|p|output=s' => \$output,
+    'v|verbose+' => \$verbose,
     'h|help' => sub { usage(); exit(0); },
+    'font=s' => sub {
+        my $font = $_[1];
+        if ($font =~ s{@(\d+)$}{}) {
+            # Ends with '@<integer>'.  entire string can simply be
+            # '@<integer>', in which case only font size is changed.
+            $fontSize = $1;
+        } elsif ($font =~ s{^(?<fontName>.*\S)\s+(?<fontSize>\d+)$}
+                           {$+{fontName}}) {
+            # Ends with '<whitespace><integer>', and a font name
+            # must be specified before it.
+            $fontSize = $+{fontSize};
+        }
+        if ($font =~ m{\S}) {
+            $fontName = $font;
+        }
+    },
+    '6x9' => sub {
+        $mediaName   = 'Env6x9';
+        $mediaWidth  = 6 * 72;
+        $mediaHeight = 9 * 72;
+        $mediaLeft   = 36;
+        $mediaBottom = 36;
+        $mediaRight  = $mediaWidth - 36;
+        $mediaTop    = $mediaHeight - 36;
+        $switch = 1;
+    },
+    '6x9landscape' => sub {
+        $mediaName   = 'Env6x9Landscape';
+        $mediaWidth  = 9 * 72;
+        $mediaHeight = 6 * 72;
+        $mediaLeft   = 36;
+        $mediaBottom = 36;
+        $mediaRight  = $mediaWidth - 36;
+        $mediaTop    = $mediaHeight - 36;
+        $switch = 0;
+    },
+    '10lm' => sub {
+        $mediaName   = 'Env10LargeMargins';
+        $mediaWidth  = 4.125 * 72;
+        $mediaHeight = 9.5 * 72;
+        $mediaLeft   = 36;
+        $mediaBottom = 36;
+        $mediaRight  = $mediaWidth - 36;
+        $mediaTop    = $mediaHeight - 36;
+        $switch = 1;
+    },
 ) or die("Type '$0 --help' for help.\n");
 
 our $envelope = My::Envelope->new();
 
 $envelope->output($output) if defined $output;
+$envelope->verbose($verbose);
+$envelope->switchOrientation($switch);
+
+$envelope->mediaName($mediaName) if defined $mediaName;
+$envelope->mediaWidth($mediaWidth) if defined $mediaWidth;
+$envelope->mediaHeight($mediaHeight) if defined $mediaHeight;
+$envelope->mediaLeft($mediaLeft) if defined $mediaLeft;
+$envelope->mediaRight($mediaRight) if defined $mediaRight;
+$envelope->mediaBottom($mediaBottom) if defined $mediaBottom;
+$envelope->mediaTop($mediaTop) if defined $mediaTop;
+
+$envelope->fontName($fontName) if defined $fontName;
+$envelope->fontSize($fontSize) if defined $fontSize;
+
+if ($verbose) {
+    warn("fontName = $fontName\n") if defined $fontName;
+    warn("fontSize = $fontSize\n") if defined $fontSize;
+}
 
 while (<>) {
     $envelope->parse($_);
@@ -38,29 +124,37 @@ while (<>) {
 
 package My::Envelope {
     use List::Util qw(max);
+    use POSIX qw(round);
     use Moo;
     INIT {
         has mediaName   => (is => 'rw', default => 'Env10');
-        has mediaHeight => (is => 'rw', default => 297);
-        has mediaWidth  => (is => 'rw', default => 684);
-        has mediaLeft   => (is => 'rw', default => 36);
-        has mediaRight  => (is => 'rw', default => 648);
-        has mediaTop    => (is => 'rw', default => 18);
-        has mediaBottom => (is => 'rw', default => 279);
+        has mediaHeight => (is => 'rw', default => 684);
+        has mediaWidth  => (is => 'rw', default => 297);
+        has mediaLeft   => (is => 'rw', default => 18);
+        has mediaRight  => (is => 'rw', default => 279);
+        has mediaBottom => (is => 'rw', default => 36);
+        has mediaTop    => (is => 'rw', default => 648);
 
-        has 'state'  => (is => 'rw', default => 0);
-        has 'from'   => (is => 'rw', default => sub { return []; });
-        has 'to'     => (is => 'rw', default => sub { return []; });
-        has 'count'  => (is => 'rw', default => 0);
-        has 'output' => (is => 'rw');
+        has fontName => (is => 'rw', default => 'Courier-Bold');
+        has fontSize => (is => 'rw', default => 12);
+
+        has switchOrientation => (is => 'rw', default => 1);
+
+        has 'verbose' => (is => 'rw', default => 0);
+        has 'state'   => (is => 'rw', default => 0);
+        has 'from'    => (is => 'rw', default => sub { return []; });
+        has 'to'      => (is => 'rw', default => sub { return []; });
+        has 'count'   => (is => 'rw', default => 0);
+        has 'output'  => (is => 'rw');
+
         has 'cmd' => (
             is => 'rw',
             lazy => 1,
             default => sub {
                 my ($self) = @_;
                 my @cmd = ("enscript", "--no-header");
-                push(@cmd, "--font=Courier-Bold\@12");
-                push(@cmd, "--landscape");
+                push(@cmd, sprintf("--font=%s\@%d", $self->fontName, $self->fontSize));
+                push(@cmd, "--landscape") if $self->switchOrientation;
                 push(@cmd, "--baselineskip=0");
                 push(@cmd, "--media=" . $self->mediaName);
                 if (defined $self->output) {
@@ -69,18 +163,24 @@ package My::Envelope {
                 return [@cmd];
             }
         );
+
         has 'fh' => (
             is => 'rw', lazy => 1, default => sub {
                 my ($self) = @_;
-                $self->addMedia($self->mediaName,
-                                $self->mediaHeight,
-                                $self->mediaWidth,
-                                $self->mediaTop,
-                                $self->mediaLeft,
-                                $self->mediaBottom,
-                                $self->mediaRight);
+                $self->addMedia(
+                    $self->mediaName,
+                    $self->mediaWidth,
+                    $self->mediaHeight,
+                    $self->mediaLeft,
+                    $self->mediaBottom,
+                    $self->mediaRight,
+                    $self->mediaTop,
+                );
                 my $fh;
                 my $cmd = $self->cmd;
+                if ($self->verbose) {
+                    warn("Running: @$cmd\n");
+                }
                 if (!open($fh, '|-', @$cmd)) {
                     die("cannot pipe to $cmd->[0]: $!\n");
                 }
@@ -115,14 +215,58 @@ package My::Envelope {
     };
     sub print {
         my ($self) = @_;
+
+        if ($self->verbose) {
+            printf STDERR ("Media: %s %d %d %d %d %d %d\n",
+                           $self->mediaName,
+                           $self->mediaWidth,
+                           $self->mediaHeight,
+                           $self->mediaLeft,
+                           $self->mediaBottom,
+                           $self->mediaRight,
+                           $self->mediaTop,
+                       );
+        }
+
         my $fh = $self->fh;
         $self->count($self->count + 1);
         if ($self->count != 1) {
             print $fh ("\f");
         }
 
-        my $linesDown = 9;
-        my $columnsRight = 32;
+        my $horizontalCenter = ($self->mediaLeft + $self->mediaRight) / 2;
+        my $verticalCenter   = ($self->mediaTop + $self->mediaBottom) / 2;
+
+        my $top = $self->mediaTop;
+        my $left = $self->mediaLeft;
+        my $bottom = $self->mediaBottom;
+        my $right = $self->mediaRight;
+        my $height = $self->mediaHeight;
+        my $width = $self->mediaWidth;
+
+        my $fromTop   = $self->mediaHeight - $top;
+        my $fromRight = $self->mediaWidth - $right;
+
+        if ($self->switchOrientation) {
+            ($fromTop, $fromRight)               = ($fromRight, $fromTop);
+            ($bottom, $left)                     = ($left, $bottom);
+            ($top, $right)                       = ($right, $top);
+            ($height, $width)                    = ($width, $height);
+            ($verticalCenter, $horizontalCenter) = ($horizontalCenter, $verticalCenter);
+        }
+
+        my $fontSize = $self->fontSize;        # default 12
+        my $charWidth = $self->fontSize * 0.6; # assuming something like Courier => 7.2
+
+        my $linesDown    = 9  + round((($verticalCenter - 148.5) - ($fromTop - 18)) / $fontSize);
+        my $columnsRight = 32 + round((($horizontalCenter - 342) - ($left - 36)) / $charWidth);
+
+        if ($self->verbose) {
+            printf STDERR ("center %f %f\n",
+                           $horizontalCenter, $verticalCenter);
+            printf STDERR ("linesDown %d\n", $linesDown);
+            printf STDERR ("columnsRight %d\n", $columnsRight);
+        }
 
         if (scalar @{$self->from}) {
             foreach my $line (@{$self->from}) {
