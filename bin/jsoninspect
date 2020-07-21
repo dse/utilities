@@ -12,16 +12,23 @@ our $opt_tabs = 0;
 our %exclude;
 our %timestamp;
 our %noArrayIndex;
+our $noArrayIndexAtAll;
 our $width;
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-    "tabs"           => \$opt_tabs,
-    "x|exclude=s"    => sub { $exclude{$_[1]} = 1; },
-    "t|timestamp=s"  => sub { $timestamp{$_[1]} = 1; },
-    "w|width=i"      => \$width,
-    "h|help"         => sub { usage(); exit(0); },
-    "no-array-index=s" => sub { $noArrayIndex{$_[1]} = 1; },
+    "tabs"             => \$opt_tabs,
+    "x|exclude=s"      => sub { $exclude{$_[1]} = 1; },
+    "t|timestamp=s"    => sub { $timestamp{$_[1]} = 1; },
+    "w|width=i"        => \$width,
+    "h|help"           => sub { usage(); exit(0); },
+    "no-array-index:s" => sub {
+        if (defined $_[1] && $_[1] ne '') {
+            $noArrayIndex{$_[1]} = 1;
+        } else {
+            $noArrayIndexAtAll = 1;
+        }
+    },
 ) or die("Type '$0 --help' for help.\n");
 
 sub usage { print(<<"END"); }
@@ -32,6 +39,7 @@ options:
     -x, --exclude=<key>
     -t, --timestamp=<key>
     -w, --width=<int>
+        --no-array-index[=<key>]
     -h, --help
 END
 
@@ -42,10 +50,11 @@ local $/ = undef;
 my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
 my $i = My::JSON::Inspector->new();
 
-$i->{exclude}      = \%exclude;
-$i->{timestamp}    = \%timestamp;
-$i->{width}        = $width;
-$i->{noArrayIndex} = \%noArrayIndex;
+$i->{exclude}           = \%exclude;
+$i->{timestamp}         = \%timestamp;
+$i->{width}             = $width;
+$i->{noArrayIndex}      = \%noArrayIndex;
+$i->{noArrayIndexAtAll} = $noArrayIndexAtAll;
 
 $i->{tabs} = $opt_tabs;
 if (scalar @ARGV) {
@@ -115,16 +124,26 @@ sub inspect {
     my @result;
     if (ref $o) {
         if (ref $o eq "ARRAY") {
-            my $noArrayIndex = scalar @path && $self->{noArrayIndex}->{$path[-1]};
+            my $noArrayIndex = $self->{noArrayIndexAtAll} || (scalar @path && $self->{noArrayIndex}->{$path[-1]});
             for (my $i = 0; $i < scalar @$o; $i += 1) {
+                my $ref = ref $o->[$i];
                 if ($noArrayIndex) {
-                    push(@result, [$prefix . '[++]', {}]);
+                    if ($ref eq 'ARRAY') {
+                        push(@result, [$prefix . '[++]', []]);
+                        my $newPrefix = '[]';
+                        push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
+                    } elsif ($ref eq 'HASH') {
+                        push(@result, [$prefix . '[++]', {}]);
+                        my $newPrefix = '[]';
+                        push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
+                    } else {
+                        my $newPrefix = "[++]";
+                        push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
+                    }
+                } else {
+                    my $newPrefix = "[" . $i . "]";
+                    push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
                 }
-                my $newPrefix = "[" . $i . "]";
-                if ($noArrayIndex) {
-                    $newPrefix = '[]';
-                }
-                push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
             }
         } elsif (ref $o eq "HASH") {
             my @keys = sort keys %$o;
