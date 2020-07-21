@@ -61,6 +61,13 @@ directory_excludes=(
     '_darcs'
     '{arch}'
     '.sass-cache'
+
+    # BigCommerce
+    'parsed/templates'
+    'parsed/scss'
+
+    # emacs
+    'elpa'
 )
 
 file_excludes_binary=(
@@ -204,6 +211,20 @@ file_excludes=(
     '*.js.map'
     '*.min.map'
     'composer.lock'
+
+    # BigCommerce minified
+    'theme-bundle.main.js'
+    'theme.scss.json'
+    'assets/dist/report.html'
+    'parsed/lang.json'
+    'theme-bundle.chunk.*.js'
+    'theme-bundle.head_async.js'
+
+    # projectile
+    'projectile.cache'
+
+    # emacs
+    'ido.last'
 )
 
 declare -a user_directory_excludes
@@ -255,7 +276,14 @@ _add_find_directory_excludes () {
         if (( ${#find_directory_excludes[@]} )) ; then
             find_directory_excludes+=("-o")
         fi
-        find_directory_excludes+=("-iname" "${exclude}")
+        case "${exclude}" in
+            */*)
+                find_directory_excludes+=("-ipath" "*/${exclude}")
+                ;;
+            *)
+                find_directory_excludes+=("-iname" "${exclude}")
+                ;;
+        esac
     done
 }
 
@@ -276,7 +304,14 @@ _add_find_file_excludes () {
         if (( ${#find_file_excludes[@]} )) ; then
             find_file_excludes+=("-o")
         fi
-        find_file_excludes+=("-iname" "${exclude}")
+        case "${exclude}" in
+            */*)
+                find_file_excludes+=("-ipath" "*/${exclude}")
+                ;;
+            *)
+                find_file_excludes+=("-iname" "${exclude}")
+                ;;
+        esac
     done
 }
 
@@ -302,11 +337,22 @@ _add_grep_directory_excludes () {
     for exclude ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
-        grep_directory_excludes+=("--exclude-dir=${lc}")
-        grep_directory_excludes+=("--exclude-dir=${uc}")
-        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-            grep_directory_excludes+=("--exclude-dir=${exclude}")
-        fi
+        case "${exclude}" in
+            */*)
+                grep_directory_excludes+=("--exclude-dir=*/${lc}")
+                grep_directory_excludes+=("--exclude-dir=*/${uc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    grep_directory_excludes+=("--exclude-dir=*/${exclude}")
+                fi
+                ;;
+            *)
+                grep_directory_excludes+=("--exclude-dir=${lc}")
+                grep_directory_excludes+=("--exclude-dir=${uc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    grep_directory_excludes+=("--exclude-dir=${exclude}")
+                fi
+                ;;
+        esac
     done
 }
 
@@ -327,11 +373,22 @@ _add_grep_file_excludes () {
     for exclude ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
-        grep_file_excludes+=("--exclude=${lc}")
-        grep_file_excludes+=("--exclude=${uc}")
-        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-            grep_file_excludes+=("--exclude=${exclude}")
-        fi
+        case "${exclude}" in
+            */*)
+                grep_file_excludes+=("--exclude=*/${lc}")
+                grep_file_excludes+=("--exclude=*/${uc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    grep_file_excludes+=("--exclude=*/${exclude}")
+                fi
+                ;;
+            *)
+                grep_file_excludes+=("--exclude=${lc}")
+                grep_file_excludes+=("--exclude=${uc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    grep_file_excludes+=("--exclude=${exclude}")
+                fi
+                ;;
+        esac
     done
 }
 
@@ -358,33 +415,92 @@ set_diff_excludes () {
     for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
-        diff_excludes+=("--exclude=${lc}")
-        diff_excludes+=("--exclude=${uc}")
-        git_diff_excludes+=(":(exclude,icase)${lc}")
-        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-            diff_excludes+=("--exclude=${exclude}")
-        fi
+        case "${exclude}" in
+            */*)
+                diff_excludes+=("--exclude=*/${lc}")
+                diff_excludes+=("--exclude=*/${uc}")
+                git_diff_excludes+=(":(exclude,icase)${lc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    diff_excludes+=("--exclude=*/${exclude}")
+                fi
+                ;;
+            *)
+                diff_excludes+=("--exclude=${lc}")
+                diff_excludes+=("--exclude=${uc}")
+                git_diff_excludes+=(":(exclude,icase)${lc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    diff_excludes+=("--exclude=${exclude}")
+                fi
+                ;;
+        esac
     done
     if (( grepp_exclude_binary_files )) ; then
         for exclude in "${file_excludes_binary[@]}" ; do
             lc="${exclude,,}"
             uc="${exclude^^}"
-            diff_excludes+=("--exclude=${lc}")
-            diff_excludes+=("--exclude=${uc}")
-            git_diff_excludes+=(":(exclude,icase)${lc}")
-            if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-                diff_excludes+=("--exclude=${exclude}")
-            fi
+            case "${exclude}" in
+                */*)
+                    diff_excludes+=("--exclude=*/${lc}")
+                    diff_excludes+=("--exclude=*/${uc}")
+                    git_diff_excludes+=(":(exclude,icase)${lc}")
+                    if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                        diff_excludes+=("--exclude=*/${exclude}")
+                    fi
+                    ;;
+                *)
+                    diff_excludes+=("--exclude=${lc}")
+                    diff_excludes+=("--exclude=${uc}")
+                    git_diff_excludes+=(":(exclude,icase)${lc}")
+                    if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                        diff_excludes+=("--exclude=${exclude}")
+                    fi
+                    ;;
+            esac
         done
     fi
     for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
         lc="${exclude,,}"
         uc="${exclude^^}"
-        diff_excludes+=("--exclude=${lc}")
-        diff_excludes+=("--exclude=${uc}")
-        git_diff_excludes+=(":(exclude,icase)${lc}")
-        if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
-            diff_excludes+=("--exclude=${exclude}")
+        case "${exclude}" in
+            */*)
+                diff_excludes+=("--exclude=*/${lc}")
+                diff_excludes+=("--exclude=*/${uc}")
+                git_diff_excludes+=(":(exclude,icase)${lc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    diff_excludes+=("--exclude=*/${exclude}")
+                fi
+                ;;
+            *)
+                diff_excludes+=("--exclude=${lc}")
+                diff_excludes+=("--exclude=${uc}")
+                git_diff_excludes+=(":(exclude,icase)${lc}")
+                if [[ "${exclude}" != "${lc}" ]] && [[ "${exclude}" != "${uc}" ]] ; then
+                    diff_excludes+=("--exclude=${exclude}")
+                fi
+                ;;
+        esac
+    done
+}
+
+check_excludes () {
+    for exclude in "${file_excludes[@]}" "${user_file_excludes[@]}" ; do
+        if [[ "${exclude}" = */* ]] ; then
+            use_find=1
+            return
+        fi
+    done
+    if (( grepp_exclude_binary_files )) ; then
+        for exclude in "${file_excludes_binary[@]}" ; do
+            if [[ "${exclude}" = */* ]] ; then
+                use_find=1
+                return
+            fi
+        done
+    fi
+    for exclude in "${directory_excludes[@]}" "${user_directory_excludes[@]}" ; do
+        if [[ "${exclude}" = */* ]] ; then
+            use_find=1
+            return
         fi
     done
 }
