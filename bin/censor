@@ -24,7 +24,7 @@ Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'git-log' => \$gitLog,
     'h|help' => sub { usage(); exit(0); },
-) or die("Type '$PROGNAME --help' for help.\n");
+) or die("Type '$PROGNAME --help' for help.  Type 'perldoc $PROGNAME' for a manual page.\n");
 
 sub usage { print(<<"END"); }
 usage:
@@ -32,6 +32,7 @@ usage:
 options:
     -h, --help
         --git-log
+Type 'perldoc $PROGNAME' for a manual page.
 END
 
 ###############################################################################
