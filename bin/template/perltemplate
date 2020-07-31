@@ -32,7 +32,7 @@ Getopt::Long::GetOptions(
 
 sub usage { print(<<"END"); }
 usage:
-    $PROGNAME [<option> ...] <argument> ...
+    $PROGNAME [<option> ...] [<filename> ...]
 options:
     -h, --help
     -n, --dry-run
