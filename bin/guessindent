@@ -22,14 +22,14 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
-our $verbose = 0;
+our $verbosity = 0;
 our $dryRun = 0;
 
 #------------------------------------------------------------------------------
 use Getopt::Long;
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
-    'v|verbose+' => \$verbose,
+    'v|verbose+' => \$verbosity,
     'n|dry-run'  => \$dryRun,
     'h|help'     => sub { usage(); exit(0); },
     # ...
@@ -48,6 +48,7 @@ END
 ###############################################################################
 
 my $guess = My::Guess::Indent->new();
+$guess->verbosity($verbosity);
 
 my $oldARGV;
 while (<>) {
@@ -72,12 +73,16 @@ package My::Guess::Indent {
         has files       => (is => 'rw', default => sub { return []; });
         has currentFile => (is => 'rw');
         has filename    => (is => 'rw');
+        has verbosity   => (is => 'rw', default => 0);
     }
     sub addLine {
         my ($self, $text) = @_;
         $text =~ s{\R\z}{};     # safer chomp
         if (!defined $self->currentFile) {
-            $self->currentFile(My::Guess::Indent::File->new(filename => $self->filename));
+            $self->currentFile(My::Guess::Indent::File->new(
+                filename => $self->filename,
+                verbosity => $self->verbosity
+            ));
             push(@{$self->files}, $self->currentFile);
         }
         $self->currentFile->addLine($text);
@@ -106,29 +111,140 @@ package My::Guess::Indent {
 package My::Guess::Indent::File {
     use Moo;
     INIT {
-        has filename => (is => 'rw');
-        has lines    => (is => 'rw', default => sub { return []; });
+        has filename  => (is => 'rw');
+        has lines     => (is => 'rw', default => sub { return []; });
+        has verbosity => (is => 'rw', default => 0);
     }
     sub addLine {
         my ($self, $text) = @_;
-        my $line = My::Guess::Indent::Line->new(text => $text, filename => $self->filename);
+        my $line = My::Guess::Indent::Line->new(
+            text => $text,
+            filename => $self->filename,
+            verbosity => $self->verbosity,
+        );
         push(@{$self->lines}, $line);
         $line->parse();
+    }
+    sub output {
+        my ($self, $format, @args) = @_;
+        printf("%-64s ", $self->filename . ':');
+        printf($format, @args);
+        print("\n");
     }
     sub analyze {
         my ($self) = @_;
         $self->flagComments();
-        my $lines           = scalar @{$self->lines};
-        my $analyzableLines = scalar grep { $_->weight } @{$self->lines};
+
+        my $weightedLineCount = $self->getWeightedLineCount();
+        if ($weightedLineCount == 0) {
+            return;
+        }
 
         foreach my $line (grep { $_->weight } @{$self->lines}) {
             $line->analyze();
         }
 
-        printf("%s: %d lines; %d analyzable lines\n", $self->filename, $lines, $analyzableLines);
-        foreach my $line (@{$self->lines}) {
-            printf("%8g %2d %2d> %s\n", $line->weight // 0, $line->tabCount // 0, $line->spaceCount // 0, $line->text);
+        my $percentHavingNoSpace = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return $line->spaceCount == 0; });
+        my $percentHavingNoTabs  = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return $line->tabCount == 0; });
+        my $percentHavingTabs = 100 - $percentHavingNoTabs;
+
+        my $spaces;
+        my $tabWidth;
+        my $message;
+
+        if ($percentHavingNoSpace >= 95) {
+            if ($percentHavingTabs >= 5) {
+                $message = 'tab-only indentation';
+            } else {
+                $message = 'no indentation';
+            }
+        } elsif ($percentHavingNoTabs >= 95) { # spaces only
+            $tabWidth = 0;
+            my $percentModulo8 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount % 8 == 0); });
+            my $percentModulo4 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount % 4 == 0); });
+            my $percentModulo2 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount % 2 == 0); });
+            if ($percentModulo8 >= 95) {
+                $spaces = 8;
+            } elsif ($percentModulo4 >= 95) {
+                $spaces = 4;
+            } elsif ($percentModulo2 >= 95) {
+                $spaces = 2;
+            } elsif ($percentModulo8 >= 75) {
+                $spaces = 8;
+            } elsif ($percentModulo4 >= 75) {
+                $spaces = 4;
+            } elsif ($percentModulo2 >= 75) {
+                $spaces = 2;
+            } else {
+                # dunno
+            }
+        } else {                # tabs and spaces
+            my $percentLessThan2 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount < 2); });
+            my $percentLessThan4 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount < 4); });
+            my $percentLessThan8 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->spaceCount < 8); });
+
+            if ($percentLessThan2 >= 95) {
+                $tabWidth = 2;
+            } elsif ($percentLessThan4 >= 95) {
+                $tabWidth = 4;
+            } elsif ($percentLessThan8 >= 95) {
+                $tabWidth = 8;
+            } elsif ($percentLessThan2 >= 75) {
+                $tabWidth = 2;
+            } elsif ($percentLessThan4 >= 75) {
+                $tabWidth = 4;
+            } elsif ($percentLessThan8 >= 75) {
+                $tabWidth = 8;
+            } else {
+                # dunno
+            }
+
+            if (defined $tabWidth) {
+                my $percentModulo8 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->getTabbedSpaceCount(8) == 0); });
+                my $percentModulo4 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->getTabbedSpaceCount(4) == 0); });
+                my $percentModulo2 = $self->percentageOfLinesHaving(sub => sub { my $line = shift; return ($line->getTabbedSpaceCount(2) == 0); });
+                if ($percentModulo8 >= 95) {
+                    $spaces = 8;
+                } elsif ($percentModulo4 >= 95) {
+                    $spaces = 4;
+                } elsif ($percentModulo2 >= 95) {
+                    $spaces = 2;
+                } elsif ($percentModulo8 >= 75) {
+                    $spaces = 8;
+                } elsif ($percentModulo4 >= 75) {
+                    $spaces = 4;
+                } elsif ($percentModulo2 >= 75) {
+                    $spaces = 2;
+                } else {
+                    # dunno
+                }
+            }
         }
+
+        my $output = '';
+        if (defined $spaces) {
+            $output .= sprintf('%1d spaces', $spaces);
+        } else {
+            $output .= '        ';
+        }
+
+        $output .= '  ';
+
+        if (defined $tabWidth) {
+            if ($tabWidth == 0) {
+                $output .= '  no tabs   ';
+            } else {
+                $output .= sprintf('%d space tabs', $tabWidth);
+            }
+        } else {
+            $output .= '            ';
+        }
+
+        if (defined $message) {
+            $output .= '  ' . $message;
+        }
+
+        printf("%-80s %s\n", $self->filename . ':', $output);
     }
     sub flagComments {
         my ($self) = @_;
@@ -140,6 +256,50 @@ package My::Guess::Indent::File {
             $line->flagComments(isInBlockComment => $isInBlockComment);
             $isInBlockComment = $line->endsInsideBlockComment;
         }
+    }
+    sub getWeightedLineCount {
+        my ($self) = @_;
+        my $result = 0;
+      line:
+        foreach my $line (@{$self->lines}) {
+            $result += $line->weight;
+        }
+        return $result;
+    }
+    sub percentageOfLinesHaving {
+        my ($self, %args) = @_;
+        my $sub = $args{sub};
+        my $given = $args{given};
+
+        my $linesTotal = 0;     # weighted
+        my $linesMatching = 0;  # weighted
+
+      line:
+        foreach my $line (@{$self->lines}) {
+            my $weight = $line->weight;
+            if (!$weight) {
+                next line;
+            }
+            if ($given) {
+                my $result = $given->($line);
+                if (!$result) {
+                    next line;
+                }
+            }
+            $linesTotal += $weight;
+            if ($sub->($line)) {
+                $linesMatching += $weight;
+            }
+            if ($self->verbosity >= 2) {
+                printf("    %g/%g %ds %dt> %s\n", $linesMatching, $linesTotal, $line->spaceCount, $line->tabCount, $line->text);
+            }
+        }
+
+        if ($linesTotal == 0) {
+            return;
+        }
+
+        return $linesMatching / $linesTotal * 100;
     }
 };
 
@@ -153,6 +313,7 @@ package My::Guess::Indent::Line {
         has filename               => (is => 'rw');
         has spaceCount             => (is => 'rw');
         has tabCount               => (is => 'rw');
+        has verbosity              => (is => 'rw', default => 0);
     }
     INIT {
         import My::Guess::Indent::Util qw(:all);
@@ -285,6 +446,10 @@ package My::Guess::Indent::Line {
         $self->tabCount(length $1);
         $self->spaceCount(length $2);
     }
+    sub getTabbedSpaceCount {
+        my ($self, $spacesPerTab) = @_;
+        return $self->tabCount * $spacesPerTab + $self->spaceCount;
+    }
 };
 
 package My::Guess::Indent::Util {
@@ -325,6 +490,7 @@ package My::Guess::Indent::Util {
     sub startLineComment {
         my ($filename) = @_;
         if ($filename =~ m{\.([ch]|[ch]pp|[ch]xx|[ch]\+\+|java|php|js|scss|cs)$}i) {
+            # no // comments in .css files.
             return qr{//};
         }
         return;
