@@ -25,21 +25,9 @@ EOF
 }
 
 get-options () {
+    local OPTION
     while getopts 'hvnW:H:-:' OPTION ; do
-        if [[ "${OPTION}" = "-" ]] ; then
-            if [[ "${OPTARG}" == "" ]] ; then
-                # argument is '--' by itself; terminate option parsing
-                break
-            fi
-            OPTION="${OPTARG}"
-            unset OPTARG
-            case "${OPTION}" in
-                *=*)
-                    OPTARG="${OPTION#*=}"
-                    OPTION="${OPTION%%=*}"
-                    ;;
-            esac
-        fi
+        check-long-option || break
         case "${OPTION}" in
             'h'|'help')
                 usage
@@ -73,6 +61,24 @@ get-options () {
         esac
     done
     shift $(( OPTIND - 1 ))
+}
+
+check-long-option () {
+    if [[ "${OPTION}" = "-" ]] ; then
+        if [[ "${OPTARG}" == "" ]] ; then
+            # argument is '--' by itself; terminate option parsing
+            return 1
+        fi
+        OPTION="${OPTARG}"
+        unset OPTARG
+        case "${OPTION}" in
+            *=*)
+                OPTARG="${OPTION#*=}"
+                OPTION="${OPTION%%=*}"
+                ;;
+        esac
+    fi
+    return 0
 }
 
 require-long-option-argument () {
