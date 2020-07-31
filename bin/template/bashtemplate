@@ -63,6 +63,20 @@ get-options () {
     shift $(( OPTIND - 1 ))
 }
 
+usage () { cat <<EOF; }
+usage:
+    ${PROGNAME} [<option> ...] [--] [<filename> ...]
+options:
+    -h            display this message
+    -v            verbosity
+    -n            dry run
+    -W <width>    specify width
+    -H <height>   specify height
+EOF
+
+###############################################################################
+# poor man's long options for bash
+
 check-long-option () {
     if [[ "${OPTION}" = "-" ]] ; then
         if [[ "${OPTARG}" == "" ]] ; then
@@ -93,17 +107,6 @@ require-long-option-argument () {
         OPTIND=$((OPTIND + 1))
     fi
 }
-
-usage () { cat <<EOF; }
-usage:
-    ${PROGNAME} [<option> ...] [--] [<filename> ...]
-options:
-    -h            display this message
-    -v            verbosity
-    -n            dry run
-    -W <width>    specify width
-    -H <height>   specify height
-EOF
 
 ###############################################################################
 
