@@ -559,6 +559,8 @@ if (( verbose >= 2 )) ; then
     >&2 echo "  @=(${@@Q})"
 fi
 
+check_excludes
+
 if (( find_only )) ; then
     set_find_excludes
     declare -a find_command

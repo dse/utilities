@@ -36,7 +36,7 @@ main () {
     if (( dry_run )) ; then
         exit 0
     fi
-    exec "${cmd[@]}"
+    "${cmd[@]}" | sed "/^diff /s/ '--exclude=[^']*'//g"
 }
 
 declare -a longopts
