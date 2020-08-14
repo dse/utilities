@@ -40,11 +40,11 @@ get-options () {
                 dry_run=1
                 ;;
             'W'|'width')
-                require-long-option-argument width "$@"
+                require-argument "$@"
                 width="${OPTARG}"
                 ;;
             'H'|'height')
-                require-long-option-argument height "$@"
+                require-argument "$@"
                 height="${OPTARG}"
                 ;;
             '?')
@@ -94,11 +94,14 @@ check-long-option () {
     return 0
 }
 
-require-long-option-argument () {
-    local longoption="$1"; longoption="${longoption#--}"; shift
+require-argument () {
+    # does nothing for short options
+    if [[ "${OPTION}" = ? ]] ; then return ; fi
+
+    # retrieves OPTARG and updates OPTIND for long option arguments
     if [[ ! -v OPTARG ]] ; then
         if (( OPTIND > $# )) ; then # long option missing argument
-            >&2 echo "${PROGNAME}: option requires an argument -- ${longoption}"
+            >&2 echo "${PROGNAME}: option requires an argument -- ${OPTION}"
             >&2 echo "Type '${PROGNAME} --help' for more information."
             exit 1
         fi
