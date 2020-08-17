@@ -9,12 +9,16 @@ PROGNAME="$(basename "$0")"
 main () {
     local verbose=0
     local dry_run=0
+
+    # BEGIN EXAMPLES
     local width=0
     local height=0
+    # END EXAMPLES
 
     get-options "$@"
     shift $((OPTIND - 1))
 
+    # BEGIN EXAMPLE
     cat <<EOF
 verbosity: $verbose
 dry run? $dry_run
@@ -22,10 +26,13 @@ width: $width
 height: $height
 arguments: ${@@Q}
 EOF
+    # END EXAMPLE
 }
 
 get-options () {
     local OPTION
+    #               examples
+    #                 vvvv
     while getopts 'hvnW:H:-:' OPTION ; do
         check-long-option || break
         case "${OPTION}" in
@@ -39,6 +46,8 @@ get-options () {
             'n'|'dry-run')
                 dry_run=1
                 ;;
+
+            # BEGIN EXAMPLES
             'W'|'width')
                 require-argument "$@"
                 width="${OPTARG}"
@@ -47,6 +56,8 @@ get-options () {
                 require-argument "$@"
                 height="${OPTARG}"
                 ;;
+            # END EXAMPLES
+
             '?')
                 # short option invalid or missing argument
                 >&2 echo "Type '${PROGNAME} --help' for more information."
@@ -69,8 +80,10 @@ options:
     -h, --help              display this message
     -v, --verbose           verbosity
     -n, --dry-run           dry run
+    # BEGIN EXAMPLES
     -W, --width=<width>     specify width
     -H, --height=<height>   specify height
+    # END EXAMPLES
 EOF
 
 ###############################################################################

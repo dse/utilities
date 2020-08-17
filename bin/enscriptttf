@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
+set -o nounset
+set -o pipefail
+set -o errexit
 
 # usage:
 #     enscriptttf <filename.ttf> ...
 
 main () {
+    if ! which ttf2pt1 >/dev/null 2>/dev/null ; then
+        >&2 echo "enscriptttf: ttf2pt1 program not found"
+        exit 1
+    fi
+    if ! which mkafmmap >/dev/null 2>/dev/null ; then
+        >&2 echo "enscriptttf: mkafmmap program not found"
+        exit 1
+    fi
+
     local font
     for font ; do
         basename="$(basename "$font")"
