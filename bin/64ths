@@ -1,0 +1,70 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+our $defaultDenominator = 64;
+
+if (scalar @ARGV) {
+    foreach my $arg (@ARGV) {
+        my $denominator = $defaultDenominator;
+        while ($denominator % 2 == 0) {
+            my ($mixedFraction, $pureFraction, $closestValue) = frac($arg, $denominator);
+            printf("%.8f rounded to the nearest 1/%-2d  =  %-10s = %-10s = %.6g\n",
+                   $arg, $denominator,
+                   $pureFraction, $mixedFraction,
+                   $closestValue);
+            $denominator /= 2;
+        }
+    }
+} else {
+    for (my $i = 1; $i <= 63; $i += 1) {
+        my $frac = $i / $defaultDenominator;
+        my $num = $i;
+        my $denom = $defaultDenominator;
+        while ($num == int($num) && $denom == int($denom) && $num % 2 == 0 && $denom % 2 == 0) {
+            $num /= 2;
+            $denom /= 2;
+        }
+        printf("%2d/%-2d = %f\n", $num, $denom, $frac);
+    }
+}
+
+sub frac {
+    my ($value, $denominator) = @_;
+    my $sign = 1;
+    if ($value < 0) {
+        $sign = -1;
+        $value = -$value;
+    }
+    $denominator //= $defaultDenominator;
+    my $numerator = $value * $denominator;
+    $numerator = int($numerator + 0.5);
+    my $closestValue = $numerator / $denominator;
+    while ($numerator % 2 == 0 && $denominator % 2 == 0) {
+        $numerator /= 2;
+        $denominator /= 2;
+    }
+
+    my $pureFraction = sprintf('%d/%d', $numerator, $denominator);
+
+    my $mixedInteger     = int($closestValue);
+    my $mixedNumerator   = $numerator % $denominator;
+    my $mixedDenominator = $denominator;
+
+    my $mixedFraction = '';
+    if ($mixedInteger) {
+        $mixedFraction .= $mixedInteger;
+    }
+    if ($mixedInteger && $mixedNumerator && $mixedDenominator != 1) {
+        $mixedFraction .= '-'
+    }
+    if ($mixedNumerator) {
+        $mixedFraction .= $mixedNumerator . '/' . $mixedDenominator;
+    }
+    if (wantarray) {
+        return ($mixedFraction, $pureFraction, $closestValue);
+    }
+    return $mixedFraction;
+}

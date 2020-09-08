@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -o pipefail
+set -o nounset
+set -o errexit
+# set -o xtrace
+
+PROGNAME="$(basename "$0")"
+
+main () {
+    local verbose=0
+    local dry_run=0
+
+    # BEGIN EXAMPLES
+    local width=0
+    local height=0
+    # END EXAMPLES
+
+    get-options "$@"
+    shift $((OPTIND - 1))
+
+    # BEGIN EXAMPLE
+    cat <<EOF
+verbosity: $verbose
+dry run? $dry_run
+width: $width
+height: $height
+arguments: ${@@Q}
+EOF
+    # END EXAMPLE
+}
+
+get-options () {
+    local OPTION
+    #               examples
+    #                 vvvv
+    while getopts 'hvnW:H:-:' OPTION ; do
+        check-long-option || break
+        case "${OPTION}" in
+            'h'|'help')
+                usage
+                exit 0
+                ;;
+            'v'|'verbose')
+                verbose=$((verbose + 1))
+                ;;
+            'n'|'dry-run')
+                dry_run=1
+                ;;
+
+            # BEGIN EXAMPLES
+            'W'|'width')
+                require-argument "$@"
+                width="${OPTARG}"
+                ;;
+            'H'|'height')
+                require-argument "$@"
+                height="${OPTARG}"
+                ;;
+            # END EXAMPLES
+
+            '?')
+                # short option invalid or missing argument
+                >&2 echo "Type '${PROGNAME} --help' for more information."
+                exit 1
+                ;;
+            *)
+                # invalid long option
+                >&2 echo "${PROGNAME}: unknown option -- ${OPTION}"
+                >&2 echo "Type '${PROGNAME} --help' for more information."
+                exit 1
+                ;;
+        esac
+    done
+}
+
+usage () { cat <<EOF; }
+usage:
+    ${PROGNAME} [<option> ...] [--] [<filename> ...]
+options:
+    -h, --help              display this message
+    -v, --verbose           verbosity
+    -n, --dry-run           dry run
+    # BEGIN EXAMPLES
+    -W, --width=<width>     specify width
+    -H, --height=<height>   specify height
+    # END EXAMPLES
+EOF
+
+###############################################################################
+# poor man's long options for bash
+
+check-long-option () {
+    if [[ "${OPTION}" = "-" ]] ; then
+        if [[ "${OPTARG}" == "" ]] ; then
+            # argument is '--' by itself; terminate option parsing
+            return 1
+        fi
+        OPTION="${OPTARG}"
+        unset OPTARG
+        case "${OPTION}" in
+            *=*)
+                OPTARG="${OPTION#*=}"
+                OPTION="${OPTION%%=*}"
+                ;;
+        esac
+    fi
+    return 0
+}
+
+require-argument () {
+    # does nothing for short options
+    if [[ "${OPTION}" = ? ]] ; then return ; fi
+
+    # retrieves OPTARG and updates OPTIND for long option arguments
+    if [[ ! -v OPTARG ]] ; then
+        if (( OPTIND > $# )) ; then # long option missing argument
+            >&2 echo "${PROGNAME}: option requires an argument -- ${OPTION}"
+            >&2 echo "Type '${PROGNAME} --help' for more information."
+            exit 1
+        fi
+        OPTARG="${@:OPTIND:1}"
+        OPTIND=$((OPTIND + 1))
+    fi
+}
+
+###############################################################################
+
+main "$@"

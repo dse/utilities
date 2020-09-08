@@ -26,6 +26,9 @@ sub do_data {
             $_ = trim($_);
         }
 	my @data = split($separator, $_);
+        if ($separator ne "\t") {
+            @data = map { trim($_) } @data;
+        }
 	my $out = $template;
         $out =~ s{ \$ (?:\$|(\d+)|\{(\d+)\}) }
                  { (defined $1) ? ($data[$1 - 1] // '') : (defined $2) ? ($data[$2 - 1] // '') : '$' }xge;

@@ -3,15 +3,27 @@
 use warnings;
 use strict;
 use v5.10.0;
+use utf8;
 
-use JSON::XS qw();
-use Getopt::Long qw();
-use POSIX qw(strftime);
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
 
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
 our %exclude;
 our %timestamp;
 our $clean;
 
+#------------------------------------------------------------------------------
+use Getopt::Long qw();
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
     "x|exclude=s"    => sub { $exclude{$_[1]} = 1; },
@@ -30,6 +42,11 @@ options:
     -h, --help
 END
 
+###############################################################################
+
+use JSON::XS qw();
+use POSIX qw(strftime);
+
 my $json = JSON::XS->new()->pretty(1)->canonical(1);
 
 local $/ = undef;
@@ -37,7 +54,11 @@ while (<>) {
     my $o = $json->decode($_);
     exclude($o) if scalar keys %exclude;
     clean($o) if $clean;
-    print $json->encode($o);
+    my $result = $json->encode($o);
+    $result =~ s{^(   )+}{'    ' x int(length($&) / 3)}gem;
+    $result =~ s{\R\z}{};
+    $result .= "\n";
+    print $result;
 }
 
 sub exclude {

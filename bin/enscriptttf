@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
+set -o nounset
+set -o pipefail
+set -o errexit
+#set -o xtrace
 
 # usage:
 #     enscriptttf <filename.ttf> ...
 
 main () {
+    if ! which ttf2pt1 >/dev/null 2>/dev/null ; then
+        >&2 echo "enscriptttf: ttf2pt1 program not found"
+        exit 1
+    fi
+    if ! which mkafmmap >/dev/null 2>/dev/null ; then
+        >&2 echo "enscriptttf: mkafmmap program not found"
+        exit 1
+    fi
+
     local font
     for font ; do
         basename="$(basename "$font")"
@@ -19,7 +32,18 @@ main () {
     done
 
     cd "${HOME}/Fonts/enscript"
-    mkafmmap *.afm
+    mkafmmap *.afm >/dev/null
+
+    for font ; do
+        basename="$(basename "$font")"
+
+        # enscript afmlib has problems with filenames containing spaces
+        fontname="${basename%.*}"
+        fontname="${fontname// /}"
+
+        export ENSCRIPTTTF_FONT="${fontname}"
+        awk '$2 == ENVIRON["ENSCRIPTTTF_FONT"]' font.map
+    done
 }
 
 main "$@"
