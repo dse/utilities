@@ -20,6 +20,7 @@ main () {
 
     export EMACS_USER_DIRECTORY="${ALT_EMACS_DIR}/${ALT_EMACS_NAME}"
     mkdir -p "${EMACS_USER_DIRECTORY}"
+    touch "${EMACS_USER_DIRECTORY}/init.el"
     exec emacs "${@}"
 }
 
