@@ -8,21 +8,22 @@ use Getopt::Long qw();
 use Fcntl qw(:mode);
 use POSIX qw(BUFSIZ);
 use File::Find qw(find);
-use Sort::Naturally qw(nsort);
 use Cwd qw(getcwd abs_path);
 
 our $PROGNAME = basename($0);
 our $verbose = 0;
+our $delete = 0;
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'h|help' => sub { usage(); exit(0); },
     'v|verbose+' => \$verbose,
+    'd|delete' => \$delete,
 ) or die("Type '$PROGNAME --help' for help.\n");
 
 sub usage { print(<<"END"); }
 usage:
-    $PROGNAME [<option> ...] <filesystem1> <filesystem2>
+    $PROGNAME [<option> ...] <dir1> <dir2>
 END
 
 if (scalar @ARGV < 2) {
@@ -82,7 +83,15 @@ sub fsdupes {
             if ($isdupe == 2) {
                 # same file; do nothing
             } else {
-                print("$pathname2\n");
+                if ($delete) {
+                    if (!unlink($pathname2)) {
+                        warn("$PROGNAME: cannot delete $pathname2: $!\n");
+                    } else {
+                        warn("deleted $pathname2\n");
+                    }
+                } else {
+                    print("$pathname2\n");
+                }
             }
         }
     }
