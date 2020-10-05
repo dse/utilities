@@ -293,6 +293,8 @@ run-modules () {
     run-module WWW::Shorten::TinyURL
     run-module YAML::Any
     run-module YAML::Syck
+    run-module XML::Fast
+    run-module Hash::Ordered
 
     # These modules take longer to install.
 
@@ -310,27 +312,28 @@ run-modules () {
 
     if [[ "$command" = "install" ]] && ! module-is-installed DBD::mysql ; then
         if [[ "$OSTYPE" = darwin* ]] ; then
-            brew install mysql-client
+            which mysql || brew install mysql-client
         fi
     fi
     run-module -C perl-DBD-mysql DBD::mysql || true
 
     if [[ "$command" = "install" ]] && ! module-is-installed DBD::SQLite ; then
         if [[ "$OSTYPE" = darwin* ]] ; then
-            brew install sqlite
+            which sqlite3 || brew install sqlite
         fi
     fi
     run-module -C perl-DBD-mysql -T DBD::SQLite || true
 
     if [[ "$command" = "install" ]] && ! module-is-installed Image::Magick ; then
         if [[ "$OSTYPE" = darwin* ]] ; then
-            brew install imagemagick
+            which magick || brew install imagemagick
         fi
     fi
     run-module -C perl-Image-Magick Image::Magick || true
 
-    run-module -C perl-Gtk2 Gtk2
     run-module Glib # cygwin has package for perl 5.26; latest perl package is different version
+
+    run-module -C perl-Gtk2 Gtk2 || true
 
     >&2 verbose echo "run-modules is done."
 }
