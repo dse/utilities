@@ -179,6 +179,9 @@ sub inspect {
                 my $newPrefix = $self->accessor($key);
                 push(@result, $self->inspect($o->{$key}, $prefix . $newPrefix, [@path, $key]));
             }
+        } else {
+            # something like a JSON boolean
+            push(@result, [$prefix, $o]);
         }
     } else {
         if ($is_top_level) {
@@ -188,20 +191,24 @@ sub inspect {
         }
     }
     if ($is_top_level) {
-        my $max_prefix_len = $self->{width} // max map { length $_->[0] } @result;
+        my $max_prefix_len = $self->{width} // max map { (ref $_ eq 'ARRAY') ? (length $_->[0]) : 0 } @result;
         foreach my $result (@result) {
-            if ($self->{tabs}) {
-                if ($assignment) {
-                    print(join("\t", $result->[0], '= ' . $self->{json}->encode($result->[1])) . "\n");
+            if (ref $result) {
+                if ($self->{tabs}) {
+                    if ($assignment) {
+                        print(join("\t", $result->[0], '= ' . $self->{json}->encode($result->[1])) . "\n");
+                    } else {
+                        print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
+                    }
                 } else {
-                    print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
+                    if ($assignment) {
+                        printf("%-*s = %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                    } else {
+                        printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                    }
                 }
             } else {
-                if ($assignment) {
-                    printf("%-*s = %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
-                } else {
-                    printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
-                }
+                printf("%s\n", $result);
             }
         }
     }
