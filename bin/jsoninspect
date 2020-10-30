@@ -14,15 +14,19 @@ our %timestamp;
 our %noArrayIndex;
 our $noArrayIndexAtAll;
 our $width;
+our $assignment;
+our $init;
 
-Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::Configure(qw(bundling gnu_compat no_ignore_case));
 Getopt::Long::GetOptions(
     "tabs"             => \$opt_tabs,
     "x|exclude=s"      => sub { $exclude{$_[1]} = 1; },
     "t|timestamp=s"    => sub { $timestamp{$_[1]} = 1; },
     "w|width=i"        => \$width,
+    "i|init"           => \$init,
+    "a|assignment"     => \$assignment,
     "h|help"           => sub { usage(); exit(0); },
-    "no-array-index:s" => sub {
+    "I|no-array-index:s" => sub {
         if (defined $_[1] && $_[1] ne '') {
             $noArrayIndex{$_[1]} = 1;
         } else {
@@ -40,6 +44,8 @@ options:
     -t, --timestamp=<key>
     -w, --width=<int>
         --no-array-index[=<key>]
+        --assignment
+        --init
     -h, --help
 END
 
@@ -48,6 +54,10 @@ END
 local $/ = undef;
 
 my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
+$json->relaxed(1);
+$json->allow_unknown(1);
+$json->allow_tags(1);
+
 my $i = My::JSON::Inspector->new();
 
 $i->{exclude}           = \%exclude;
@@ -55,6 +65,8 @@ $i->{timestamp}         = \%timestamp;
 $i->{width}             = $width;
 $i->{noArrayIndex}      = \%noArrayIndex;
 $i->{noArrayIndexAtAll} = $noArrayIndexAtAll;
+$i->{assignment}        = $assignment;
+$i->{init}              = $init;
 
 $i->{tabs} = $opt_tabs;
 if (scalar @ARGV) {
@@ -75,6 +87,7 @@ use JSON;
 use List::Util qw(max);
 use POSIX qw(strftime);
 use Tie::IxHash;
+use Data::Dumper;
 
 sub new {
     my ($class, %args) = @_;
@@ -110,6 +123,7 @@ sub inspect_url {
     my $request = HTTP::Request->new("GET", $url);
     my $response = $self->{ua}->request($request);
     my $o = $json->decode($response->decoded_content);
+
     $self->inspect($o);
 }
 
@@ -125,6 +139,9 @@ sub inspect {
     if (ref $o) {
         if (ref $o eq "ARRAY") {
             my $noArrayIndex = $self->{noArrayIndexAtAll} || (scalar @path && $self->{noArrayIndex}->{$path[-1]});
+            if ($init) {
+                push(@result, [$prefix, []]);
+            }
             for (my $i = 0; $i < scalar @$o; $i += 1) {
                 my $ref = ref $o->[$i];
                 if ($noArrayIndex) {
@@ -147,6 +164,9 @@ sub inspect {
             }
         } elsif (ref $o eq "HASH") {
             my @keys = sort keys %$o;
+            if ($init) {
+                push(@result, [$prefix, {}]);
+            }
             foreach my $key (@keys) {
                 next if $self->{exclude}->{$key};
                 if ($self->{timestamp}->{$key} && !ref $o->{$key}) {
@@ -171,9 +191,17 @@ sub inspect {
         my $max_prefix_len = $self->{width} // max map { length $_->[0] } @result;
         foreach my $result (@result) {
             if ($self->{tabs}) {
-                print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
+                if ($assignment) {
+                    print(join("\t", $result->[0], '= ' . $self->{json}->encode($result->[1])) . "\n");
+                } else {
+                    print(join("\t", $result->[0], $self->{json}->encode($result->[1])) . "\n");
+                }
             } else {
-                printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                if ($assignment) {
+                    printf("%-*s = %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                } else {
+                    printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                }
             }
         }
     }
