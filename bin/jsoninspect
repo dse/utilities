@@ -1,4 +1,8 @@
 #!/usr/bin/env perl
+#
+# jsoninspect --- what values are in a json object and how do you get
+# there?
+#
 use warnings;
 use strict;
 use v5.10.0;
