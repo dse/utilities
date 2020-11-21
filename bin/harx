@@ -3,9 +3,19 @@ use warnings;
 use strict;
 use v5.10.0;
 
+#------------------------------------------------------------------------------
 use File::Basename qw(basename);
 our $PROGNAME = basename($0);
 
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
 our $EXTENSIONS = {
     # File::MimeInfo returns a list of extensions given a mime type
     # but the first one isn't always a good "canonical" one.
@@ -23,6 +33,8 @@ our $EXTENSIONS = {
 
 our @exclude;
 our $verbose;
+our @urlPattern;
+our $jsonPP;
 
 use JSON::XS qw();
 use Path::Tiny qw(path);
@@ -42,6 +54,8 @@ my $rw = Regexp::Wildcards->new(type => 'unix');
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
+    'u|url-pattern=s' => \@urlPattern,
+    'j|json-pp' => \$jsonPP,
     'v|verbose+' => \$verbose,
     'x|exclude=s' => sub {
         my $ext = lc $_[1];
@@ -57,12 +71,15 @@ Getopt::Long::GetOptions(
 sub usage { print(<<"END"); }
 usage: $PROGNAME [<option> ...] [<harfile> ...]
 options:
+    -u, --url-pattern=<pattern>
     -x, --exclude=<ext|mimetype>     Exclude file extensions or MIME types.
                                      Accepts wildcards.
     -h, --help                       Show this message.
 END
 
-my $json = JSON::XS->new();
+@urlPattern = map { qr{$_} } @urlPattern;
+
+my $json = JSON::XS->new()->ascii(1)->pretty(1)->canonical(1);
 my $harCounter = 0;
 local $/ = undef;               # slurp entire files at once
 while (<>) {
@@ -98,6 +115,20 @@ while (<>) {
     foreach my $entry (@$entries) {
         my $request  = $entry->{request};
         my $url      = $request->{url};
+
+        if (scalar @urlPattern) {
+            my $matches = 0;
+            foreach my $urlPattern (@urlPattern) {
+                if ($url =~ $urlPattern) {
+                    $matches = 1;
+                    last;
+                }
+            }
+            if (!$matches) {
+                next entry;
+            }
+        }
+
         my $response = $entry->{response};
         my $status   = $response->{status};
         next if $status == 307; # internal redirect
@@ -140,14 +171,29 @@ while (<>) {
         if (!defined $text || $text eq '') {
             next entry;
         }
-        my $filename = sprintf('%s/harx-%04d%s', $dir, ++$filenameCounter, $ext);
-        say $fh sprintf('%-*s %-32s %s', $col1len, $filename, $type, $url);
+
+        my $binary = 0;
         if (defined $encoding) {
             if ($encoding eq 'base64') {
-                path($filename)->spew({ binmode => ':raw' }, decode_base64($text));
+                $binary = 1;
+                $text = decode_base64($text);
             } else {
                 warn "WARNING: unrecognized encoding '$encoding': $url\n";
             }
+        }
+
+        if ($jsonPP) {
+            if ($type eq 'application/json' || $url =~ m{\.json$}i) {
+                my $o = $json->decode($text);
+                $text = $json->encode($o);
+            }
+        }
+
+        my $filename = sprintf('%s/harx-%04d%s', $dir, ++$filenameCounter, $ext);
+        say $fh sprintf('%-*s %-32s %s', $col1len, $filename, $type, $url);
+
+        if ($binary) {
+            path($filename)->spew({ binmode => ':raw' }, decode_base64($text));
         } else {
             path($filename)->spew($text);
         }

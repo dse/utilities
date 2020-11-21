@@ -3,6 +3,7 @@ set -o pipefail
 set -o nounset
 set -o errexit
 # set -o xtrace
+# shopt -s lastpipe               # for ... | {readarray|mapfile} -t <arrayname>
 
 PROGNAME="$(basename "$0")"
 
@@ -123,6 +124,14 @@ require-argument () {
     fi
 }
 
+# temp="$(mktemp)"
+# temp2="$(mktemp)"
+AT_EXIT () {
+    [[ -v temp ]]  && [[ -e "${temp}" ]]  && rm "${temp}"  || true
+    [[ -v temp2 ]] && [[ -e "${temp2}" ]] && rm "${temp2}" || true
+}
+
 ###############################################################################
 
+trap AT_EXIT EXIT
 main "$@"
