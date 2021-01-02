@@ -100,7 +100,7 @@ package My::Dupes {
             ino => $ino,
             size => $size,
             mtime => $mtime,
-            sum => $sum
+            md5sum => $sum
         };
         $self->dirCacheDirty->{$dirname} = 1;
         return $sum;
@@ -146,7 +146,7 @@ package My::Dupes {
             # warn("dupes: getCachedSum $dirname $basename ...: dev/ino/size/mtime not the same\n");
             return;
         }
-        my $sum = $fileCache->{sum};
+        my $sum = $fileCache->{md5sum};
         if (!defined $sum) {
             # warn("dupes: getCachedSum $dirname $basename ...: failed to get sum\n");
             delete $dirCache->{$basename};
