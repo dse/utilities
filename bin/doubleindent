@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+use Text::Tabs qw(expand unexpand);
+
+while (<>) {
+    my $lineTerminator = s{(\R)\z}{} ? $1 : '';
+    s{^\s+}{doubleIndent($&)}e;
+    print $_ . $lineTerminator;
+}
+
+sub doubleIndent {
+    my ($space) = @_;
+    if ($space =~ m{^[ ]+$}) {
+        return $space x 2;
+    }
+    if ($space =~ m{^[\t]+$}) {
+        return $space x 2;
+    }
+    return unexpand(expand($space) x 2);
+}
+
+=head1 NAME
+
+doubleindent - double the leading whitespace of each line of text
+
+=head1 SYNOPSIS
+
+    doubleindent [<filename> ...]
+
+=head1 DESCRIPTION
+
+doubleindent takes each line of its input, doubles any leading
+whitespace, and outputs the result to standard output.
+
+Without any arguments, doubleindent reads from standard input.
+
+With arguments, doubleindent interprets each as a filename and reads
+from that file.
+
+If each line's leading whitespace consists of a mix of tabs and
+spaces, doubleindent assumes 8-space tabs, expands the whitespace into
+spaces only, doubles the whitespace, converts the spaces into spaces
+and tabs before outputting.
+
+=head1 AUTHOR
+
+Darren Embry C<dse@webonastick.com>
+
+=cut
