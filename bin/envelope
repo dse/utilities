@@ -13,15 +13,171 @@ each file specified contains:
         (up to and not including the next blank line, or EOF)
 options:
     -o, --output=<filename>      output PostScript file; use '-' for stdout
-    -v, --verbose
-    -h, --help
         --font=<font>            e.g., --font='CourierPrime'
-        --font=<font>[@<size>]         --font='Courier-Bold@14'
+        --font=<font>@<size>           --font='Courier-Bold@14'
         --font=@<size>                 --font='@14'
         --6x9
         --6x9landscape
         --10lm                   No. 10 envelope with larger margins
+        --top-lines=<int>        number of lines to print before return address
+    -v, --verbose
+    -h, --help
 END
+
+=pod
+
+=head1 NAME
+
+envelope - print a PostScript envelope using enscript
+
+=head1 SYNOPSIS
+
+    envelope [-o|--output=<filename>]
+             [--font=<font>]
+             [--font=<font>@<size>]
+             [--font=@<size>]
+             [--6x9]
+             [--6x9landscape]
+             [--10lm]
+             [--top-lines=<int>]
+             [<filename> ...]
+             [-v|--verbose]
+             [-h|--help]
+
+=head1 DESCRIPTION
+
+The C<envelope> program reads its input from one or more filenames
+specified on the command line, or if no filenames are specified,
+standard input.
+
+After zero or more blank lines in the input, the first contiguous
+series of non-blank lines becomes the return address.
+
+After at least one or more blank lines, the second contiguous series
+of non-blank lines becomes the recipient address.
+
+Any additional blank lines and the rest of the input are ignored.
+
+The C<envelope> program generates a PostScript file and sends it to
+the default printer via the C<enscript> program.
+
+The PostScript is sized by default for a Number 10 business envelope,
+4.125 inches high by 9.5 inches wide.
+
+Usually you will feed the envelope to your printer's manual feed tray.
+Consult any diagrams locate nearby on how to place your envelope, or
+consult your printer's manual.
+
+For some printer models, I've found the process of figuring out the
+correct process to be trial and error.  Either waste a few envelopes
+trying, or cut some envelope sized sheets of paper.
+
+=head1 EXAMPLES
+
+    $ cat envelope.txt
+    <blank line>
+    John Jacob Jingleheimerschmidt
+    123 W Main St
+    Citytown, IN 47000
+    <blank line>
+    Darren Embry
+    456 Broadway
+    Townville, KY 40000
+
+    $ envelope envelope.txt
+    <prints an envelope looking roughly like the following:>
+
+        +----------------------------------------------------------------------
+        |
+        |   John Jacob Jingleheimerschmidt
+        |   123 W Main St
+        |   Citytown, IN 47000
+        |
+        |
+        |
+        |                                Darren Embry
+        |                                456 Broadway
+        |                                Townville, KY 40000
+        |
+        |
+        |
+        +----------------------------------------------------------------------
+
+=head1 RCFILE
+
+Before reading command line options, the C<envelope> program will also
+read options from C<$HOME/.enveloperc> if one exists.
+
+Blank lines are ignored, and lines starting with C<#> (preceded by
+optional whitespace) are ignored.
+
+The words on each line are parsed using Unix shell quoting.  The
+C<envelope> program relies on the C<Text::ParseWords::shellwords>
+function.
+
+Example:
+
+    $ cat ~/.enveloperc
+    # printer will chop off the top line for some reason, I dunno
+    --top-lines=1
+
+=head1 OPTIONS
+
+=over 4
+
+=item -o, --output=I<filename>
+
+Send the PostScript output to a disk file instead of the printer.
+
+=item --font=<font>
+
+=item --font=<font>@<size>
+
+=item --font=@<size>
+
+Specify a different font and/or font size from the default.
+
+Examples:
+
+    --font=Courier-Bold
+    --font=CourierPrime
+    --font=CourierPrime@14
+    --font=@14
+
+=item --6x9
+
+6-inch x 9-inch envelope, in portrait mode.
+
+=item --6x9landscape
+
+6-inch x 9-inch envelope, in landscape mode.
+
+=item --10lm
+
+No. 10 business envelope with larger margins.
+
+=item --top-lines=<int>
+
+Print a specified number of blank lines before printing the return
+address.
+
+You might use this instead of specifying a larger top margin.
+
+=item -v, --verbose
+
+=item -h, --help
+
+=back
+
+=head1 BUGS
+
+Eh, I dunno.
+
+=head1 AUTHOR
+
+Darren Embry C<dse at webonastick dot com>
+
+=cut
 
 our $output;
 our $verbose = 0;
@@ -34,13 +190,12 @@ our $mediaLeft;
 our $mediaRight;
 our $mediaTop;
 our $mediaBottom;
+our $topLines;
 
 our $fontName;
 our $fontSize;
 
-use Getopt::Long;
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
-Getopt::Long::GetOptions(
+our @options = (
     'o|p|output=s' => \$output,
     'v|verbose+' => \$verbose,
     'h|help' => sub { usage(); exit(0); },
@@ -90,7 +245,29 @@ Getopt::Long::GetOptions(
         $mediaTop    = $mediaHeight - 36;
         $switch = 1;
     },
-) or die("Type '$0 --help' for help.\n");
+    'top-lines=i' => \$topLines,
+);
+
+use Getopt::Long;
+use Path::Tiny;
+use Text::ParseWords qw(shellwords);
+
+my $p = Getopt::Long::Parser->new();
+$p->configure('bundling', 'gnu_compat', 'no_ignore_case');
+
+my $rcfile = "$ENV{HOME}/.enveloperc";
+if (-e $rcfile) {
+    my @lines = path($rcfile)->lines_utf8;
+    @lines = grep { /./ && !/^\s*\#/ } @lines;
+    my @words = shellwords(@lines);
+    if (!$p->getoptionsfromarray(\@words, @options)) {
+        die("Type '$0 --help' for help.\n");
+    }
+}
+
+if (!$p->getoptionsfromarray(\@ARGV, @options)) {
+    die("Type '$0 --help' for help.\n");
+}
 
 our $envelope = My::Envelope->new();
 
@@ -105,6 +282,7 @@ $envelope->mediaLeft($mediaLeft) if defined $mediaLeft;
 $envelope->mediaRight($mediaRight) if defined $mediaRight;
 $envelope->mediaBottom($mediaBottom) if defined $mediaBottom;
 $envelope->mediaTop($mediaTop) if defined $mediaTop;
+$envelope->topLines($topLines) if defined $topLines;
 
 $envelope->fontName($fontName) if defined $fontName;
 $envelope->fontSize($fontSize) if defined $fontSize;
@@ -134,6 +312,7 @@ package My::Envelope {
         has mediaRight  => (is => 'rw', default => 279);
         has mediaBottom => (is => 'rw', default => 36);
         has mediaTop    => (is => 'rw', default => 648);
+        has topLines    => (is => 'rw', default => 0);
 
         has fontName => (is => 'rw', default => 'Courier-Bold');
         has fontSize => (is => 'rw', default => 12);
@@ -269,11 +448,15 @@ package My::Envelope {
         }
 
         if (scalar @{$self->from}) {
+            for (my $i = 0; $i < $self->topLines; $i += 1) {
+                print $fh ("\n");
+            }
             foreach my $line (@{$self->from}) {
                 print $fh ("$line\n");
             }
             if (scalar @{$self->to}) {
-                my $blankLines = max(2, ($linesDown - scalar @{$self->from}));
+                my $blankLines = max(2, ($linesDown - $self->topLines -
+                                         scalar @{$self->from}));
                 print $fh ("\n" x $blankLines);
                 foreach my $line (@{$self->to}) {
                     print $fh ((" " x $columnsRight), "$line\n");
