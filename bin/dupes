@@ -1,0 +1,243 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+my @directories = @ARGV;
+
+my $dupes = My::Dupes->new();
+$dupes->verbosity(1);
+$dupes->findDupes(@directories);
+$dupes->putDirCaches();
+
+package My::Dupes {
+    use Moo;
+    use Data::Dumper qw(Dumper);
+    use File::Find qw(find);
+    use File::Basename qw(basename dirname);
+    INIT {
+        has dirCache      => (is => 'rw', default => sub { return {}; });
+        has dirCacheDirty => (is => 'rw', default => sub { return {}; }); # triggers rewrite
+        has verbosity     => (is => 'rw', default => 0);
+    }
+    sub dump {
+        my ($self, @args) = @_;
+        my $dumper = Data::Dumper->new(\@args);
+        $dumper->Indent(0);
+        $dumper->Purity(1);
+        $dumper->Useqq(1);
+        $dumper->Terse(1);
+        return $dumper->Dump();
+    }
+    sub findDupes {
+        my ($self, @directories) = @_;
+        my @filenames;
+        if ($self->verbosity >= 1) {
+            warn("dupes: Finding files...\n");
+        }
+        find(sub {
+                 if ($self->wanted(@_)) {
+                     push(@filenames, $File::Find::name);
+                 }
+             }, @directories);
+
+        my %dupes;
+        foreach my $filename (@filenames) {
+            my $sum = $self->getSum($filename);
+            if (defined $sum) {
+                $dupes{$sum} //= [];
+                push(@{$dupes{$sum}}, $filename);
+            }
+        }
+        foreach my $sum (sort keys %dupes) {
+            if (scalar @{$dupes{$sum}} > 1) {
+                foreach my $filename (sort @{$dupes{$sum}}) {
+                    print("$sum $filename\n");
+                }
+                print("\n");
+            }
+        }
+    }
+    sub wanted {
+        my ($self, @args) = @_;
+        my ($dev,$ino,$mode,$nlink,$uid,$gid);
+        if (!(($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_))) {
+            return 0;
+        }
+        if (!-f _) {
+            return 0;
+        }
+        if ($_ eq '.md5sum') {
+            return 0;
+        }
+        return 1;
+    }
+    sub getSum {
+        my ($self, $filename) = @_;
+        # warn("dupes: getSum $filename\n");
+        my $basename = basename($filename);
+        my $dirname  = dirname($filename);
+        my ($dev, $ino, $size, $mtime) = (stat($filename))[0, 1, 7, 9];
+        if (!defined $dev || !defined $ino || !defined $size || !defined $mtime) {
+            if ($self->verbosity >= 2) {
+                warn("dupes: getSum $filename: stat failed: $!\n");
+            }
+            return;
+        }
+        my $sum = $self->getCachedSum($dirname, $basename, $dev, $ino, $size, $mtime);
+        if (defined $sum) {
+            # warn("dupes: getSum $filename: cached sum is $sum\n");
+            return $sum;
+        }
+        $sum = $self->getSumRaw($filename, $dirname, $basename, $dev, $ino, $size, $mtime);
+        if (!defined $sum) {
+            return;
+        }
+        # warn("dupes: getSum $filename: setting cache for $dirname $basename\n");
+        $self->dirCache->{$dirname} //= {};
+        $self->dirCache->{$dirname}->{$basename} = {
+            dev => $dev,
+            ino => $ino,
+            size => $size,
+            mtime => $mtime,
+            md5sum => $sum
+        };
+        $self->dirCacheDirty->{$dirname} = 1;
+        return $sum;
+    }
+    sub getSumRaw {
+        my ($self, $filename, $dirname, $basename, $dev, $ino, $size, $mtime) = @_;
+        my $ph;
+        if ($self->verbosity >= 1) {
+            warn("dupes: getting md5sum for $filename\n");
+        }
+        if (!open($ph, '-|', 'md5sum', $filename)) {
+            warn("dupes: failed to run md5sum: $!\n");
+            return;
+        }
+        my $sum = <$ph>;
+        if ($sum =~ m{^([[:xdigit:]]+)}) {
+            $sum = $1;
+            # warn("dupes: $filename => $sum\n");
+            return $sum;
+        }
+        if ($self->verbosity >= 2) {
+            warn("dupes: failed to get md5sum of $filename\n");
+        }
+        return;
+    }
+    sub getCachedSum {
+        my ($self, $dirname, $basename, $dev, $ino, $size, $mtime) = @_;
+        my $dirCache = $self->getDirCache($dirname);
+        if (!$dirCache) {
+            # warn("dupes: getCachedSum $dirname $basename ...: no directory cache\n");
+            return;
+        }
+        my $fileCache = $dirCache->{$basename};
+        if (!$fileCache) {
+            # warn("dupes: getCachedSum $dirname $basename ...: no file cache\n");
+            return;
+        }
+        if ($ino != $fileCache->{ino} ||
+            $size != $fileCache->{size} ||
+            $mtime != $fileCache->{mtime}) {
+            delete $dirCache->{$basename};
+            $self->dirCacheDirty->{$dirname} = 1;
+            # warn("dupes: getCachedSum $dirname $basename ...: dev/ino/size/mtime not the same\n");
+            return;
+        }
+        my $sum = $fileCache->{md5sum};
+        if (!defined $sum) {
+            # warn("dupes: getCachedSum $dirname $basename ...: failed to get sum\n");
+            delete $dirCache->{$basename};
+            $self->dirCacheDirty->{$dirname} = 1;
+            return;
+        }
+        return $sum;
+    }
+    sub getDirCache {
+        my ($self, $dirname) = @_;
+        my $dirCache = $self->dirCache->{$dirname};
+        if (defined $dirCache) {
+            # warn("dupes: getDirCache $dirname: exists\n");
+            return $dirCache;
+        }
+        my $cacheFilename = "$dirname/.md5sum";
+        my $fh;
+        if (!open($fh, '<', $cacheFilename)) {
+            if (!$!{ENOENT}) {
+                if ($self->verbosity >= 2) {
+                    warn("dupes: getDirCache $dirname: cannot open $cacheFilename for reading: $!\n");
+                }
+            }
+            return;
+        }
+        local $/ = undef;       # slurp entire file at once
+        my $contents = <$fh>;
+        if (!close($fh)) {
+            # warn("dupes: getDirCache $dirname: cannot close $cacheFilename: $!\n");
+            return;
+        }
+        $dirCache = eval($contents);
+        if (!defined $dirCache) {
+            if ($self->verbosity >= 2) {
+                warn("dupes: getDirCache $dirname: contents of $cacheFilename to parse\n");
+            }
+            return;
+        }
+        $self->dirCache->{$dirname} = $dirCache;
+        $self->dirCacheDirty->{$dirname} = 0;
+        return $dirCache;
+    }
+    sub putDirCaches {
+        my ($self) = @_;
+        if ($self->verbosity >= 1) {
+            warn("dupes: writing directory caches\n");
+        }
+        foreach my $dirname (keys %{$self->dirCache}) {
+            if ($self->dirCacheDirty->{$dirname}) {
+                $self->putDirCache($dirname);
+            }
+        }
+    }
+    sub putDirCache {
+        my ($self, $dirname) = @_;
+        if (!$self->dirCacheDirty->{$dirname}) {
+            # warn("dupes: putDirCache $dirname: not dirty\n");
+            return;
+        }
+        my $dirCache = $self->dirCache->{$dirname};
+        if (!$dirCache) {
+            # warn("dupes: putDirCache $dirname: no cache\n");
+            return;
+        }
+        my $cacheFilename = "$dirname/.md5sum";
+        my $fh;
+        if (!open($fh, '>', $cacheFilename)) {
+            if ($self->verbosity >= 2) {
+                warn("dupes: putDirCache $dirname: cannot open $cacheFilename for writing: $!\n");
+            }
+            return;
+        }
+        if ($self->verbosity >= 2) {
+            warn("dupes: writing directory cache for $dirname\n");
+        }
+        my $dump = $self->dump($dirCache);
+        print $dump, "\n";
+        if (!(print $fh $dump)) {
+            # warn("dupes: putDirCache $dirname: cannot write $cacheFilename: $!\n");
+            return;
+        }
+        if (!close($fh)) {
+            # warn("dupes: putDirCache $dirname: cannot close $cacheFilename: $!\n");
+            return;
+        }
+        # warn("dupes: putDirCache $dirname: done\n");
+        $self->dirCacheDirty->{$dirname} = 0;
+        return;
+    }
+    sub DEMOLISH {
+        my ($self) = @_;
+        $self->putDirCaches();
+    }
+};
