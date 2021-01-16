@@ -4,23 +4,19 @@ set -o nounset
 set -o pipefail
 
 main () {
-    ALT_EMACS_DIR="$HOME/.altemacs.d"
-
     PROGNAME="$(basename "$0")"
     if [[ "$PROGNAME" = "altemacs" ]] ; then
         if ! (( $# )) ; then
             >&2 echo "$PROGNAME: requires initial <name> argument"
             exit 1
         fi
-        ALT_EMACS_NAME="$1"
+        export ALT_EMACS_NAME="$1"
         shift
     else
-        ALT_EMACS_NAME="${PROGNAME}"
+        export ALT_EMACS_NAME="${PROGNAME}"
     fi
-
-    export EMACS_USER_DIRECTORY="${ALT_EMACS_DIR}/${ALT_EMACS_NAME}"
-    mkdir -p "${EMACS_USER_DIRECTORY}"
-    touch "${EMACS_USER_DIRECTORY}/init.el"
+    mkdir -p "${HOME}/.emacs.d/${ALT_EMACS_NAME}.d"
+    touch    "${HOME}/.emacs.d/${ALT_EMACS_NAME}.d/init.el"
     exec emacs "${@}"
 }
 
