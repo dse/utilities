@@ -26,5 +26,3 @@ while (<>) {
     my $doc = YAML::Load($_);
     print YAML::Dump($doc);
 }
-
-
