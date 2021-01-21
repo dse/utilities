@@ -5,6 +5,10 @@ use v5.10.0;
 use utf8;
 
 #------------------------------------------------------------------------------
+# serverless.yml reference:
+# https://www.serverless.com/framework/docs/providers/aws/guide/serverless.yml/
+
+#------------------------------------------------------------------------------
 use File::Basename qw(basename);
 our $PROGNAME = basename($0);
 
@@ -39,31 +43,40 @@ sub sam2sls {
     my ($self, $sam) = @_;
 
     my @resourceNames = keys %{$sam->{Resources}};
-    if (scalar @resourceNames != 1) {
-        die("$PROGNAME: fewer or more than one Resources not supported\n");
+    if (scalar @resourceNames < 1) {
+        die("$PROGNAME: no Resources found\n");
+    } elsif (scalar @resourceNames != 1) {
+        die("$PROGNAME: more than one Resources entry not supported\n");
     }
     my ($resourceName) = @resourceNames;
     my $samResource = $sam->{Resources}->{$resourceName};
 
     my @outputNames = keys %{$sam->{Outputs}};
-    my $outputName;
-    my $samOutput;
-    if (scalar @outputNames > 1) {
-        die("$PROGNAME: more than one Outputs is not supported\n");
-    } elsif (scalar @outputNames == 1) {
-        ($outputName) = @outputNames;
-        $samOutput = $sam->{Outputs}->{$outputName};
+    if (scalar @outputNames < 1) {
+        # do nothing --- this is fine
+    } elsif (scalar @outputNames > 1) {
+        die("$PROGNAME: more than one Outputs entry not supported\n");
+    }
+    my ($outputName) = @outputNames;
+    my $samOutput = $sam->{Outputs}->{$outputName};
+
+    if (defined $outputName && defined $resourceName && $outputName ne $resourceName) {
+        die("$PROGNAME: resource name '$resourceName' and output name '$outputName' are not equal\n");
     }
 
-    my $runtime      = eval { delete $samResource->{Properties}->{Runtime} };
-    my $memorySize   = eval { delete $samResource->{Properties}->{MemorySize} };
-    my $timeout      = eval { delete $samResource->{Properties}->{Timeout} };
-    my $description  = eval { delete $sam->{Description} };
-    my $endpointType = eval { delete $sam->{Globals}->{Api}->{EndpointConfiguration} };
-    my $codeUri      = eval { delete $samResource->{Properties}->{CodeUri} };
-    my $handler      = eval { delete $samResource->{Properties}->{Handler} };
+    my $runtime             = eval { delete $samResource->{Properties}->{Runtime} };
+    my $memorySize          = eval { delete $samResource->{Properties}->{MemorySize} };
+    my $timeout             = eval { delete $samResource->{Properties}->{Timeout} };
+    my $description         = eval { delete $sam->{Description} };
+    my $endpointType        = eval { delete $sam->{Globals}->{Api}->{EndpointConfiguration} };
+    my $codeUri             = eval { delete $samResource->{Properties}->{CodeUri} };
+    my $handler             = eval { delete $samResource->{Properties}->{Handler} };
     my $resourceRole        = eval { delete $samResource->{Properties}->{Role} };
     my $resourceDescription = eval { delete $samResource->{Properties}->{Description} };
+
+    if (defined $codeUri && $codeUri ne '.') {
+        die("$PROGNAME: unsupported codeUri: $codeUri\n");
+    }
 
     my $sls = My::SAM2SLS::Util::newHash();
     $sls->{service} = $self->serviceName;
@@ -84,17 +97,9 @@ sub sam2sls {
     $sls->{package}->{individually} = 'true';
     $sls->{functions} = My::SAM2SLS::Util::newHash();
 
-    if (defined $outputName) {
-        $sls->{functions}->{$outputName} = My::SAM2SLS::Util::newHash();
-        $sls->{functions}->{$outputName}->{package} = My::SAM2SLS::Util::newHash();
-        $sls->{functions}->{$outputName}->{package}->{artifact} = $codeUri if defined $codeUri;
-        $sls->{functions}->{$outputName}->{handler} = $handler if defined $handler;
-    } else {
-        $sls->{functions}->{$resourceName} = My::SAM2SLS::Util::newHash();
-        $sls->{functions}->{$resourceName}->{package} = My::SAM2SLS::Util::newHash();
-        $sls->{functions}->{$resourceName}->{package}->{artifact} = $codeUri if defined $codeUri;
-        $sls->{functions}->{$resourceName}->{handler} = $handler if defined $handler;
-    }
+    $sls->{functions}->{$resourceName} = My::SAM2SLS::Util::newHash();
+    $sls->{functions}->{$resourceName}->{package} = My::SAM2SLS::Util::newHash();
+    $sls->{functions}->{$resourceName}->{handler} = $handler if defined $handler;
 
     my @eventNames = eval { keys %{$samResource->{Properties}->{Events}} };
     if (scalar @eventNames < 1) {
@@ -105,43 +110,28 @@ sub sam2sls {
     my ($eventName) = @eventNames;
     my $samEvent = $samResource->{Properties}->{Events}->{$eventName};
 
-    my $method = eval {
-        delete $samEvent->{Properties}->{Method}
-    };
-    my $path = eval {
-        delete $samEvent->{Properties}->{Path}
-    };
+    my $method = eval { delete $samEvent->{Properties}->{Method} };
+    my $path = eval { delete $samEvent->{Properties}->{Path} };
 
+    my $event = My::SAM2SLS::Util::newHash();
+    $sls->{functions}->{$resourceName}->{events} = [$event];
+    $event->{http} = My::SAM2SLS::Util::newHash();
     if (defined $method || defined $path) {
-        if (defined $outputName) {
-            my $event = {};
-            $sls->{functions}->{$outputName}->{events} = [$event];
-            $event->{http} = My::SAM2SLS::Util::newHash();
-            $event->{http}->{path} = $path if defined $path;
-            $event->{http}->{method} = uc $method if defined $method;
-        } else {
-            my $event = {};
-            $sls->{functions}->{$resourceName}->{events} = [$event];
-            $event->{http} = My::SAM2SLS::Util::newHash();
-            $event->{http}->{path} = '/{proxy+}';
-            $event->{http}->{method} = 'ANY';
-        }
-    } elsif (!defined $outputName) {
-        my $event = {};
-        $sls->{functions}->{$resourceName}->{events} = [$event];
-        $event->{http} = My::SAM2SLS::Util::newHash();
+        $event->{http}->{path} = $path if defined $path;
+        $event->{http}->{method} = uc $method if defined $method;
+    } else {
         $event->{http}->{path} = '/{proxy+}';
         $event->{http}->{method} = 'ANY';
     }
 
-    my $getResourceType = eval { delete $samEvent->{Type}; };
-    my $transform = delete $sam->{Transform};
-    my $templateFormatVersion = delete $sam->{AWSTemplateFormatVersion};
-    my $outputDescription = delete $samOutput->{Description}; # who cares
-    my $exportName = eval { delete $samOutput->{Export}->{Name} };
-    my $policies = eval { delete $samResource->{Properties}->{Policies} };
-    my $resourceType = eval { delete $samResource->{Type} };
-    my $outputValue = eval { delete $samOutput->{Value} };
+    my $getResourceType       = eval { delete $samEvent->{Type} };
+    my $transform             = eval { delete $sam->{Transform} };
+    my $templateFormatVersion = eval { delete $sam->{AWSTemplateFormatVersion} };
+    my $outputDescription     = eval { delete $samOutput->{Description} };
+    my $exportName            = eval { delete $samOutput->{Export}->{Name} };
+    my $policies              = eval { delete $samResource->{Properties}->{Policies} };
+    my $resourceType          = eval { delete $samResource->{Type} };
+    my $outputValue           = eval { delete $samOutput->{Value} };
 
     if (defined $getResourceType && $getResourceType ne 'Api') {
         die("$PROGNAME: unsupported GetResource Type: $getResourceType\n");
