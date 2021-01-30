@@ -1,17 +1,32 @@
 #!/usr/bin/env perl
-#
-# jsoninspect --- what values are in a json object and how do you get
-# there?
-#
 use warnings;
 use strict;
 use v5.10.0;
+use utf8;
 
-use open IO => ":locale";
+#------------------------------------------------------------------------------
+# {json,yaml}inspect --- what values are in a {json,yaml} object and
+# how do you get there?
 
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+# for jsoninspect
 use JSON::XS;
-use Getopt::Long;
 
+# for yamlinspect
+use YAML qw();
+
+#------------------------------------------------------------------------------
 our $opt_tabs = 0;
 our %exclude;
 our %timestamp;
@@ -21,6 +36,8 @@ our $width;
 our $assignment;
 our $init;
 
+#------------------------------------------------------------------------------
+use Getopt::Long;
 Getopt::Long::Configure(qw(bundling gnu_compat no_ignore_case));
 Getopt::Long::GetOptions(
     "tabs"             => \$opt_tabs,
@@ -41,7 +58,7 @@ Getopt::Long::GetOptions(
 
 sub usage { print(<<"END"); }
 usage:
-    jsoninspect [<file> ...]
+    $PROGNAME [<file> ...]
 options:
         --tabs
     -x, --exclude=<key>
@@ -57,12 +74,20 @@ END
 
 local $/ = undef;
 
-my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
-$json->relaxed(1);
-$json->allow_unknown(1);
-$json->allow_tags(1);
+my $json;
+if ($PROGNAME eq 'jsoninspect') {
+    $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
+    $json->relaxed(1);
+    $json->allow_unknown(1);
+    $json->allow_tags(1);
+}
 
 my $i = My::JSON::Inspector->new();
+if ($PROGNAME eq 'jsoninspect') {
+    $i->{mode} = 'json';
+} elsif ($PROGNAME eq 'yamlinspect') {
+    $i->{mode} = 'yaml';
+}
 
 $i->{exclude}           = \%exclude;
 $i->{timestamp}         = \%timestamp;
@@ -88,6 +113,7 @@ use v5.10.0;
 
 use List::MoreUtils;
 use JSON;
+use YAML;
 use List::Util qw(max);
 use POSIX qw(strftime);
 use Tie::IxHash;
@@ -97,8 +123,17 @@ sub new {
     my ($class, %args) = @_;
     my $self = bless(\%args, $class);
     $self->init if $self->can("init");
-    $self->{json} //= JSON->new()->ascii(1)->allow_nonref(1);
     $self->{tabs} //= 0;
+    $self->{mode} //= 'json';
+    if (!$self->{json}) {
+        # even if mode is 'yaml', we still need a json object for
+        # outputting.
+        my $json = JSON::XS->new()->allow_nonref(1)->ascii(1);
+        $json->relaxed(1);
+        $json->allow_unknown(1);
+        $json->allow_tags(1);
+        $self->{json} = $json;
+    }
     return $self;
 }
 
@@ -110,7 +145,12 @@ sub inspect_file {
         } else {
             local @ARGV = ($file);
             while (<>) {
-                my $o = $json->decode($_);
+                my $o;
+                if ($self->{mode} eq 'json') {
+                    $o = $json->decode($_);
+                } elsif ($self->{mode} eq 'yaml') {
+                    $o = YAML::Load($_);
+                }
                 $self->inspect($o);
             }
         }
@@ -126,7 +166,24 @@ sub inspect_url {
     $self->{ua} //= LWP::UserAgent->new();
     my $request = HTTP::Request->new("GET", $url);
     my $response = $self->{ua}->request($request);
-    my $o = $json->decode($response->decoded_content);
+    my $contentType = $response->content_type;
+    my $o;
+    if ($contentType =~ m{^(application|text)/(x-)?json\b}i) {
+        $o = $json->decode($response->decoded_content);
+    } elsif ($contentType =~ m{^(application|text)/(x-)?ya?ml\b}i) {
+        $o = YAML::Load($response->decoded_content);
+    } elsif ($url =~ m{\.json($|\?|\#)}i) {
+        $o = $json->decode($response->decoded_content);
+    } elsif ($url =~ m{\.ya?ml($|\?|\#)}i) {
+        $o = YAML::Load($response->decoded_content);
+    } else {
+        $o =
+          eval { $json->decode($response->decoded_content) } ||
+          eval { YAML::Load($response->decoded_content) };
+    }
+    if (!$o) {
+        die("invalid object format\n");
+    }
 
     $self->inspect($o);
 }

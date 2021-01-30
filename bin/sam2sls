@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+#------------------------------------------------------------------------------
+# This is sam2sls, a dirty, hacky script to convert an Amazon SAM template
+# to a serverless template.
+#
+# Tested with:
+#   https://gist.githubusercontent.com/ystoneman/57a4fb80411a2678b58fc34ba46843f5/raw/cb7c2e3f5e0f375c57fc3eea38210149b1018c98/SAM.yaml
+#   https://gist.githubusercontent.com/ystoneman/da5e1ca40eec61d6542e0dd7658eff18/raw/d6bd8f51bd6a79feb5d3f4e13f2a1f9c677fa248/serverless.yml
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+#------------------------------------------------------------------------------
+our $profile;
+our $stage;
+our $serviceName;
+our $region;
+our $verbose = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+                         'profile=s'              => \$profile,
+                         'stage=s'                => \$stage,
+                         'service|service-name=s' => \$serviceName,
+                         'region=s'               => \$region,
+                         'v|verbose+'             => \$verbose,
+                         'h|help'                 => sub { usage(); exit(0); },
+                        ) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+        --profile=<profile>             default: ${My::SAM2SLS::DEFAULT_PROFILE}
+        --stage=<stage>                 default: ${My::SAM2SLS::DEFAULT_STAGE}
+        --service=<service>             default: ${My::SAM2SLS::DEFAULT_SERVICE_NAME}
+        --region=<region>               default: ${My::SAM2SLS::DEFAULT_REGION}
+END
+
+#------------------------------------------------------------------------------
+use My::SAM2SLS;
+use My::SAM2SLS::Util;
+
+my $sam2sls = My::SAM2SLS->new();
+$sam2sls->serviceName($serviceName) if defined $serviceName;
+$sam2sls->stage($stage)             if defined $stage;
+$sam2sls->region($region)           if defined $region;
+$sam2sls->profile($profile)         if defined $profile;
+
+local $/ = undef;
+while (<>) {
+    my $sam = YAML::Load($_);
+    my $sls = $sam2sls->sam2sls($sam);
+
+    {
+        local $YAML::SortKeys = 0;
+        say YAML::Dump($sls);
+    }
+
+    # warn user about any leftover data from the SAM template that
+    # probably needs to be ported to the serverless template
+    My::SAM2SLS::Util::cleanUpObject($sam);
+    if (ref $sam eq 'HASH' && scalar keys %$sam) {
+        local $YAML::SortKeys = 1;
+        say STDERR "THE FOLLOWING LEFTOVER DATA IN THE SAM TEMPLATE";
+        say STDERR "SHOULD PROBABLY BE PORTED TO THE SERVERLESS TEMPLATE:\n";
+        say STDERR YAML::Dump($sam);
+    }
+}
