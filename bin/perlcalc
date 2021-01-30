@@ -189,8 +189,27 @@ sub magicFilehandle {
 }
 
 sub curlyBrackets {
-    s{\{([^\{\}\r\n]*?)(?:\#([^\#]*))?\}}
-     {resultOf($1, $2)}ge;
+    s{
+         (?<open>
+             \{
+         )
+         (?<expr>
+             [^\{\}\r\n\#]*?
+         )
+         (?: \#
+             (?<format>[^\#]*?)
+         )?
+         (?:
+             \#\#
+             (?<spaceBefore>\s*)
+             (?<keepExprReplace>[^\#]*?)
+             (?<spaceAfter>\s*)
+         )?
+         (?<close>
+             \}
+         )
+     }
+     {resultOf($+{expr}, %+)}gex;
     print $_;
 }
 
@@ -201,27 +220,49 @@ sub wholeLine {
     print $_ . $chewed;
 }
 
+use Data::Dumper qw(Dumper);
+
 sub resultOf {
-    my ($string, $format) = @_;
-    $format //= $optFormat;
-    my $origString = $string;
-    $string =~ s{\N{MINUS SIGN}}{-}g;
-    $string =~ s{\N{MULTIPLICATION SIGN}}{*}g;
-    $string =~ s{\N{DIVISION SIGN}}{/}g;
+    my ($expr, %args) = @_;
+    my $origExpr = $expr;
+    $expr =~ s{\N{MINUS SIGN}}{-}g;
+    $expr =~ s{\N{MULTIPLICATION SIGN}}{*}g;
+    $expr =~ s{\N{DIVISION SIGN}}{/}g;
 
+    my $result = eval $expr;
 
-
-    my $result = eval $string;
     if ($@) {
         warn $@;
-        return $string;
+        return $args{originalString} // $expr;
     }
+
     if (!defined $result) {
-        return $string;
+        return $args{originalString} // $expr;
     }
-    if (defined $format) {
+
+    if (defined $args{format}) {
+        my $format = $args{format} //= $optFormat;
         $result = sprintf($format, $result);
     }
+
+    if (defined $args{keepExprReplace}) {
+        my $origResult = $result;
+
+        $result = $args{open};
+        $result .= $args{expr};
+        if (defined $args{format}) {
+            $result .= '#';
+            $result .= $args{format};
+        }
+        $result .= '##';
+        if ($args{keepExprReplace} eq '') {
+            $result .= ' ' . $origResult . ' ';
+        } else {
+            $result .= $args{spaceBefore} . $origResult . $args{spaceAfter};
+        }
+        $result .= $args{close};
+    }
+
     return $result;
 }
 
