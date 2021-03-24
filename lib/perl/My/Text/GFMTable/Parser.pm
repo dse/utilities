@@ -3,7 +3,14 @@ use warnings;
 use strict;
 use v5.10.0;
 
-use Carp::Always;
+BEGIN {
+    eval {
+        require Carp::Always;
+    };
+    if ($@) {
+        warn $@ if -t 2;
+    }
+}
 
 use Moo;
 
