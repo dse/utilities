@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+set -o xtrace
+
+PROGNAME="$(basename "$0")"
+
+MAIN () {
+    local hostname
+    local -a rsync_options
+
+    hostname="$(hostname -s)"
+    hostname="${hostname%%.*}"
+
+    rsync_options=()
+    rsync_options+=(--partial)
+    rsync_options+=(--archive)
+    rsync_options+=(--verbose)
+    rsync_options+=(--progress)
+    rsync_options+=(--delete)
+    rsync_options+=(--hard-links)
+
+    # --archive includes:
+    #     -r, --recursive
+    #     -l, --links
+    #     -p, --perms
+    #     -t, --times
+    #     -g, --group
+    #     -o, --owner
+    #     -D, --devices --specials
+    #     no -H (--hard-links)
+    #     no -A (--acls)
+    #     no -X (--xattrs)
+
+    if (( $# == 0 )) ; then
+        SNAPBACK "${HOME}" "dse@nas.webonastick.com" "backups/${hostname}"
+    else
+        >&2 echo "${PROGNAME}: incorrect number of arguments"
+        exit 1
+    fi
+}
+
+SNAPBACK () {
+    local srcdir="$1"
+    local destuserhost="$2"
+    local destdir="$3"
+
+    # new or interrupted snapshot: ${destdir}/tmp
+    # symlink to latest snapshot:  ${destdir}/latest
+    # each snapshot dirname:       <epoch>-<YYYYMMDD>T<HHMMSS><+-ZZZZ>
+
+    if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
+        RSYNC "${rsync_options[@]}" \
+              --link-dest=../latest \
+              "${srcdir}/" \
+              "${destuserhost}":"${destdir}"/tmp
+    else
+        RSYNC "${rsync_options[@]}" \
+              "${srcdir}/" \
+              "${destuserhost}":"${destdir}"/tmp
+    fi
+
+    snapshotname="$(date '+%s-%Y%m%dT%H%M%S%z')"
+
+    ssh "${destuserhost}" \
+        "cd ${destdir@Q} && mv tmp ${snapshotname@Q} && ln -n -f -s ${snapshotname@Q} latest"
+}
+
+RSYNC () {
+    local status
+    if rsync "${@}" ; then
+        status=0
+    else
+        status=$?
+    fi
+    if [[ "${status}" = 23 ]] ; then
+        >&2 echo ">>> rsync returned exit code ${status}; continuing."
+        return 0
+    fi
+    return "${status}"
+}
+
+###############################################################################
+MAIN "$@"
