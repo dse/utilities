@@ -6,6 +6,9 @@ set -o xtrace
 
 PROGNAME="$(basename "$0")"
 
+# snapback:
+#     local to local or local to remote
+
 MAIN () {
     local hostname
     local -a rsync_options
@@ -57,9 +60,14 @@ SNAPBACK () {
 
     if [[ "${destuserhost}" = "" ]] ; then
         if test -e "${destdir}"/latest ; then
-            :
+            RSYNC "${rsync_options[@]}" \
+                  --link-dest=../latest \
+                  "${srcdir}/" \
+                  "${destdir}"/tmp
         else
-            :
+            RSYNC "${rsync_options[@]}" \
+                  "${srcdir}/" \
+                  "${destdir}"/tmp
         fi
     else
         if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
