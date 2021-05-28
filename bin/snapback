@@ -12,6 +12,9 @@ PROGNAME="$(basename "$0")"
 MAIN () {
     local hostname
     local -a rsync_options
+    local srcdir
+    local destuserhost
+    local destdir
 
     hostname="$(hostname -s)"
     hostname="${hostname%%.*}"
@@ -36,12 +39,16 @@ MAIN () {
     #     no -A (--acls)
     #     no -X (--xattrs)
 
+    srcdir="${HOME}"
+    destuserhost="dse@nas.webonastick.com"
+    destdir="backups/${hostname}"
+
     if (( $# == 0 )) ; then
-        SNAPBACK "${HOME}" "dse@nas.webonastick.com" "backups/${hostname}"
+        SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
     elif (( $# == 1 )) ; then
         case "$1" in
             make-lists|makelists|lists)
-                MAKELISTS "${HOME}" "dse@nas.webonastick.com" "backups/${hostname}"
+                MAKELISTS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             *)
                 >&2 echo "${PROGNAME}: unknown subcommand: $1"
