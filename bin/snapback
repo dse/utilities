@@ -15,6 +15,11 @@ MAIN () {
     local srcdir
     local destuserhost
     local destdir
+    local keyfile
+    local identityfile
+
+    keyfile="${HOME}/.ssh/snapback.pem"
+    identityfile="${keyfile}.pub"
 
     hostname="$(hostname -s)"
     hostname="${hostname%%.*}"
@@ -44,19 +49,24 @@ MAIN () {
     destdir="backups/${hostname}"
 
     if (( $# == 0 )) ; then
+        KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
         SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
     elif (( $# == 1 )) ; then
         case "$1" in
             make-backup|makebackup|backup)
+                KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
                 SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             make-lists|makelists|lists)
+                KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
                 MAKELISTS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             keygen)
-                KEYGEN "${srcdir}" "${destuserhost}" "${destdir}"
+                KEYGEN -f "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             remove-keys)
+                rm "${keyfile}" || true
+                rm "${identityfile}" || true
                 REMOVEKEYS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             *)
@@ -98,10 +108,10 @@ SNAPBACK () {
                   "${destdir}"/tmp
         fi
     else
-        if ! ssh "${destuserhost}" test -e "${destdir}" ; then
-            ssh "${destuserhost}" mkdir -p "${destdir}"
+        if ! SSH "${destuserhost}" test -e "${destdir}" ; then
+            SSH "${destuserhost}" mkdir -p "${destdir}"
         fi
-        if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
+        if SSH "${destuserhost}" test -e "${destdir}"/latest ; then
             RSYNC "${rsync_options[@]}" \
                   --link-dest=../latest \
                   "${srcdir}/" \
@@ -122,7 +132,7 @@ SNAPBACK () {
             ln -n -f -s "${snapshotname}" latest
         )
     else
-        ssh "${destuserhost}" "
+        SSH "${destuserhost}" "
             cd ${destdir@Q} &&
             mv tmp ${snapshotname@Q} &&
             ln -n -f -s ${snapshotname@Q} latest
@@ -139,13 +149,13 @@ MAKELISTS () {
         :                       # FIXME: does nothing
     else
         MAKEREMOTESCRIPTS
-        ssh "${destuserhost}" -t "~/bin/makelists ${destdir@Q}"
+        SSH "${destuserhost}" -t "~/bin/makelists ${destdir@Q}"
     fi
 }
 
 MAKEREMOTESCRIPT () {
     local scriptname="$1"
-    ssh "${destuserhost}" "
+    SSH "${destuserhost}" "
         mkdir -p ~/bin &&
         cat > ${scriptname} &&
         chmod 0755 ${scriptname}
@@ -223,6 +233,24 @@ EOF
 KEYGEN () {
     # generate a new key for this host
 
+    local force=0
+    local quiet=0
+
+    while (( $# )) && [[ "$1" = -* ]] ; do
+        case "$1" in
+            -f|--force)
+                force=1
+                ;;
+            -q|--quiet)
+                quiet=1
+                ;;
+            *)
+                >&2 echo "${PROGNAME} KEYGEN: unknown option: $1"
+                ;;
+        esac
+        shift
+    done
+
     local srcdir="$1"
     local destuserhost="$2"
     local destdir="$3"
@@ -231,12 +259,19 @@ KEYGEN () {
     if [[ "${destuserhost}" = "" ]] ; then
         :                       # FIXME
     else
+        if [[ -e "${keyfile}" ]] ; then
+            if (( ! force )) ; then
+                (( quiet )) || >&2 echo "Key exists.  Use -f/--force to overwrite."
+                return
+            fi
+        fi
+
         comment="snapback@@${hostname} $(date '+%Y-%m-%dT%H%M%S%z')"
 
-        ssh-keygen -f ~/.ssh/snapback.pem -N "" -C "${comment}" <<<"y"
+        ssh-keygen -f "${keyfile}" -N "" -C "${comment}" <<<"y"
         # <<<"y" feeds "y" to the overwrite prompt if key already exists
 
-        ssh-copy-id -i ~/.ssh/snapback.pem.pub "${destuserhost}"
+        ssh-copy-id -i "${identityfile}" "${destuserhost}"
     fi
 }
 
@@ -250,7 +285,7 @@ REMOVEKEYS () {
         :                       # FIXME
     else
         >&2 echo "Removing snapback keys..."
-        sed "s/{{HOSTNAME}}/${hostname}/g" <<'EOF' | ssh -T "${destuserhost}"
+        sed "s/{{HOSTNAME}}/${hostname}/g" <<'EOF' | SSH -T "${destuserhost}"
             set -o errexit
             set -o pipefail
             set -o nounset
@@ -264,6 +299,10 @@ REMOVEKEYS () {
 EOF
         >&2 echo "    Done."
     fi
+}
+
+SSH () {
+    ssh -i "${identityfile}" "$@"
 }
 
 RSYNC () {
