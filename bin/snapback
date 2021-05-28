@@ -2,7 +2,7 @@
 set -o errexit
 set -o pipefail
 set -o nounset
-set -o xtrace
+# set -o xtrace
 
 PROGNAME="$(basename "$0")"
 
@@ -52,6 +52,12 @@ MAIN () {
                 ;;
             make-lists|makelists|lists)
                 MAKELISTS "${srcdir}" "${destuserhost}" "${destdir}"
+                ;;
+            keygen)
+                KEYGEN "${srcdir}" "${destuserhost}" "${destdir}"
+                ;;
+            remove-keys)
+                REMOVEKEYS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             *)
                 >&2 echo "${PROGNAME}: unknown subcommand: $1"
@@ -212,6 +218,52 @@ for snapshotname in [0-9]*-????-??-??T??????[-+]???? ; do
     fi
 done
 EOF
+}
+
+KEYGEN () {
+    # generate a new key for this host
+
+    local srcdir="$1"
+    local destuserhost="$2"
+    local destdir="$3"
+    local comment
+
+    if [[ "${destuserhost}" = "" ]] ; then
+        :                       # FIXME
+    else
+        comment="snapback@@${hostname} $(date '+%Y-%m-%dT%H%M%S%z')"
+
+        ssh-keygen -f ~/.ssh/snapback.pem -N "" -C "${comment}" <<<"y"
+        # <<<"y" feeds "y" to the overwrite prompt if key already exists
+
+        ssh-copy-id -i ~/.ssh/snapback.pem.pub "${destuserhost}"
+    fi
+}
+
+REMOVEKEYS () {
+    # only remove (old) keys for this host
+    local srcdir="$1"
+    local destuserhost="$2"
+    local destdir="$3"
+
+    if [[ "${destuserhost}" = "" ]] ; then
+        :                       # FIXME
+    else
+        >&2 echo "Removing snapback keys..."
+        sed "s/{{HOSTNAME}}/${hostname}/g" <<'EOF' | ssh -T "${destuserhost}"
+            set -o errexit
+            set -o pipefail
+            set -o nounset
+            sed -i.bak -r '
+                /[^ ] snapback@@{{HOSTNAME}} /{
+                    s/^/    Removing: /
+                    w /dev/stderr
+                    d
+                }
+            ' ~/.ssh/authorized_keys
+EOF
+        >&2 echo "    Done."
+    fi
 }
 
 RSYNC () {
