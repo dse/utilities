@@ -38,8 +38,17 @@ MAIN () {
 
     if (( $# == 0 )) ; then
         SNAPBACK "${HOME}" "dse@nas.webonastick.com" "backups/${hostname}"
+    elif (( $# == 1 )) ; then
+        case "$1" in
+            make-lists|makelists|lists)
+                MAKELISTS
+                ;;
+            *)
+                >&2 echo "${PROGNAME}: unknown subcommand: $1"
+                ;;
+        esac
     else
-        >&2 echo "${PROGNAME}: incorrect number of arguments"
+        >&2 echo "${PROGNAME}: incorrect number of arguments: $#"
         exit 1
     fi
 }
@@ -99,6 +108,39 @@ SNAPBACK () {
     else
         ssh "${destuserhost}" \
             "cd ${destdir@Q} && mv tmp ${snapshotname@Q} && ln -n -f -s ${snapshotname@Q} latest"
+    fi
+}
+
+MAKELISTS () {
+    if [[ "${destuserhost}" = "" ]] ; then
+        :
+    else
+        ssh "${destuserhost}" 'mkdir ~/bin && cat > ~/bin/findlist && chmod 0755 ~/bin/findlist' <<EOF
+#!/usr/bin/env bash
+awk '{
+    printf("%12d %12d %s %-8s %-8s %12d %-3s %2s %5s %s\n", $1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
+}'
+EOF
+        ssh "${destuserhost}" 'mkdir ~/bin && cat > ~/bin/makelists && chmod 0755 ~/bin/makelists' <<EOF
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s nullglob
+destdir="$1"
+cd "${destdir}"
+for snapshotname in [0-9]*-* ; do
+    findlistfile="${snapshotname}.txt"
+    if [[ -e "${findlistfile}" ]] ; then
+        :
+    else
+        ( cd "${snapshotname}"
+          find . -type f -ls ) | ~/bin/findlist | sort -k10.1 > "${findlistfile}.tmp"
+        mv "${findlistfile}.tmp" "${findlistfile}"
+    fi
+done
+EOF
+        ssh "${destuserhost}" '~/bin/makelists'
     fi
 }
 
