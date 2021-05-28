@@ -144,7 +144,7 @@ for snapshotname in [0-9]*-* ; do
     fi
 done
 EOF
-        ssh "${destuserhost}" '~/bin/makelists'
+        ssh "${destuserhost}" "~/bin/makelists ${destdir@Q}"
     fi
 }
 
