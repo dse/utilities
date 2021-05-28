@@ -50,21 +50,42 @@ SNAPBACK () {
     # symlink to latest snapshot:  ${destdir}/latest
     # each snapshot dirname:       <epoch>-<YYYYMMDD>T<HHMMSS><+-ZZZZ>
 
-    if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
-        RSYNC "${rsync_options[@]}" \
-              --link-dest=../latest \
-              "${srcdir}/" \
-              "${destuserhost}":"${destdir}"/tmp
+    if [[ "${destuserhost}" = "" ]] ; then
+        >&2 echo "${PROGNAME}: blank <user>@<host> not supported."
+        exit 1
+    fi
+
+    if [[ "${destuserhost}" = "" ]] ; then
+        if test -e "${destdir}"/latest ; then
+            :
+        else
+            :
+        fi
     else
-        RSYNC "${rsync_options[@]}" \
-              "${srcdir}/" \
-              "${destuserhost}":"${destdir}"/tmp
+        if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
+            RSYNC "${rsync_options[@]}" \
+                  --link-dest=../latest \
+                  "${srcdir}/" \
+                  "${destuserhost}":"${destdir}"/tmp
+        else
+            RSYNC "${rsync_options[@]}" \
+                  "${srcdir}/" \
+                  "${destuserhost}":"${destdir}"/tmp
+        fi
     fi
 
     snapshotname="$(date '+%s-%Y%m%dT%H%M%S%z')"
 
-    ssh "${destuserhost}" \
-        "cd ${destdir@Q} && mv tmp ${snapshotname@Q} && ln -n -f -s ${snapshotname@Q} latest"
+    if [[ "${destuserhost}" = "" ]] ; then
+        (
+            cd "${destdir}"
+            mv tmp "${snapshotname}"
+            ln -n -f -s "${snapshotname}" latest
+        )
+    else
+        ssh "${destuserhost}" \
+            "cd ${destdir@Q} && mv tmp ${snapshotname@Q} && ln -n -f -s ${snapshotname@Q} latest"
+    fi
 }
 
 RSYNC () {
