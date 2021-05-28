@@ -116,8 +116,11 @@ SNAPBACK () {
             ln -n -f -s "${snapshotname}" latest
         )
     else
-        ssh "${destuserhost}" \
-            "cd ${destdir@Q} && mv tmp ${snapshotname@Q} && ln -n -f -s ${snapshotname@Q} latest"
+        ssh "${destuserhost}" "
+            cd ${destdir@Q} &&
+            mv tmp ${snapshotname@Q} &&
+            ln -n -f -s ${snapshotname@Q} latest
+        "
     fi
 }
 
@@ -127,35 +130,89 @@ MAKELISTS () {
     local destdir="$3"
 
     if [[ "${destuserhost}" = "" ]] ; then
-        :
+        :                       # FIXME: does nothing
     else
-        ssh "${destuserhost}" 'mkdir -p ~/bin && cat > ~/bin/findlist && chmod 0755 ~/bin/findlist' <<'EOF'
+        MAKEREMOTESCRIPTS
+        ssh "${destuserhost}" -t "~/bin/makelists ${destdir@Q}"
+    fi
+}
+
+MAKEREMOTESCRIPT () {
+    local scriptname="$1"
+    ssh "${destuserhost}" "
+        mkdir -p ~/bin &&
+        cat > ${scriptname} &&
+        chmod 0755 ${scriptname}
+    "
+}
+
+MAKEREMOTESCRIPTS () {
+    MAKEREMOTESCRIPT '~/bin/poormanspv' <<'EOF'
 #!/usr/bin/env bash
+# for printing progress in a pipe, like the real pv utility
+
+awk '
+{
+    print($0)                   # prints contents of stdin
+    if (NR % 100 == 0) {
+        # output indented so cursor doesn't blink on its first character.
+        printf("    %d lines\r", NR) >"/dev/tty"
+    }
+}
+END {
+    printf("    %d lines, done.\n", NR) >"/dev/tty"
+}
+'
+EOF
+
+    MAKEREMOTESCRIPT '~/bin/findlist' <<'EOF'
+#!/usr/bin/env bash
+# reformat the output of 'find . -type f -ls' to make it
+# diffable by doing the following:
+#
+# - remove the number of hard links, in case that's the only
+#   thing that changes about a file, i.e., hard links are
+#   added or removed.
+#
+# - fixed column widths
+
 awk '{
-    printf("%12d %12d %s %-8s %-8s %12d %-3s %2s %5s %s\n", $1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
+    printf("%12d %12d %s %-8s %-8s %12d %-3s %2s %5s %s\n",
+           $1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
 }'
 EOF
-        ssh "${destuserhost}" 'mkdir -p ~/bin && cat > ~/bin/makelists && chmod 0755 ~/bin/makelists' <<'EOF'
+
+    MAKEREMOTESCRIPT '~/bin/makelists' <<'EOF'
 #!/usr/bin/env bash
+# generate backup listing files
+
 set -o errexit
 set -o pipefail
 set -o nounset
-shopt -s nullglob
+shopt -s nullglob               # in case there are no listing files
+
 destdir="$1"
 cd "${destdir}"
-for snapshotname in [0-9]*-* ; do
+for snapshotname in [0-9]*-????-??-??T??????[-+]???? ; do
     findlistfile="${snapshotname}.txt"
-    if [[ -e "${findlistfile}" ]] ; then
-        :
+    if [[ -s "${findlistfile}" ]] ; then
+        >&2 echo "${findlistfile} already exists"
     else
-        ( cd "${snapshotname}"
-          find . -type f -ls ) | ~/bin/findlist | sort -k10.1 > "${findlistfile}.tmp"
-        mv "${findlistfile}.tmp" "${findlistfile}"
+        >&2 echo "generating ${findlistfile}...."
+        (
+            cd "${snapshotname}"
+            find . -type f -ls
+        ) | ~/bin/poormanspv | ~/bin/findlist > "${findlistfile}.tmp.1"
+        >&2 echo "    sorting..."
+        sort -k10.1 < "${findlistfile}.tmp.1" > "${findlistfile}.tmp"
+        if [[ -s "${findlistfile}.tmp" ]] ; then
+            mv "${findlistfile}.tmp" "${findlistfile}"
+            rm "${findlistfile}.tmp.1"
+        fi
+        >&2 echo "    done."
     fi
 done
 EOF
-        ssh "${destuserhost}" "~/bin/makelists ${destdir@Q}"
-    fi
 }
 
 RSYNC () {
