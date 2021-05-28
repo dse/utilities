@@ -153,9 +153,8 @@ MAKEREMOTESCRIPTS () {
 
 awk '
 {
-    print($0)                   # prints contents of stdin
+    print($0)
     if (NR % 100 == 0) {
-        # output indented so cursor doesn't blink on its first character.
         printf("    %d lines\r", NR) >"/dev/tty"
     }
 }
