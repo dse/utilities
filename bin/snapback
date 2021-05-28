@@ -59,6 +59,9 @@ SNAPBACK () {
     fi
 
     if [[ "${destuserhost}" = "" ]] ; then
+        if ! test -e "${destdir}" ; then
+            mkdir -p "${destdir}"
+        fi
         if test -e "${destdir}"/latest ; then
             RSYNC "${rsync_options[@]}" \
                   --link-dest=../latest \
@@ -70,6 +73,9 @@ SNAPBACK () {
                   "${destdir}"/tmp
         fi
     else
+        if ! ssh "${destuserhost}" test -e "${destdir}" ; then
+            ssh "${destuserhost}" mkdir -p "${destdir}"
+        fi
         if ssh "${destuserhost}" test -e "${destdir}"/latest ; then
             RSYNC "${rsync_options[@]}" \
                   --link-dest=../latest \
