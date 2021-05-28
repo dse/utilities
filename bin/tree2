@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature qw(say);
+
+use File::Basename qw(basename dirname);
+
+our @filenames;
+our %dirs;
+
+while (<>) {
+    s{\R\z}{};
+    addFilename($_);
+}
+
+printTree();
+
+sub addFilename {
+    my ($filename) = @_;
+    push(@filenames, $filename);
+    my $basename = basename($filename);
+    my $dirname = dirname($filename);
+    push(@{$dirs{$dirname}}, $filename);
+}
+
+sub printTree {
+    my %printed;
+    foreach my $filename (@filenames) {
+        next if $printed{$filename};
+        my $dir = $dirs{$filename};
+        next if defined $dir;
+
+        my $basename = basename($filename);
+        my $dirname = dirname($filename);
+
+        if (!$printed{$dirname}) {
+            $printed{$dirname} = 1;
+            say $filename;
+        } else {
+            print ' ' x (length($dirname) + 1);
+            say $basename;
+        }
+    }
+}

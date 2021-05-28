@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+use Getopt::Long;
+
+our $count = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions('c|count' => \$count)
+  or die("Don't type '$0 --help' for help just yet.\n");
+
+my %count;
+while (<>) {
+    s{\R\z}{};
+    my $ext;
+    if (m{[^/\\](\.(?:[A-Za-z0-9]+))+$}) {
+        $ext = lc $1;
+    }
+    $ext //= '-';
+    if ($count) {
+        $count{$ext} += 1;
+    } else {
+        printf("%-15s %s\n", $ext, $_);
+    }
+}
+
+if ($count) {
+    foreach my $key (sort keys %count) {
+        printf("%-7d %s\n", $count{$key}, $key);
+    }
+}

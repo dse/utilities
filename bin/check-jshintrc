@@ -1,0 +1,158 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+use JSON::WithComments;
+use Sort::Naturally qw(nsort);
+
+my $json = JSON::WithComments->new();
+
+my @enforcing_options = (
+                         'bitwise',
+                         'curly',
+                         'eqeqeq',
+                         'esversion',
+                         'forin',
+                         'freeze',
+                         'futurehostile',
+                         'globals',
+                         'latedef',
+                         'leanswitch',
+                         'maxcomplexity',
+                         'maxdepth',
+                         'maxerr',
+                         'maxparams',
+                         'maxstatements',
+                         'noarg',
+                         'nocomma',
+                         'nonbsp',
+                         'nonew',
+                         'noreturnawait',
+                         'predef',
+                         'regexpu',
+                         'shadow',
+                         'singleGroups',
+                         'strict',
+                         'trailingcomma',
+                         'undef',
+                         'unused',
+                         'varstmt',
+                        );
+my @relaxing_options = (
+                        'asi',
+                        'boss',
+                        'debug',
+                        'elision',
+                        'eqnull',
+                        'evil',
+                        'expr',
+                        'funcscope',
+                        'iterator',
+                        'lastsemic',
+                        'loopfunc',
+                        'moz',
+                        'notypeof',
+                        'noyield',
+                        'plusplus',
+                        'proto',
+                        'scripturl',
+                        'supernew',
+                        'validthis',
+                        'withstmt',
+                       );
+my @environment_options = (
+                           'browser',
+                           'browserify',
+                           'couch',
+                           'devel',
+                           'dojo',
+                           'jasmine',
+                           'jquery',
+                           'mocha',
+                           'module',
+                           'mootools',
+                           'node',
+                           'nonstandard',
+                           'phantom',
+                           'prototypejs',
+                           'qunit',
+                           'rhino',
+                           'shelljs',
+                           'typed',
+                           'worker',
+                           'wsh',
+                           'yui',
+                          );
+my @deprecated_enforcing_options = (
+                                    'camelcase',
+                                    'enforceall',
+                                    'es3',
+                                    'es5',
+                                    'immed',
+                                    'indent',
+                                    'maxlen',
+                                    'newcap',
+                                    'noempty',
+                                    'quotmark',
+                                   );
+my @deprecated_relaxing_options = (
+                                   'esnext',
+                                   'globalstrict',
+                                   'laxbreak',
+                                   'laxcomma',
+                                   'multistr',
+                                   'sub',
+                                  );
+
+my @all_options = (
+                   @enforcing_options,
+                   @relaxing_options,
+                   @environment_options,
+                   @deprecated_enforcing_options,
+                   @deprecated_relaxing_options,
+                  );
+
+my %enforcing_options            = map { ($_, 1) } @enforcing_options;
+my %relaxing_options             = map { ($_, 1) } @relaxing_options;
+my %environment_options          = map { ($_, 1) } @environment_options;
+my %deprecated_enforcing_options = map { ($_, 1) } @deprecated_enforcing_options;
+my %deprecated_relaxing_options  = map { ($_, 1) } @deprecated_relaxing_options;
+my %options                      = map { ($_, 1) } @all_options;
+
+local $/ = undef;               # slurp entire files at a time
+while (<>) {
+    s{//.*$}{}g;
+    my $o = $json->decode($_);
+    foreach my $option (@enforcing_options) {
+        if (!exists $o->{$option}) {
+            warn("WARNING: $ARGV: enforcing option '$option' not specified\n");
+        }
+    }
+    foreach my $option (@relaxing_options) {
+        if (!exists $o->{$option}) {
+            warn("WARNING: $ARGV: relaxing option '$option' not specified\n");
+        }
+    }
+    foreach my $option (@environment_options) {
+        if (exists $o->{$option}) {
+            warn("INFO: $ARGV: environment option '$option' specified\n");
+        }
+    }
+    foreach my $option (@deprecated_enforcing_options) {
+        if (exists $o->{option}) {
+            warn("WARNING: $ARGV: deprecated enforcing option '$option' specified\n");
+        }
+    }
+    foreach my $option (@deprecated_relaxing_options) {
+        if (exists $o->{option}) {
+            warn("WARNING: $ARGV: deprecated relaxing option '$option' specified\n");
+        }
+    }
+    foreach my $option (nsort keys %$o) {
+        if (!exists $options{$option}) {
+            warn("WARNING: $ARGV: unknown option '$option' specified\n");
+        }
+    }
+}
