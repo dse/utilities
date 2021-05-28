@@ -47,6 +47,9 @@ MAIN () {
         SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
     elif (( $# == 1 )) ; then
         case "$1" in
+            make-backup|makebackup|backup)
+                SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
+                ;;
             make-lists|makelists|lists)
                 MAKELISTS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
