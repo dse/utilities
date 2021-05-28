@@ -41,7 +41,7 @@ MAIN () {
     elif (( $# == 1 )) ; then
         case "$1" in
             make-lists|makelists|lists)
-                MAKELISTS
+                MAKELISTS "${HOME}" "dse@nas.webonastick.com" "backups/${hostname}"
                 ;;
             *)
                 >&2 echo "${PROGNAME}: unknown subcommand: $1"
@@ -112,6 +112,10 @@ SNAPBACK () {
 }
 
 MAKELISTS () {
+    local srcdir="$1"
+    local destuserhost="$2"
+    local destdir="$3"
+
     if [[ "${destuserhost}" = "" ]] ; then
         :
     else
