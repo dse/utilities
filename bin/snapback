@@ -119,13 +119,13 @@ MAKELISTS () {
     if [[ "${destuserhost}" = "" ]] ; then
         :
     else
-        ssh "${destuserhost}" 'mkdir ~/bin && cat > ~/bin/findlist && chmod 0755 ~/bin/findlist' <<'EOF'
+        ssh "${destuserhost}" 'mkdir -p ~/bin && cat > ~/bin/findlist && chmod 0755 ~/bin/findlist' <<'EOF'
 #!/usr/bin/env bash
 awk '{
     printf("%12d %12d %s %-8s %-8s %12d %-3s %2s %5s %s\n", $1, $2, $3, $5, $6, $7, $8, $9, $10, $11);
 }'
 EOF
-        ssh "${destuserhost}" 'mkdir ~/bin && cat > ~/bin/makelists && chmod 0755 ~/bin/makelists' <<'EOF'
+        ssh "${destuserhost}" 'mkdir -p ~/bin && cat > ~/bin/makelists && chmod 0755 ~/bin/makelists' <<'EOF'
 #!/usr/bin/env bash
 set -o errexit
 set -o pipefail
