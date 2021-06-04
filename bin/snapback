@@ -33,8 +33,6 @@ MAIN () {
     rsync_options=()
     rsync_options+=(--partial)
     rsync_options+=(--archive)
-    rsync_options+=(--verbose)
-    rsync_options+=(--progress)
     rsync_options+=(--delete)
     rsync_options+=(--hard-links)
 
@@ -71,6 +69,12 @@ MAIN () {
         case "$1" in
             -x)
                 set -o xtrace
+                ;;
+            -v|--verbose)
+                rsync_options+=(--verbose)
+                ;;
+            --progress)
+                rsync_options+=(--progress)
                 ;;
             *)
                 >&2 echo "snapback: unknown option: $1"
