@@ -19,6 +19,7 @@ MAIN () {
     local configfile
     local profilename
     local placeholderdest="YOURUSERNAME@YOURHOSTNAME.EXAMPLE.COM"
+    local dryrun=0
 
     configfile="${HOME}/.snapback/config.sh"
     LOADCONFIG
@@ -75,6 +76,10 @@ MAIN () {
                 ;;
             --progress)
                 rsync_options+=(--progress)
+                ;;
+            -n|--dry-run)
+                rsync_options+=(--dry-run)
+                dryrun=1
                 ;;
             *)
                 >&2 echo "snapback: unknown option: $1"
@@ -161,18 +166,22 @@ SNAPBACK () {
 
     snapshotname="$(date '+%s-%Y-%m-%dT%H%M%S%z')"
 
-    if [[ "${destuserhost}" = "" ]] ; then
-        (
-            cd "${destdir}"
-            mv tmp "${snapshotname}"
-            ln -n -f -s "${snapshotname}" latest
-        )
+    if (( dryrun )) ; then
+        :
     else
-        SSH "${destuserhost}" "
-            cd ${destdir@Q} &&
-            mv tmp ${snapshotname@Q} &&
-            ln -n -f -s ${snapshotname@Q} latest
-        "
+        if [[ "${destuserhost}" = "" ]] ; then
+            (
+                cd "${destdir}"
+                mv tmp "${snapshotname}"
+                ln -n -f -s "${snapshotname}" latest
+            )
+        else
+            SSH "${destuserhost}" "
+                cd ${destdir@Q} &&
+                mv tmp ${snapshotname@Q} &&
+                ln -n -f -s ${snapshotname@Q} latest
+            "
+        fi
     fi
 }
 
