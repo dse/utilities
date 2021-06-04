@@ -67,7 +67,7 @@ MAIN () {
 
     while (( $# > 0 )) && [[ "$1" == '-'* ]] ; do
         case "$1" in
-            -x)
+            -x|--xtrace)
                 set -o xtrace
                 ;;
             -v|--verbose)
