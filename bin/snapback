@@ -48,6 +48,19 @@ MAIN () {
     destuserhost="dse@nas.webonastick.com"
     destdir="backups/${hostname}"
 
+    while (( $# > 0 )) && [[ "$1" == '-'* ]] ; do
+        case "$1" in
+            -x)
+                set -o xtrace
+                ;;
+            *)
+                >&2 echo "snapback: unknown option: $1"
+                exit 1
+                ;;
+        esac
+        shift
+    done
+
     if (( $# == 0 )) ; then
         KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
         SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
@@ -271,6 +284,8 @@ KEYGEN () {
         ssh-keygen -f "${keyfile}" -N "" -C "${comment}" <<<"y"
         # <<<"y" feeds "y" to the overwrite prompt if key already exists
 
+        chmod 0600 "${keyfile}" "${identityfile}"
+
         ssh-copy-id -i "${identityfile}" "${destuserhost}"
     fi
 }
@@ -302,12 +317,12 @@ EOF
 }
 
 SSH () {
-    ssh -i "${identityfile}" "$@"
+    ssh -i "${keyfile}" "$@"
 }
 
 RSYNC () {
     local status
-    if rsync "${@}" ; then
+    if rsync -e "ssh -i ${keyfile@Q}" "${@}" ; then
         status=0
     else
         status=$?
