@@ -17,11 +17,18 @@ MAIN () {
     local destdir
     local keyfile
     local identityfile
+    local configfile
+    local profilename
+    local placeholderdest="YOURUSERNAME@YOURHOSTNAME.EXAMPLE.COM"
 
-    keyfile="${HOME}/.ssh/snapback.pem"
-    identityfile="${keyfile}.pub"
+    configfile="${HOME}/.snapback/config.sh"
+    LOADCONFIG
+    LOADPROFILE
 
-    hostname="$(hostname -s)"
+    : ${keyfile:="${HOME}/.ssh/snapback.pem"}
+    : ${identityfile="${keyfile}.pub"}
+
+    : ${hostname="$(hostname -s)"}
     hostname="${hostname%%.*}"
 
     rsync_options=()
@@ -44,9 +51,22 @@ MAIN () {
     #     no -A (--acls)
     #     no -X (--xattrs)
 
-    srcdir="${HOME}"
-    destuserhost="dse@nas.webonastick.com"
-    destdir="backups/${hostname}"
+    # THESE ARE REQUIRED
+    #--------------------------------------------------------------------------
+    if [[ "${destuserhost}" = "" ]] ; then
+        >&2 echo "No destuserhost specified in ${profilename}."
+        >&2 echo "Please edit ${configfile} then run snapback again."
+        exit 1
+    elif [[ "${destuserhost}" = "${placeholderdest}" ]] ; then
+        >&2 echo "You haven't fully edited ${profilename}."
+        >&2 echo "Please edit ${configfile} then run snapback again."
+        exit 1
+    fi
+
+    # THESE ARE OPTIONAL
+    #--------------------------------------------------------------------------
+    : ${srcdir="${HOME}"}
+    : ${destdir="backups/${hostname}"}
 
     while (( $# > 0 )) && [[ "$1" == '-'* ]] ; do
         case "$1" in
@@ -314,6 +334,36 @@ REMOVEKEYS () {
 EOF
         >&2 echo "    Done."
     fi
+}
+
+LOADCONFIG () {
+    if ! [[ -e "${configfile}" ]] ; then
+        >&2 echo "Creating config file at ${configfile}."
+        >&2 echo "Please edit it, then run snapback again."
+        CREATECONFIG
+        exit 1
+    fi
+    . "${configfile}"
+}
+
+CREATECONFIG () {
+    if [[ -e "${configfile}" ]] ; then
+        return 1
+    fi
+    mkdir -p "$(dirname "${configfile}")"
+    cat <<EOF >"${configfile}"
+# -*- sh -*-
+snapback-profile-default () {
+    # srcdir="\${HOME}"
+    destuserhost=${placeholderdest@Q}
+    # destdir="backups/\${hostname}"
+}
+EOF
+}
+
+LOADPROFILE () {
+    profilename="snapback-profile-default"
+    "${profilename}"
 }
 
 SSH () {
