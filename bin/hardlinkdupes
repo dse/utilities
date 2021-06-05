@@ -1,0 +1,206 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use File::Find;
+use File::Spec;
+
+my $hld = My::HardLinkDupes->new();
+$hld->run('.');
+
+package My::HardLinkDupes {
+    use Moo;
+    INIT {
+        has levels => (is => 'rw', default => 1);
+    }
+    sub run {
+        my ($self, @dir) = @_;
+        if (!scalar @dir) {
+            @dir = ('.');
+        }
+        foreach my $dir (@dir) {
+            $self->runDir($dir);
+        }
+    }
+    sub findForEach {
+        my ($self, $dir, $sub) = @_;
+        my $wanted = sub {
+            my @lstat = lstat($_);
+            if (!scalar @lstat) {
+                return;
+            }
+            my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+                $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+            if ($dev != $File::Find::topdev) {
+                $File::Find::prune = 1;
+                return;
+            }
+            if (!-f _) {
+                return;
+            }
+            my %lstat = (
+                dev => $dev,
+                ino => $ino,
+                mode => $mode,
+                nlink => $nlink,
+                uid => $uid,
+                gid => $gid,
+                rdev => $rdev,
+                size => $size,
+                atime => $atime,
+                mtime => $mtime,
+                ctime => $ctime,
+                blksize => $blksize,
+                blocks => $blocks,
+            );
+            my $relpathname = File::Spec->abs2rel($File::Find::name, $dir);
+            my @split = File::Spec->splitdir($relpathname);
+            my @leaf = @split;
+            # because of this check, @branch will have at least one pathname component.
+            if (scalar(@leaf) <= $self->levels) {
+                next;
+            }
+            my @branch = splice(@leaf, 0, $self->levels);
+            my $branchname = File::Spec->catdir(@branch);
+            my $leafname = File::Spec->catfile(@leaf);
+            my $record = {
+                pathname    => $File::Find::name,
+                relpathname => $relpathname,
+                branchname  => $branchname,
+                leafname    => $leafname,
+                stat        => { %stat },
+            };
+            $sub->($record);
+        };
+    }
+    sub runDir {
+        my ($self, $dir) = @_;
+        my %leaves;
+        my %inodes;
+        my %sums;
+        my $wanted = sub {
+            my ($record) = @_;
+            my $leafname = $record->{leafname};
+            my $dev      = $record->{stat}->{dev};
+            my $ino      = $record->{stat}->{ino};
+            my $leaf = $leaves{$leafname} //= {
+                leafname => $leafname,
+                records => []
+            };
+            push(@{$leaf->{records}}, $record);
+            my $inode = $inodes{$dev,$ino} //= {
+                dev => $dev,
+                ino => $ino,
+                records => []
+            };
+            push(@{$inode->{records}}, $record);
+        };
+        $self->findForEach($dir, $wanted);
+        foreach my $leaf (values %leaves) {
+
+            # skip filenames only having one instance.
+            #------------------------------------------------------------------
+            if (scalar @{$leaf->{records}} == 1) {
+                next;
+            }
+
+            # at this point we have multiple files with the same name.
+            # group them by file size.
+            #------------------------------------------------------------------
+            my $leafname = $leaf->{leafname};
+            my %groupsBySize;
+            foreach my $record (@{$leaf->{records}}) {
+                my $size = $record->{stat}->{size};
+                my $groupBySize = $groupsBySize{$size} //= {
+                    size => $size,
+                    records => [],
+                };
+                push(@{$groupBySize->{records}}, $record);
+            }
+
+
+            foreach my $groupBySize (values %groupsBySize) {
+
+                # skip filesizes having only one instance of the
+                # filename.
+                #--------------------------------------------------------------
+                if (scalar @{$groupBySize->{records}} == 1) {
+                    next;
+                }
+
+                # at this point we have multiple files with the same
+                # name and the same size.  group them by dev/ino.
+                #--------------------------------------------------------------
+                my $size = $groupBySize->{size};
+                my %groupsByInode;
+                foreach my $record (@{$groupBySize->{records}}) {
+                    my $dev = $record->{stat}->{dev};
+                    my $ino = $record->{stat}->{ino};
+                    my $groupByInode = $groupsByInode{$dev, $ino} //= {
+                        dev => $dev,
+                        ino => $ino,
+                        records => [],
+                    };
+                    push(@{$groupByInode->{records}}, $record);
+                }
+
+                # when we only have one dev/inode combination, skip
+                #--------------------------------------------------------------
+                if (scalar values %groupsByInode == 1) {
+                    next;
+                }
+
+                # group these groups of files by sum.
+                #--------------------------------------------------------------
+                my %groupsBySum;
+                my @groupsByInode = values %groupsByInode;
+                foreach my $groupByInode (@groupsByInode) {
+                    my $dev = $groupByInode->{dev};
+                    my $ino = $groupByInode->{ino};
+                    my $sum = $sums{$dev, $ino};
+                    if (!defined $sum) {
+                        foreach my $record (@{$devingroup->{records}}) {
+                            my $sha = Digest::SHA->new(1); # SHA-1
+                            $sha->addfile($record->{pathname});
+                            $sum = $sha->hexdigest;
+                            if (defined $sum) {
+                                last;
+                            }
+                        }
+                        if (!defined $sum) {
+                            next;
+                        }
+                        $sums{$dev, $ino} = $sum;
+                    }
+                    $groupByInode->{sum} = $sum;
+                    my $groupBySum = $groupsBySum{$sum} //= {
+                        sum => $sum,
+                        groupsByInode => [],
+                    };
+                    push(@{$groupBySum->{groupsByInode}}, $groupByInode);
+                }
+
+                foreach my $groupBySum (values %groupsBySum) {
+
+                    # if only one group of files by dev/inode has this
+                    # checksum, skip.
+                    #----------------------------------------------------------
+                    if (scalar @{$groupBySum->{groupsByInode}} == 1) {
+                        next;
+                    }
+
+                    print("sum $sum\n");
+                    foreach my $groupByInode (values %{$groupBySum->{groupsByInode}}) {
+                        my $dev = $groupByInode->{dev};
+                        my $ino = $groupByInode->{ino};
+                        print("    dev $dev ino $ino\n");
+                        foreach my $record (@{$groupByInode->{records}}) {
+                            my $pathname = $record->{pathname};
+                            printf("        $pathname\n");
+                        }
+                    }
+                }
+            }
+        }
+    }
+};
