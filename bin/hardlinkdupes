@@ -9,22 +9,112 @@ my $hld = My::HardLinkDupes->new();
 $hld->run('.');
 
 package My::HardLinkDupes {
-    use Moo;
+    use feature 'say';
+    use Data::Dumper;
+    use Digest::SHA;
+    use File::Basename qw(dirname);
+
+    our @defaults;
+
+    # use Moo;
+    sub has {
+        my ($name, %args) = @_;
+        my $sub = sub {
+            my $self = shift;
+            if (!scalar @_) {
+                return $self->{$name};
+            }
+            return $self->{$name} = shift;
+        };
+        my $subname = __PACKAGE__ . '::' . $name;
+        { no strict 'refs'; *{$subname} = $sub; }
+        if ($args{default}) {
+            push(@defaults, { name => $name, value => $args{default} });
+        }
+    }
+    sub new {
+        my ($class) = @_;
+        my $self = bless({}, $class);
+        foreach my $default (@defaults) {
+            my $name = $default->{name};
+            my $value = $default->{value};
+            if (ref $value eq 'CODE') {
+                $self->{$name} = $value->();
+            } else {
+                $self->{$name} = $value;
+            }
+        }
+        return $self;
+    }
+
     INIT {
-        has levels => (is => 'rw', default => 1);
+        has levels   => (is => 'rw', default => 1);
+        has leaves   => (is => 'rw', default => sub { return {}; });
+
+        has progress => (is => 'rw', default => 1);
+        has trace    => (is => 'rw', default => 0);
+        has ls       => (is => 'rw', default => 0);
+        has dryRun   => (is => 'rw', default => 0);
+        has verbose  => (is => 'rw', default => 0);
+        has limitsForTesting => (is => 'rw', default => 0);
+        has minimumSize      => (is => 'rw', default => (2 ** 19 + 1));
+        has df               => (is => 'rw', default => 1);
     }
     sub run {
         my ($self, @dir) = @_;
         if (!scalar @dir) {
             @dir = ('.');
         }
-        foreach my $dir (@dir) {
-            $self->runDir($dir);
-        }
+        $self->runFindStage(@dir);
+        $self->runExcludeUniqueFilenamesStage;
+        $self->runProcessingStage;
     }
     sub findForEach {
         my ($self, $dir, $sub) = @_;
+        my $count = 0;
+        STDERR->autoflush(1);
+        my %branches;
         my $wanted = sub {
+            my $relpathname = File::Spec->abs2rel($File::Find::name, $dir);
+            if ($self->limitsForTesting) {
+                if ($_ eq 'svn'
+                      || $_ eq 'cvs'
+                      || $_ eq 'closure-library-read-only'
+                      || $_ eq 'skia-read-only'
+                      || $_ eq 'webonastick.com'
+                      || $_ eq 'secure.webonastick.com'
+                      || $_ eq 'onj1.andrelouis.com'
+                  ) {
+                    $File::Find::prune = 1;
+                    return;
+                }
+            }
+            my @split = File::Spec->splitdir($relpathname);
+            if (scalar(@split) <= $self->levels) {
+                return;
+            }
+            my @leaf = @split;
+            my @branch = splice(@leaf, 0, $self->levels);
+            my $branchname = File::Spec->catdir(@branch);
+            my $leafname = File::Spec->catfile(@leaf);
+
+            $branches{$branchname} = 1;
+            if ($self->limitsForTesting) {
+                if (scalar keys %branches >= 5) {
+                    $File::Find::prune = 1;
+                    return;
+                }
+            }
+
+            $count += 1;
+            if (($count % 100 == 0) && $self->progress) {
+                if ($self->progress > 1) {
+                    printf STDERR ("PROGRESS: %d %s %s\n", $count, $branchname, $leafname);
+                } else {
+                    printf STDERR ("    %d files found\r", $count);
+                }
+            }
+
             my @lstat = lstat($_);
             if (!scalar @lstat) {
                 return;
@@ -37,6 +127,11 @@ package My::HardLinkDupes {
             }
             if (!-f _) {
                 return;
+            }
+            if ($self->minimumSize > 0) {
+                if ($size < $self->minimumSize) {
+                    return;
+                }
             }
             my %lstat = (
                 dev => $dev,
@@ -53,57 +148,30 @@ package My::HardLinkDupes {
                 blksize => $blksize,
                 blocks => $blocks,
             );
-            my $relpathname = File::Spec->abs2rel($File::Find::name, $dir);
-            my @split = File::Spec->splitdir($relpathname);
-            my @leaf = @split;
-            # because of this check, @branch will have at least one pathname component.
-            if (scalar(@leaf) <= $self->levels) {
-                next;
-            }
-            my @branch = splice(@leaf, 0, $self->levels);
-            my $branchname = File::Spec->catdir(@branch);
-            my $leafname = File::Spec->catfile(@leaf);
             my $record = {
                 pathname    => $File::Find::name,
                 relpathname => $relpathname,
                 branchname  => $branchname,
                 leafname    => $leafname,
-                stat        => { %stat },
+                stat        => { %lstat },
             };
             $sub->($record);
         };
-    }
-    sub runDir {
-        my ($self, $dir) = @_;
-        my %leaves;
-        my %inodes;
-        my %sums;
-        my $wanted = sub {
-            my ($record) = @_;
-            my $leafname = $record->{leafname};
-            my $dev      = $record->{stat}->{dev};
-            my $ino      = $record->{stat}->{ino};
-            my $leaf = $leaves{$leafname} //= {
-                leafname => $leafname,
-                records => []
-            };
-            push(@{$leaf->{records}}, $record);
-            my $inode = $inodes{$dev,$ino} //= {
-                dev => $dev,
-                ino => $ino,
-                records => []
-            };
-            push(@{$inode->{records}}, $record);
-        };
-        $self->findForEach($dir, $wanted);
-        foreach my $leaf (values %leaves) {
-
-            # skip filenames only having one instance.
-            #------------------------------------------------------------------
-            if (scalar @{$leaf->{records}} == 1) {
-                next;
+        File::Find::find($wanted, $dir);
+        if ($self->progress) {
+            if ($self->progress > 1) {
+                printf STDERR ("PROGRESS: %d files done\n", $count);
+            } else {
+                printf STDERR ("    %d total files found\n", $count);
             }
-
+        }
+    }
+    sub runProcessingStage {
+        my ($self, $dir, %args) = @_;
+        my $stage = $args{stage} // 'all';
+        my $leaves = $self->leaves;
+        my %sums;
+        foreach my $leaf (values %$leaves) {
             # at this point we have multiple files with the same name.
             # group them by file size.
             #------------------------------------------------------------------
@@ -118,6 +186,17 @@ package My::HardLinkDupes {
                 push(@{$groupBySize->{records}}, $record);
             }
 
+            if ($self->trace) {
+                foreach my $group (values %groupsBySize) {
+                    printf("STAGE1: %s %s\n", $leafname, $group->{size});
+                    foreach my $record (@{$group->{records}}) {
+                        printf("STAGE1:     %s (%d,%d)\n",
+                               $record->{pathname},
+                               $record->{stat}->{dev},
+                               $record->{stat}->{ino})
+                    }
+                }
+            }
 
             foreach my $groupBySize (values %groupsBySize) {
 
@@ -125,6 +204,9 @@ package My::HardLinkDupes {
                 # filename.
                 #--------------------------------------------------------------
                 if (scalar @{$groupBySize->{records}} == 1) {
+                    if ($self->trace) {
+                        printf("STAGE2:     skipping filesize %d\n", $groupBySize->{size});
+                    }
                     next;
                 }
 
@@ -150,16 +232,30 @@ package My::HardLinkDupes {
                     next;
                 }
 
+                if ($self->trace) {
+                    foreach my $groupByInode (values %groupsByInode) {
+                        my $dev = $groupByInode->{dev};
+                        my $ino = $groupByInode->{ino};
+                        my $nrecords = scalar @{$groupByInode->{records}};
+                        printf("STAGE2:     (%d,%d) %d records\n", $dev, $ino, $nrecords);
+                    }
+                }
+
                 # group these groups of files by sum.
                 #--------------------------------------------------------------
                 my %groupsBySum;
-                my @groupsByInode = values %groupsByInode;
-                foreach my $groupByInode (@groupsByInode) {
+                foreach my $groupByInode (values %groupsByInode) {
                     my $dev = $groupByInode->{dev};
                     my $ino = $groupByInode->{ino};
                     my $sum = $sums{$dev, $ino};
+                    my $nfiles = scalar @{$groupByInode->{records}};
                     if (!defined $sum) {
-                        foreach my $record (@{$devingroup->{records}}) {
+                        foreach my $record (@{$groupByInode->{records}}) {
+                            if ($self->trace) {
+                                printf("        reading %s... (%d bytes)\n", $record->{pathname}, $record->{stat}->{size});
+                            } elsif ($self->verbose) {
+                                printf STDERR ("reading %s... (%d bytes)\n", $record->{pathname}, $record->{stat}->{size});
+                            }
                             my $sha = Digest::SHA->new(1); # SHA-1
                             $sha->addfile($record->{pathname});
                             $sum = $sha->hexdigest;
@@ -171,6 +267,9 @@ package My::HardLinkDupes {
                             next;
                         }
                         $sums{$dev, $ino} = $sum;
+                        if ($self->trace) {
+                            printf("STAGE3:     (%d,%d) = %s (%d linked files)\n", $dev, $ino, $sum, $nfiles);
+                        }
                     }
                     $groupByInode->{sum} = $sum;
                     my $groupBySum = $groupsBySum{$sum} //= {
@@ -181,26 +280,141 @@ package My::HardLinkDupes {
                 }
 
                 foreach my $groupBySum (values %groupsBySum) {
+                    my $sum = $groupBySum->{sum};
 
                     # if only one group of files by dev/inode has this
                     # checksum, skip.
                     #----------------------------------------------------------
                     if (scalar @{$groupBySum->{groupsByInode}} == 1) {
+                        if ($self->trace) {
+                            printf("STAGE4:     skipping sum %s: only one group of files\n", $sum);
+                        }
                         next;
                     }
 
-                    print("sum $sum\n");
-                    foreach my $groupByInode (values %{$groupBySum->{groupsByInode}}) {
-                        my $dev = $groupByInode->{dev};
-                        my $ino = $groupByInode->{ino};
-                        print("    dev $dev ino $ino\n");
-                        foreach my $record (@{$groupByInode->{records}}) {
-                            my $pathname = $record->{pathname};
-                            printf("        $pathname\n");
+                    print("$sum\n");
+                    if ($self->ls) {
+                        my @files;
+                        foreach my $groupByInode (@{$groupBySum->{groupsByInode}}) {
+                            foreach my $record (@{$groupByInode->{records}}) {
+                                push(@files, $record->{pathname});
+                            }
+                        }
+                        system('ls', '-li', @files);
+                    } else {
+                        foreach my $groupByInode (@{$groupBySum->{groupsByInode}}) {
+                            my $dev = $groupByInode->{dev};
+                            my $ino = $groupByInode->{ino};
+                            my $nfiles = scalar @{$groupByInode->{records}};
+                            print("    ($dev,$ino)\n");
+                            foreach my $record (@{$groupByInode->{records}}) {
+                                my $pathname = $record->{pathname};
+                                print("        $pathname\n");
+                            }
+                        }
+                    }
+
+                    my @groups = @{$groupBySum->{groupsByInode}};
+                    my $firstGroup = shift(@groups);
+                    my $linkDest = $firstGroup->{records}->[0]->{pathname};
+                    foreach my $group (@groups) {
+                        foreach my $record (@{$group->{records}}) {
+                            my $linkSource = $record->{pathname};
+                            if ($self->dryRun) {
+                                printf("unlink '%s'\n", $linkSource);
+                                printf("link '%s' '%s'\n", $linkDest, $linkSource);
+                            } else {
+                                if (!unlink($linkSource)) {
+                                    warn("cannot unlink $linkSource: $!\n");
+                                    next;
+                                }
+                                if (!link($linkDest, $linkSource)) {
+                                    warn("cannot link $linkDest $linkSource: $!\n");
+                                    next;
+                                }
+                            }
+                        }
+                    }
+                    if (!$self->dryRun) {
+                        if ($self->df) {
+                            system(sprintf("df %s | awk 'NR >= 2' >&2", $self->shellQuote($linkDest)));
                         }
                     }
                 }
             }
         }
+    }
+    sub runFindStage {
+        my ($self, @dir) = @_;
+        $self->leaves({});
+        my $leaves = $self->leaves;
+        my $wanted = sub {
+            my ($record) = @_;
+            my $leafname = $record->{leafname};
+            my $dev      = $record->{stat}->{dev};
+            my $ino      = $record->{stat}->{ino};
+            my $leaf = $leaves->{$leafname} //= {
+                leafname => $leafname,
+                records => []
+            };
+            push(@{$leaf->{records}}, $record);
+        };
+        foreach my $dir (@dir) {
+            $self->findForEach($dir, $wanted);
+        }
+        $self->leaves($leaves);
+    }
+    sub runExcludeUniqueFilenamesStage {
+        # clear out filenames only having one instance
+        my ($self) = @_;
+        my $leaves = $self->leaves;
+        my @keys = keys %$leaves;
+        foreach my $key (@keys) {
+            if (scalar @{$leaves->{$key}->{records}} == 1) {
+                delete $leaves->{$key};
+            }
+        }
+    }
+    sub shellQuote {
+        # stolen from String::ShellQuote
+        my ($self, @in) = @_;
+        my @err = ();
+        return \@err, '' unless @in;
+        my $ret = '';
+        my $saw_non_equal = 0;
+        foreach (@in) {
+            if (!defined $_ or $_ eq '') {
+                $_ = "''";
+                next;
+            }
+            if (s/\x00//g) {
+                push @err, "No way to quote string containing null (\\000) bytes";
+            }
+            my $escape = 0;
+            if (/=/) {
+                if (!$saw_non_equal) {
+                    $escape = 1;
+                }
+            } else {
+                $saw_non_equal = 1;
+            }
+            if (m|[^\w!%+,\-./:=@^]|) {
+                $escape = 1;
+            }
+            if ($escape || (!$saw_non_equal && /=/)) {
+                s/'/'\\''/g;
+                s|((?:'\\''){2,})|q{'"} . (q{'} x (length($1) / 4)) . q{"'}|ge;
+                $_ = "'$_'";
+                s/^''//;
+                s/''$//;
+            }
+        } continue {
+            $ret .= "$_ ";
+        }
+        chop $ret;
+        if (wantarray) {
+            return ($ret, @err);
+        }
+        return $ret;
     }
 };
