@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+#
+# spgrep - print matching lines, then print non-matching lines
+#
+use warnings;
+use strict;
+use utf8;
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our @patterns;
+our $ignoreCase = 0;
+our $wordRegexp = 0;
+our $lineRegexp = 0;
+our $fixedStrings = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'w|word-regexp'             => \$wordRegexp,
+    'x|line-regexp'             => \$lineRegexp,
+    'i|ignore-case'             => \$ignoreCase,
+    'F|fixed-strings'           => \$fixedStrings,
+    'e|regexp|pattern=s'        => \@patterns,
+    'h|help'                    => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+    ...
+END
+
+###############################################################################
+
+if (!scalar @patterns) {
+    if (!scalar @ARGV) {
+        die("$PROGNAME: no pattern specified\n");
+    }
+    my $pattern = shift(@ARGV);
+    @patterns = ($pattern);
+}
+
+my $grep = My::SplitGrep->new();
+$grep->{ignoreCase}   = $ignoreCase;
+$grep->{wordRegexp}   = $wordRegexp;
+$grep->{lineRegexp}   = $lineRegexp;
+$grep->{fixedStrings} = $fixedStrings;
+$grep->{patterns}     = \@patterns;
+$grep->run(\*ARGV);
+
+###############################################################################
+
+package My::SplitGrep {
+    use feature qw(say);
+    sub new {
+        my ($class, %args) = @_;
+        my $self = bless({}, $class);
+        $self->{patterns} = [];
+        return $self;
+        $self->{nonMatchingLines} = [];
+    }
+    sub run {
+        my ($self, $fh) = @_;
+        $self->buildRegexps();
+      line:
+        while (<$fh>) {
+            s{\R\z}{};
+          regexp:
+            foreach my $regexp (@{$self->{regexps}}) {
+                if ($_ =~ $regexp) {
+                    say $_;
+                    next line;
+                } else {
+                    push(@{$self->{nonMatchingLines}}, $_);
+                }
+            }
+        }
+        foreach my $line (@{$self->{nonMatchingLines}}) {
+            say $line;
+        }
+    }
+    sub buildRegexps {
+        my ($self) = @_;
+        $self->{regexps} = [];
+        foreach my $pattern (@{$self->{patterns}}) {
+            my $flags = '';
+            $flags .= 'i' if $self->{ignoreCase};
+
+            my $regexp = $pattern;
+            if ($self->{fixedStrings}) {
+                $regexp = quotemeta($regexp);
+            }
+            if ($self->{lineRegexp}) {
+                $regexp = '^' . $regexp . '$';
+            } elsif ($self->{wordRegexp}) {
+                $regexp = '\\b' . $regexp . '\\b';
+            }
+            if ($flags ne '') {
+                $regexp = sprintf('(?%s:%s)', $flags, $regexp);
+            }
+            push(@{$self->{regexps}}, qr{$regexp});
+        }
+    }
+};
