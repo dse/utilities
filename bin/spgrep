@@ -19,7 +19,7 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
-our @patterns;
+our @patternStrings;
 our $ignoreCase = 0;
 our $wordRegexp = 0;
 our $lineRegexp = 0;
@@ -33,7 +33,7 @@ Getopt::Long::GetOptions(
     'x|line-regexp'             => \$lineRegexp,
     'i|ignore-case'             => \$ignoreCase,
     'F|fixed-strings'           => \$fixedStrings,
-    'e|regexp|pattern=s'        => \@patterns,
+    'e|regexp|pattern=s'        => \@patternStrings,
     'h|help'                    => sub { usage(); exit(0); },
 ) or die("Type '$PROGNAME --help' for help.\n");
 
@@ -47,12 +47,12 @@ END
 
 ###############################################################################
 
-if (!scalar @patterns) {
+if (!scalar @patternStrings) {
     if (!scalar @ARGV) {
         die("$PROGNAME: no pattern specified\n");
     }
-    my $pattern = shift(@ARGV);
-    @patterns = ($pattern);
+    my $patternString = shift(@ARGV);
+    @patternStrings = ($patternString);
 }
 
 my $grep = My::SplitGrep->new();
@@ -60,7 +60,7 @@ $grep->{ignoreCase}   = $ignoreCase;
 $grep->{wordRegexp}   = $wordRegexp;
 $grep->{lineRegexp}   = $lineRegexp;
 $grep->{fixedStrings} = $fixedStrings;
-$grep->{patterns}     = \@patterns;
+$grep->{patternStrings}     = \@patternStrings;
 $grep->run(\*ARGV);
 
 ###############################################################################
@@ -70,18 +70,19 @@ package My::SplitGrep {
     sub new {
         my ($class, %args) = @_;
         my $self = bless({}, $class);
-        $self->{patterns} = [];
+        $self->{patternStrings} = [];
         return $self;
         $self->{nonMatchingLines} = [];
     }
     sub run {
         my ($self, $fh) = @_;
-        $self->buildRegexps();
+        $self->buildPatterns();
       line:
         while (<$fh>) {
             s{\R\z}{};
           regexp:
-            foreach my $regexp (@{$self->{regexps}}) {
+            foreach my $pattern (@{$self->{patterns}}) {
+                my $regexp = $pattern->{regexp};
                 if ($_ =~ $regexp) {
                     say $_;
                     next line;
@@ -94,14 +95,14 @@ package My::SplitGrep {
             say $line;
         }
     }
-    sub buildRegexps {
+    sub buildPatterns {
         my ($self) = @_;
-        $self->{regexps} = [];
-        foreach my $pattern (@{$self->{patterns}}) {
+        $self->{patterns} = [];
+        foreach my $patternString (@{$self->{patternStrings}}) {
             my $flags = '';
             $flags .= 'i' if $self->{ignoreCase};
 
-            my $regexp = $pattern;
+            my $regexp = $patternString;
             if ($self->{fixedStrings}) {
                 $regexp = quotemeta($regexp);
             }
@@ -113,7 +114,11 @@ package My::SplitGrep {
             if ($flags ne '') {
                 $regexp = sprintf('(?%s:%s)', $flags, $regexp);
             }
-            push(@{$self->{regexps}}, qr{$regexp});
+
+            push(@{$self->{patterns}}, {
+                regexp => qr{$regexp},
+                matchingLines => [],
+            });
         }
     }
 };
