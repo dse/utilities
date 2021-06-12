@@ -24,6 +24,7 @@ our $ignoreCase = 0;
 our $wordRegexp = 0;
 our $lineRegexp = 0;
 our $fixedStrings = 0;
+our $group = 0;
 
 #------------------------------------------------------------------------------
 use Getopt::Long;
@@ -34,6 +35,7 @@ Getopt::Long::GetOptions(
     'i|ignore-case'             => \$ignoreCase,
     'F|fixed-strings'           => \$fixedStrings,
     'e|regexp|pattern=s'        => \@patternStrings,
+    'group'                     => \$group,
     'h|help'                    => sub { usage(); exit(0); },
 ) or die("Type '$PROGNAME --help' for help.\n");
 
@@ -56,11 +58,12 @@ if (!scalar @patternStrings) {
 }
 
 my $grep = My::SplitGrep->new();
-$grep->{ignoreCase}   = $ignoreCase;
-$grep->{wordRegexp}   = $wordRegexp;
-$grep->{lineRegexp}   = $lineRegexp;
-$grep->{fixedStrings} = $fixedStrings;
-$grep->{patternStrings}     = \@patternStrings;
+$grep->{ignoreCase}     = $ignoreCase;
+$grep->{wordRegexp}     = $wordRegexp;
+$grep->{lineRegexp}     = $lineRegexp;
+$grep->{group}          = $group;
+$grep->{fixedStrings}   = $fixedStrings;
+$grep->{patternStrings} = \@patternStrings;
 $grep->run(\*ARGV);
 
 ###############################################################################
@@ -80,14 +83,26 @@ package My::SplitGrep {
       line:
         while (<$fh>) {
             s{\R\z}{};
+            my $match = 0;
           regexp:
             foreach my $pattern (@{$self->{patterns}}) {
                 my $regexp = $pattern->{regexp};
                 if ($_ =~ $regexp) {
-                    say $_;
-                    next line;
-                } else {
-                    push(@{$self->{nonMatchingLines}}, $_);
+                    if ($self->{group}) {
+                        push(@{$pattern->{lines}}, $_);
+                        next line;
+                    } else {
+                        say $_;
+                        next line;
+                    }
+                }
+            }
+            push(@{$self->{nonMatchingLines}}, $. . "\t" . $_);
+        }
+        if ($self->{group}) {
+            foreach my $pattern (@{$self->{patterns}}) {
+                foreach my $line (@{$pattern->{lines}}) {
+                    say $line;
                 }
             }
         }
@@ -117,7 +132,7 @@ package My::SplitGrep {
 
             push(@{$self->{patterns}}, {
                 regexp => qr{$regexp},
-                matchingLines => [],
+                lines => [],
             });
         }
     }
