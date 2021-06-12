@@ -41,10 +41,16 @@ Getopt::Long::GetOptions(
 
 sub usage { print(<<"END"); }
 usage:
-    $PROGNAME [<option> ...] [<filename> ...]
+    $PROGNAME [<option> ...] <pattern> [<filename> ...]
+    $PROGNAME [<option> ...] [-e <pattern> ...] [<filename> ...]
 options:
     -h, --help
-    ...
+    -w, --word-regexp
+    -x, --line-regexp
+    -i, --ignore-case
+    -F, --fixed-strings
+    -e, --pattern=<pattern>
+        --group
 END
 
 ###############################################################################
