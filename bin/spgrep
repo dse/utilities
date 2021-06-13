@@ -51,6 +51,7 @@ options:
     -F, --fixed-strings
     -e, --pattern=<pattern>
         --group
+Type 'perldoc spgrep' for complete documentation.
 END
 
 ###############################################################################
