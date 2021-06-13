@@ -42,7 +42,7 @@ Getopt::Long::GetOptions(
 sub usage { print(<<"END"); }
 usage:
     $PROGNAME [<option> ...] <pattern> [<filename> ...]
-    $PROGNAME [<option> ...] [-e <pattern> ...] [<filename> ...]
+    $PROGNAME [<option> ...] -e <pattern> ... [<filename> ...]
 options:
     -h, --help
     -w, --word-regexp
@@ -143,3 +143,153 @@ package My::SplitGrep {
         }
     }
 };
+
+__END__
+
+=head1 NAME
+
+spgrep - print matching lines, then print non-matching lines
+
+=head1 SYNOPSIS
+
+    spgrep [<option> ...] <pattern> [<filename> ...]
+    spgrep [<option> ...] -e <pattern> ... [<filename> ...]
+
+=head1 DESCRIPTION
+
+C<spgrep> scans each file you specify (or standard input).
+It prints each line that matches one of your patterns.
+Then it prints the remaining lines.
+
+=head1 OPTIONS
+
+=over 4
+
+=item -w, --word-regexp
+
+Anchor your patterns to start and end at word boundaries.  Same as in
+L<grep(1)>.
+
+=item -x, --line-regexp
+
+Anchor your patterns to the entire line.  Same as in L<grep(1)>.
+
+=item -i, --ignore-case
+
+C<spgrep> is case-sensitive by default.  Use C<-i> to change
+this behavior.  Same as in L<grep(1)>.
+
+=item -e, --regexp=E<lt>patternE<gt>
+
+Use to specify multiple patterns.  Same as in L<grep(1)>.
+
+=item -F, --fixed-strings
+
+B<Each pattern is a Perl regular expression by default.>
+Use C<-F> to specify that they are fixed strings instead.
+
+Unlike C<grep>, C<spgrep> does not support basic regular expressions
+(C<grep -G>) or plain extended regular expressions (C<grep -E>).
+
+=item --group
+
+By default, each line matching one of the patterns is printed in the
+order in which it's given.
+
+Use C<--group> to print all the lines matching your first pattern in
+one batch, then print all the lines matching your second pattern (but
+not your first pattern) in the next batch, ad infinitum.
+
+=back
+
+=head1 EXAMPLE
+
+=over 4
+
+=item C<cat movies.txt>
+
+Consider the following example of a movie collection:
+
+    1   Caddyshack #comedy
+    2   Office Space #comedy
+    3   American History X #crime #racism
+    4   Cannibal the Musical #comedy #horror
+    5   Grosse Pointe Blank #comedy #crime
+    6   The Matrix #scifi
+    7   Clerks 2 #comedy
+    8   The Godfather #crime
+    9   Dawn of the Dead #horror
+    10  Shaun of the Dead #horror #comedy
+    11  Alien #scifi #horror
+
+=item C<spgrep '#comedy' movies.txt>
+
+To print all your comedies, then everything else:
+
+    1   Caddyshack #comedy
+    2   Office Space #comedy
+    4   Cannibal the Musical #comedy #horror
+    5   Grosse Pointe Blank #comedy #crime
+    7   Clerks 2 #comedy
+    10  Shaun of the Dead #horror #comedy
+
+    3   American History X #crime
+    6   The Matrix #scifi
+    8   The Godfather #crime
+    9   Dawn of the Dead #horror
+    11  Alien #scifi #horror
+
+(The blank line is for visual separation.  C<spgrep> will not print it.)
+
+=item C<spgrep -e '#comedy' -e '#horror' movies.txt>
+
+To print all films that are comedy AND/OR horror, then the rest of
+your collection.
+
+    1   Caddyshack #comedy
+    2   Office Space #comedy
+    4   Cannibal the Musical #comedy #horror
+    5   Grosse Pointe Blank #comedy #crime
+    7   Clerks 2 #comedy
+    9   Dawn of the Dead #horror
+    10  Shaun of the Dead #horror #comedy
+    11  Alien #scifi #horror
+
+    3   American History X #crime #racism
+    6   The Matrix #scifi
+    8   The Godfather #crime
+
+=item C<spgrep --group -e '#comedy' -e '#horror' movies.txt>
+
+To print your comedy films, then your horror films that are NOT
+comedies, then everything else:
+
+    1   Caddyshack #comedy
+    2   Office Space #comedy
+    4   Cannibal the Musical #comedy #horror
+    5   Grosse Pointe Blank #comedy #crime
+    7   Clerks 2 #comedy
+    10  Shaun of the Dead #horror #comedy
+
+    9   Dawn of the Dead #horror
+    11  Alien #scifi #horror
+
+    3   American History X #crime #racism
+    6   The Matrix #scifi
+    8   The Godfather #crime
+
+=back
+
+=head1 BUGS
+
+Creepy crawly things.
+
+=head1 AUTHOR
+
+Darren Embry C<dse@webonastick.com>
+
+=head1 LICENSE
+
+Same terms as Perl itself.
+
+=cut
