@@ -1,0 +1,102 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature 'state';
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $number = 0;
+our $numberByFile = 0;
+our $numberNonBlank = 0;
+our $showEnds = 0;
+our $showTabs = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'n|number'          => sub { $number = 1; },
+    'N|number-by-file'  => sub { $number = 1; $numberByFile = 1; },
+    'b|number-nonblank' => sub { $number = 1; $numberNonBlank = 1; },
+    'E|show-ends'       => sub { $showEnds = 1; },
+    'T|show-tabs'       => sub { $showTabs = 1; },
+    'help'              => sub { usage(); exit(1); },
+) or die("Type '$PROGNAME --help' for help.\n");
+
+#------------------------------------------------------------------------------
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -n, --number
+    -N, --number-by-file    reset line number counter at each file
+    -b, --number-nonblank
+    -E, --show-ends
+    -T, --show-tabs
+        --help
+END
+
+###############################################################################
+
+if (scalar @ARGV) {
+    foreach my $arg (@ARGV) {
+        kittyFile($arg);
+    }
+} else {
+    kittyFile();
+}
+
+use POSIX qw(perror);
+sub kittyFile {
+    my ($file) = @_;
+    state $lineNumber = 0;
+    my $fh;
+    if (defined $file) {
+        if (!open($fh, '<', $file)) {
+            perror($fh);
+            return;
+        }
+        print("==> $file <==\n");
+    } else {
+        $fh = \*STDIN;
+        print("==> (standard input) <==\n");
+    }
+    if ($numberByFile) {
+        $lineNumber = 0;
+    }
+    while (<$fh>) {
+        s{\R\z}{};
+        my $noNumberFlag = 0;
+        if ($numberNonBlank && $_ eq '') {
+            $noNumberFlag = 1;
+        }
+        my $lineEnding = $&;
+        if ($showTabs) {
+            s{\t}{^I}g;
+        }
+        if ($showEnds) {
+            $_ .= '$';
+        }
+        $_ .= "\n";
+        if ($number) {
+            if ($noNumberFlag) {
+                print("\n");
+            } else {
+                $lineNumber += 1;
+                printf("%6d\t", $lineNumber);
+            }
+        }
+        print($_);
+    }
+}
