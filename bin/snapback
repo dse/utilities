@@ -2,7 +2,6 @@
 set -o errexit
 set -o pipefail
 set -o nounset
-# set -o xtrace
 
 PROGNAME="$(basename "$0")"
 
@@ -17,18 +16,24 @@ MAIN () {
     local destdir
     local keyfile
     local identityfile
+    local configfile
+    local profilename
+    local placeholderdest="YOURUSERNAME@YOURHOSTNAME.EXAMPLE.COM"
+    local dryrun=0
 
-    keyfile="${HOME}/.ssh/snapback.pem"
-    identityfile="${keyfile}.pub"
+    configfile="${HOME}/.snapback/config.sh"
+    LOADCONFIG
+    LOADPROFILE
 
-    hostname="$(hostname -s)"
+    : ${keyfile:="${HOME}/.ssh/snapback.pem"}
+    : ${identityfile="${keyfile}.pub"}
+
+    : ${hostname="$(hostname -s)"}
     hostname="${hostname%%.*}"
 
     rsync_options=()
     rsync_options+=(--partial)
     rsync_options+=(--archive)
-    rsync_options+=(--verbose)
-    rsync_options+=(--progress)
     rsync_options+=(--delete)
     rsync_options+=(--hard-links)
 
@@ -44,9 +49,45 @@ MAIN () {
     #     no -A (--acls)
     #     no -X (--xattrs)
 
-    srcdir="${HOME}"
-    destuserhost="dse@nas.webonastick.com"
-    destdir="backups/${hostname}"
+    # THESE ARE REQUIRED
+    #--------------------------------------------------------------------------
+    if [[ "${destuserhost}" = "" ]] ; then
+        >&2 echo "No destuserhost specified in ${profilename}."
+        >&2 echo "Please edit ${configfile} then run snapback again."
+        exit 1
+    elif [[ "${destuserhost}" = "${placeholderdest}" ]] ; then
+        >&2 echo "You haven't fully edited ${profilename}."
+        >&2 echo "Please edit ${configfile} then run snapback again."
+        exit 1
+    fi
+
+    # THESE ARE OPTIONAL
+    #--------------------------------------------------------------------------
+    : ${srcdir="${HOME}"}
+    : ${destdir="backups/${hostname}"}
+
+    while (( $# > 0 )) && [[ "$1" == '-'* ]] ; do
+        case "$1" in
+            -x|--xtrace)
+                set -o xtrace
+                ;;
+            -v|--verbose)
+                rsync_options+=(--verbose)
+                ;;
+            --progress)
+                rsync_options+=(--progress)
+                ;;
+            -n|--dry-run)
+                rsync_options+=(--dry-run)
+                dryrun=1
+                ;;
+            *)
+                >&2 echo "snapback: unknown option: $1"
+                exit 1
+                ;;
+        esac
+        shift
+    done
 
     if (( $# == 0 )) ; then
         KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
@@ -125,18 +166,22 @@ SNAPBACK () {
 
     snapshotname="$(date '+%s-%Y-%m-%dT%H%M%S%z')"
 
-    if [[ "${destuserhost}" = "" ]] ; then
-        (
-            cd "${destdir}"
-            mv tmp "${snapshotname}"
-            ln -n -f -s "${snapshotname}" latest
-        )
+    if (( dryrun )) ; then
+        :
     else
-        SSH "${destuserhost}" "
-            cd ${destdir@Q} &&
-            mv tmp ${snapshotname@Q} &&
-            ln -n -f -s ${snapshotname@Q} latest
-        "
+        if [[ "${destuserhost}" = "" ]] ; then
+            (
+                cd "${destdir}"
+                mv tmp "${snapshotname}"
+                ln -n -f -s "${snapshotname}" latest
+            )
+        else
+            SSH "${destuserhost}" "
+                cd ${destdir@Q} &&
+                mv tmp ${snapshotname@Q} &&
+                ln -n -f -s ${snapshotname@Q} latest
+            "
+        fi
     fi
 }
 
@@ -271,6 +316,8 @@ KEYGEN () {
         ssh-keygen -f "${keyfile}" -N "" -C "${comment}" <<<"y"
         # <<<"y" feeds "y" to the overwrite prompt if key already exists
 
+        chmod 0600 "${keyfile}" "${identityfile}"
+
         ssh-copy-id -i "${identityfile}" "${destuserhost}"
     fi
 }
@@ -301,13 +348,43 @@ EOF
     fi
 }
 
+LOADCONFIG () {
+    if ! [[ -e "${configfile}" ]] ; then
+        >&2 echo "Creating config file at ${configfile}."
+        >&2 echo "Please edit it, then run snapback again."
+        CREATECONFIG
+        exit 1
+    fi
+    . "${configfile}"
+}
+
+CREATECONFIG () {
+    if [[ -e "${configfile}" ]] ; then
+        return 1
+    fi
+    mkdir -p "$(dirname "${configfile}")"
+    cat <<EOF >"${configfile}"
+# -*- sh -*-
+snapback-profile-default () {
+    # srcdir="\${HOME}"
+    destuserhost=${placeholderdest@Q}
+    # destdir="backups/\${hostname}"
+}
+EOF
+}
+
+LOADPROFILE () {
+    profilename="snapback-profile-default"
+    "${profilename}"
+}
+
 SSH () {
-    ssh -i "${identityfile}" "$@"
+    ssh -i "${keyfile}" "$@"
 }
 
 RSYNC () {
     local status
-    if rsync "${@}" ; then
+    if rsync -e "ssh -i ${keyfile@Q}" "${@}" ; then
         status=0
     else
         status=$?
