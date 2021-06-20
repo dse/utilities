@@ -23,29 +23,42 @@ while (<>) {
     if ($PROGNAME eq 'cescape') {
         say cEscape($_);
     } elsif ($PROGNAME eq 'phpescape') {
-        say phpEscapeSingleQuote($_);
-        say phpEscapeDoubleQuote($_);
+        say phpEscape($_, singleQuote => 1);
+        say phpEscape($_);
     } elsif ($PROGNAME eq 'perlescape') {
-        say perlEscapeSingleQuote($_);
-        say perlEscapeDoubleQuote($_);
+        say perlEscape($_, singleQuote => 1);
+        say perlEscape($_);
     } elsif ($PROGNAME eq 'jsonescape') {
         say jsonEscape($_);
     } elsif ($PROGNAME eq 'jsescape') {
-        say jsEscapeSingleQuote($_);
-        say jsEscapeDoubleQuote($_);
+        say jsEscape($_, singleQuote => 1);
+        say jsEscape($_);
     } elsif ($PROGNAME eq 'javaescape') {
         say javaEscape($_);
+    } elsif ($PROGNAME eq 'pythonescape') {
+        say pythonEscape($_, singleQuote => 1);
+        say pythonEscape($_);
     } elsif ($PROGNAME eq 'escape') {
         say 'C       '  . cEscape($_);
-        say 'PHP\'    ' . phpEscapeSingleQuote($_);
-        say 'PHP"    '  . phpEscapeDoubleQuote($_);
-        say 'PERL\'   ' . perlEscapeSingleQuote($_);
-        say 'PERL"   '  . perlEscapeDoubleQuote($_);
+        say 'PHP\'    ' . phpEscape($_, singleQuote => 1);
+        say 'PHP"    '  . phpEscape($_);
+        say 'PERL\'   ' . perlEscape($_, singleQuote => 1);
+        say 'PERL"   '  . perlEscape($_);
         say 'JSON    '  . jsonEscape($_);
-        say 'JS\'     ' . jsEscapeSingleQuote($_);
-        say 'JS"     '  . jsEscapeDoubleQuote($_);
+        say 'JS\'     ' . jsEscape($_, singleQuote => 1);
+        say 'JS"     '  . jsEscape($_);
         say 'JAVA    '  . javaEscape($_);
+        say 'PYTHON\' ' . pythonEscape($_, singleQuote => 1);
+        say 'PYTHON" '  . pythonEscape($_);
     }
+}
+
+sub phpEscape {
+    my ($string, %options) = @_;
+    if ($options{singleQuote}) {
+        return phpEscapeSingleQuote($string);
+    }
+    return phpEscapeDoubleQuote($string);
 }
 
 sub phpEscapeSingleQuote {
@@ -76,7 +89,7 @@ sub phpEscapeDoubleQuote {
 }
 
 sub cEscape {
-    my ($string) = @_;
+    my ($string, %options) = @_;
     $string =~ s{\\}{\\\\}g;
     $string =~ s{\$}{\\\$}g;
     $string =~ s{\"}{\\"}g;
@@ -99,75 +112,38 @@ sub cEscape {
 
 use Data::Dumper;
 
-sub perlEscapeSingleQuote {
-    my ($string) = @_;
+sub perlEscape {
+    my ($string, %options) = @_;
     local $Data::Dumper::Indent = 0;
     local $Data::Dumper::Terse = 1;
-    local $Data::Dumper::Useqq = 0;
+    local $Data::Dumper::Useqq = $options{singleQuote} ? 1 : 0;
     return Data::Dumper::Dumper($string);
 }
 
-sub perlEscapeDoubleQuote {
-    my ($string) = @_;
-    local $Data::Dumper::Indent = 0;
-    local $Data::Dumper::Terse = 1;
-    local $Data::Dumper::Useqq = 1;
-    return Data::Dumper::Dumper($string);
-}
-
-sub jsEscapeSingleQuote {
-    my ($string) = @_;
+sub jsEscape {
+    my ($string, %options) = @_;
     $string =~ s{\\}{\\\\}g;
-    $string =~ s{\'}{\\'}g;
-    $string =~ s{\x08}{\\b}g;   # backspace
-    $string =~ s{\x09}{\\t}g;   # tab
-    $string =~ s{\x0a}{\\n}g;   # line feed
-    $string =~ s{\x0c}{\\f}g;   # form feed
-    $string =~ s{\x0d}{\\r}g;   # carriage return
-    $string =~ s{[\x00-\x1f\x7f-\xff]}
-                {"\\u" . sprintf('%04x', ord($&))}ge;
-    $string =~ s{[\x{0100}-\x{ffff}]}
+    if ($options{singleQuote}) {
+        $string =~ s{\'}{\\'}g;
+    } else {
+        $string =~ s{\"}{\\"}g;
+    }
+    if ($options{json}) {
+        $string =~ s{/}{\\/}g;
+    }
+    $string =~ s{[\x00-\x1f\x7f-\x{ffff}]}
                 {"\\u" . sprintf('%04x', ord($&))}ge;
     $string =~ s{[\x{10000}-\x{10ffff}]}
                 {jsonEscapeSurrogatePair($&)}ge;
-    return "'" . $string . "'";
-}
-
-sub jsEscapeDoubleQuote {
-    my ($string) = @_;
-    $string =~ s{\\}{\\\\}g;
-    $string =~ s{\"}{\\"}g;
-    $string =~ s{\x08}{\\b}g;   # backspace
-    $string =~ s{\x09}{\\t}g;   # tab
-    $string =~ s{\x0a}{\\n}g;   # line feed
-    $string =~ s{\x0c}{\\f}g;   # form feed
-    $string =~ s{\x0d}{\\r}g;   # carriage return
-    $string =~ s{[\x00-\x1f\x7f-\xff]}
-                {"\\u" . sprintf('%04x', ord($&))}ge;
-    $string =~ s{[\x{0100}-\x{ffff}]}
-                {"\\u" . sprintf('%04x', ord($&))}ge;
-    $string =~ s{[\x{10000}-\x{10ffff}]}
-                {jsonEscapeSurrogatePair($&)}ge;
+    if ($options{singleQuote}) {
+        return "'" . $string . "'";
+    }
     return '"' . $string . '"';
 }
 
 sub jsonEscape {
-    my ($string) = @_;
-    $string =~ s{\\}{\\\\}g;
-    $string =~ s{\"}{\\"}g;
-    $string =~ s{/}{\\/}g;      # unique to json for... umm... reasons
-    $string =~ s{\x08}{\\b}g;   # backspace
-    $string =~ s{\x09}{\\t}g;   # tab
-    $string =~ s{\x0a}{\\n}g;   # line feed
-    $string =~ s{\x0c}{\\f}g;   # form feed
-    $string =~ s{\x0d}{\\r}g;   # carriage return
-    $string =~ s{[\x00-\x1f\x7f-\xff]}
-                {"\\u" . sprintf('%04x', ord($&))}ge;
-    $string =~ s{[\x{0100}-\x{ffff}]}
-                {"\\u" . sprintf('%04x', ord($&))}ge;
-    $string =~ s{[\x{10000}-\x{10ffff}]}
-                {jsonEscapeSurrogatePair($&)}ge;
-    return '"' . $string . '"';
+    my ($string, %options) = @_;
+    return jsEscape($string, %options, json => 1);
 }
 
 sub jsonEscapeSurrogatePair {
@@ -181,7 +157,7 @@ sub jsonEscapeSurrogatePair {
 }
 
 sub javaEscape {
-    my ($string) = @_;
+    my ($string, %options) = @_;
     $string =~ s{\\}{\\\\}g;
     $string =~ s{\"}{\\"}g;
     $string =~ s{\x08}{\\b}g;   # backspace
@@ -194,4 +170,36 @@ sub javaEscape {
     $string =~ s{[\x{10000}-\x{10ffff}]}
                 {jsonEscapeSurrogatePair($&)}ge;
     return '"' . $string . '"';
+}
+
+sub pythonEscape {
+    my ($string, %options) = @_;
+    my $prefix = '';
+    $string =~ s{\\}{\\\\}g;
+    if ($options{singleQuote}) {
+        $string =~ s{\'}{\\'}g;
+    } else {
+        $string =~ s{\"}{\\"}g;
+    }
+    $string =~ s{\x07}{\\a}g;     # bell
+    $string =~ s{\x08}{\\b}g;     # backspace
+    $string =~ s{\x09}{\\t}g;     # tab
+    $string =~ s{\x0a}{\\n}g;     # line feed
+    $string =~ s{\x0b}{\\v}g;     # vertical tab
+    $string =~ s{\x0c}{\\f}g;     # form feed
+    $string =~ s{\x0d}{\\r}g;     # carriage return
+    $string =~ s{[\x00-\x1f\x7f-\xff]}
+                {"\\x" . sprintf('%02x', ord($&))}ge;
+    if ($string =~ m{[\x{0100}-\x{10ffff}]}) {
+        $prefix = 'u';
+    }
+    $string =~ s{[\x{0100}-\x{ffff}]}
+                {"\\u" . sprintf('%04x', ord($&))}ge;
+    $string =~ s{[\x{10000}-\x{10ffff}]}
+                {"\\U" . sprintf('%08x', ord($&))}ge;
+
+    if ($options{singleQuote}) {
+        return "'" . $string . "'";
+    }
+    return $prefix . '"' . $string . '"';
 }
