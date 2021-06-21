@@ -18,6 +18,9 @@ BEGIN {
 
 ###############################################################################
 
+use HTML::Entities qw(encode_entities);
+use URI::Escape qw(uri_escape);
+
 while (<>) {
     s{\R\z}{};
     if ($PROGNAME eq 'cescape') {
@@ -50,6 +53,10 @@ while (<>) {
         say 'JAVA    '  . javaEscape($_);
         say 'PYTHON\' ' . pythonEscape($_, singleQuote => 1);
         say 'PYTHON" '  . pythonEscape($_);
+    } elsif ($PROGNAME eq 'uriescape') {
+        say uri_escape($_);
+    } elsif ($PROGNAME eq 'htmlescape') {
+        say encode_entities($_);
     }
 }
 
