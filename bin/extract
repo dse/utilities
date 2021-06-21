@@ -33,6 +33,9 @@ extract-file () {
         *.zip|*.ZIP)
             extract-zip-file "${file}"
             ;;
+        *.tar.gz)
+            extract-tar-gz-file "${file}"
+            ;;
         *)
             >&2 echo "${PROGNAME}: ${file}: don't know how to extract yet"
             return 1
@@ -48,6 +51,18 @@ extract-zip-file () {
     fi
     if type -P unzip >/dev/null 2>/dev/null ; then
         unzip "${file}" -d "${dir}"
+    fi
+}
+
+extract-tar-gz-file () {
+    local file="$1"
+    local dir="${file%.[Tt][Aa][Rr].[Gg][Zz]}"
+    if ! safe-for-extraction "${dir}" ; then
+        return 1
+    fi
+    if type -P tar >/dev/null 2>/dev/null ; then
+        mkdir "${dir}"
+        tar -x -f "${file}" -C "${dir}"
     fi
 }
 
