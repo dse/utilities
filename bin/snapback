@@ -89,6 +89,11 @@ MAIN () {
         shift
     done
 
+    if [[ "${SNAPBACK_DEBUG}" != "" ]] ; then
+        >&2 echo "after option processing:"
+        >&2 echo "    $0 ${@@Q}"
+    fi
+
     if (( $# == 0 )) ; then
         KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
         SNAPBACK "${srcdir}" "${destuserhost}" "${destdir}"
