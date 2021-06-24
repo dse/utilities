@@ -3,6 +3,20 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+# macos cron jobs run /bin/bash :-(
+case "${BASH_VERSION}" in
+    3.*)
+        if [[ -z "${SNAPBACK_TRIED_AGAIN+Z}" ]] && [[ -e "/usr/local/bin/bash" ]] ; then
+            export SNAPBACK_TRIED_AGAIN=1
+            export "PATH=/usr/local/bin:${PATH}"
+            exec "$0" "$@"
+        else
+            >&2 echo "not compatible with bash 3"
+            exit 1
+        fi
+        ;;
+esac
+
 PROGNAME="$(basename "$0")"
 
 # snapback:
