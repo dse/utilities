@@ -1,0 +1,82 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature 'say';
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $printMaxLength;
+our $printLineLengths;
+our $printPercentile;
+
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'help'           => sub { usage(); exit(0); },
+    'm|max'          => sub { $printMaxLength = 1; },
+    'l|lengths'      => sub { $printLineLengths = 1; },
+    'p|percentile=i' => \$printPercentile,
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -m, --max                       print maximum line length
+    -l, --lengths                   print each line's length
+    -p, --percentile=<percent>      print <percent>th percentile maximum length
+                                        e.g., --percentile=99
+        --help                      display this message
+END
+
+if (!$printMaxLength && !$printLineLengths && !$printPercentile) {
+    $printLineLengths = 1;
+}
+
+#------------------------------------------------------------------------------
+my $lineCount;
+my @length;
+my $maxLength = -1;
+
+while (<>) {
+    s{\R\z}{};
+    my $length = length($_);
+    $lineCount += 1;
+    if ($printMaxLength) {
+        $maxLength = $length if $maxLength < $length;
+    }
+    if ($printLineLengths) {
+        say $length;
+    }
+    if ($printPercentile) {
+        $length[$length] += 1;
+    }
+}
+
+if ($printMaxLength) {
+    say "maximum line length is $maxLength";
+}
+
+if ($printPercentile) {
+    my $uptoLineCount = 0;
+    for (my $i = 0; $i <= $maxLength; $i += 1) {
+        $uptoLineCount += $length[$i];
+        if ($uptoLineCount >= $printPercentile * $lineCount / 100) {
+            my $widerLineCount = $lineCount - $uptoLineCount;
+            say "${percentile} percentile maximum line length is $i";
+            say "${widerLineCount} of ${lineCount} lines are wider";
+            last;
+        }
+    }
+}
