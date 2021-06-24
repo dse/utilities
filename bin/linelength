@@ -53,28 +53,24 @@ while (<>) {
     s{\R\z}{};
     my $length = length($_);
     $lineCount += 1;
-    if ($printMaxLength) {
-        $maxLength = $length if $maxLength < $length;
-    }
-    if ($printLineLengths) {
-        say $length;
-    }
-    if ($printPercentile) {
-        $length[$length] += 1;
-    }
+    $maxLength = $length if $maxLength < $length;
+    say $length if $printLineLengths;
+    $length[$length] += 1;
 }
 
 if ($printMaxLength) {
     say "maximum line length is $maxLength";
 }
 
+my $percentileLineCount = int($printPercentile * $lineCount / 100);
+
 if ($printPercentile) {
     my $uptoLineCount = 0;
     for (my $i = 0; $i <= $maxLength; $i += 1) {
         $uptoLineCount += $length[$i];
-        if ($uptoLineCount >= $printPercentile * $lineCount / 100) {
+        if ($uptoLineCount >= $percentileLineCount) {
             my $widerLineCount = $lineCount - $uptoLineCount;
-            say "${percentile} percentile maximum line length is $i";
+            say "${printPercentile} percentile maximum line length is $i";
             say "${widerLineCount} of ${lineCount} lines are wider";
             last;
         }
