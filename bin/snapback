@@ -89,7 +89,7 @@ MAIN () {
         shift
     done
 
-    if [[ "${SNAPBACK_DEBUG}" != "" ]] ; then
+    if [[ -v SNAPBACK_DEBUG ]] && [[ "${SNAPBACK_DEBUG}" != "" ]] ; then
         >&2 echo "after option processing:"
         >&2 echo "    $0 ${@@Q}"
     fi
