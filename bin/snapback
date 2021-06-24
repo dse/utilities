@@ -22,8 +22,8 @@ MAIN () {
     local dryrun=0
 
     configfile="${HOME}/.snapback/config.sh"
-    LOADCONFIG
-    LOADPROFILE
+    LOAD_CONFIG
+    LOAD_PROFILE
 
     : ${keyfile:="${HOME}/.ssh/snapback.pem"}
     : ${identityfile="${keyfile}.pub"}
@@ -100,7 +100,7 @@ MAIN () {
                 ;;
             make-lists|makelists|lists)
                 KEYGEN -q "${srcdir}" "${destuserhost}" "${destdir}"
-                MAKELISTS "${srcdir}" "${destuserhost}" "${destdir}"
+                MAKE_LISTS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             keygen)
                 KEYGEN -f "${srcdir}" "${destuserhost}" "${destdir}"
@@ -108,7 +108,7 @@ MAIN () {
             remove-keys)
                 rm "${keyfile}" || true
                 rm "${identityfile}" || true
-                REMOVEKEYS "${srcdir}" "${destuserhost}" "${destdir}"
+                REMOVE_KEYS "${srcdir}" "${destuserhost}" "${destdir}"
                 ;;
             *)
                 >&2 echo "${PROGNAME}: unknown subcommand: $1"
@@ -185,7 +185,7 @@ SNAPBACK () {
     fi
 }
 
-MAKELISTS () {
+MAKE_LISTS () {
     local srcdir="$1"
     local destuserhost="$2"
     local destdir="$3"
@@ -193,12 +193,12 @@ MAKELISTS () {
     if [[ "${destuserhost}" = "" ]] ; then
         :                       # FIXME: does nothing
     else
-        MAKEREMOTESCRIPTS
+        MAKE_REMOTE_SCRIPTS
         SSH "${destuserhost}" -t "~/bin/makelists ${destdir@Q}"
     fi
 }
 
-MAKEREMOTESCRIPT () {
+MAKE_REMOTE_SCRIPT () {
     local scriptname="$1"
     SSH "${destuserhost}" "
         mkdir -p ~/bin &&
@@ -207,8 +207,8 @@ MAKEREMOTESCRIPT () {
     "
 }
 
-MAKEREMOTESCRIPTS () {
-    MAKEREMOTESCRIPT '~/bin/poormanspv' <<'EOF'
+MAKE_REMOTE_SCRIPTS () {
+    MAKE_REMOTE_SCRIPT '~/bin/poormanspv' <<'EOF'
 #!/usr/bin/env bash
 # for printing progress in a pipe, like the real pv utility
 
@@ -225,7 +225,7 @@ END {
 '
 EOF
 
-    MAKEREMOTESCRIPT '~/bin/findlist' <<'EOF'
+    MAKE_REMOTE_SCRIPT '~/bin/findlist' <<'EOF'
 #!/usr/bin/env bash
 # reformat the output of 'find . -type f -ls' to make it
 # diffable by doing the following:
@@ -242,7 +242,7 @@ awk '{
 }'
 EOF
 
-    MAKEREMOTESCRIPT '~/bin/makelists' <<'EOF'
+    MAKE_REMOTE_SCRIPT '~/bin/makelists' <<'EOF'
 #!/usr/bin/env bash
 # generate backup listing files
 
@@ -322,7 +322,7 @@ KEYGEN () {
     fi
 }
 
-REMOVEKEYS () {
+REMOVE_KEYS () {
     # only remove (old) keys for this host
     local srcdir="$1"
     local destuserhost="$2"
@@ -348,17 +348,17 @@ EOF
     fi
 }
 
-LOADCONFIG () {
+LOAD_CONFIG () {
     if ! [[ -e "${configfile}" ]] ; then
         >&2 echo "Creating config file at ${configfile}."
         >&2 echo "Please edit it, then run snapback again."
-        CREATECONFIG
+        CREATE_CONFIG
         exit 1
     fi
     . "${configfile}"
 }
 
-CREATECONFIG () {
+CREATE_CONFIG () {
     if [[ -e "${configfile}" ]] ; then
         return 1
     fi
@@ -373,7 +373,7 @@ snapback-profile-default () {
 EOF
 }
 
-LOADPROFILE () {
+LOAD_PROFILE () {
     profilename="snapback-profile-default"
     "${profilename}"
 }
