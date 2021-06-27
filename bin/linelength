@@ -16,23 +16,39 @@ BEGIN {
 }
 
 #------------------------------------------------------------------------------
+our $useDefaultAction = 1;
 our $printMaxLength;
 our $printLineLengths;
 our $printPercentile;
+our $printLengthCounts;
+our $numberLines;
+our $printText;
+our $header;
+our $numberByFile;
 
 use Getopt::Long;
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
 Getopt::Long::GetOptions(
     'help'           => sub { usage(); exit(0); },
-    'm|max'          => sub { $printMaxLength = 1; },
-    'l|lengths'      => sub { $printLineLengths = 1; },
-    'p|percentile=i' => \$printPercentile,
+    'h|header'        => sub { $header = 1; },
+    'c|length-counts' => sub { $useDefaultAction = 0; $printLengthCounts = 1; },
+    'm|max'          => sub { $useDefaultAction = 0; $printMaxLength = 1; },
+    'l|lengths'      => sub { $useDefaultAction = 0; $printLineLengths = 1; },
+    'n|number-lines' => sub { $numberLines = 1; },
+    'N|number-by-file'  => sub { $number = 1; $numberByFile = 1; },
+    't|text'         => sub { $printText = 1; },
+    'p|percentile=i' => sub { $useDefaultAction = 0; $printPercentile = $_[1]; },
 ) or die("Type '$PROGNAME --help' for help.\n");
 
 sub usage { print(<<"END"); }
 usage:
     $PROGNAME [<option> ...] [<filename> ...]
 options:
+    -h, --header
+    -n, --number-lines
+    -N, --number-by-file
+    -t, --text
+    -c, --length-counts
     -m, --max                       print maximum line length
     -l, --lengths                   print each line's length
     -p, --percentile=<percent>      print <percent>th percentile maximum length
@@ -40,7 +56,7 @@ options:
         --help                      display this message
 END
 
-if (!$printMaxLength && !$printLineLengths && !$printPercentile) {
+if ($useDefaultAction) {
     $printLineLengths = 1;
 }
 
@@ -54,8 +70,27 @@ while (<>) {
     my $length = length($_);
     $lineCount += 1;
     $maxLength = $length if $maxLength < $length;
-    say $length if $printLineLengths;
+    if ($printLineLengths) {
+        if ($numberLines) {
+            printf("%6d\t%6d", $., $length);
+        } else {
+            printf("%6d", $length);
+        }
+        if ($printText) {
+            printf("\t%s", $_);
+        }
+        print("\n");
+    }
     $length[$length] += 1;
+}
+
+if ($printLengthCounts) {
+    for (my $i = 0; $i <= $maxLength; $i += 1) {
+        my $count = $length[$i] // 0;
+        if ($count) {
+            printf("%6d  %6d\n", $i, $count);
+        }
+    }
 }
 
 if ($printMaxLength) {
