@@ -62,12 +62,11 @@ if ($printMaxLength) {
     say "maximum line length is $maxLength";
 }
 
-my $percentileLineCount = int($printPercentile * $lineCount / 100);
-
 if ($printPercentile) {
+    my $percentileLineCount = int($printPercentile * $lineCount / 100);
     my $uptoLineCount = 0;
     for (my $i = 0; $i <= $maxLength; $i += 1) {
-        $uptoLineCount += $length[$i];
+        $uptoLineCount += ($length[$i] // 0);
         if ($uptoLineCount >= $percentileLineCount) {
             my $widerLineCount = $lineCount - $uptoLineCount;
             say "${printPercentile} percentile maximum line length is $i";
