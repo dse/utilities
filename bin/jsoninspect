@@ -40,14 +40,14 @@ our $init;
 use Getopt::Long;
 Getopt::Long::Configure(qw(bundling gnu_compat no_ignore_case));
 Getopt::Long::GetOptions(
-    "tabs"               => \$opt_tabs,
-    "x|exclude=s"        => sub { $exclude{$_[1]} = 1; },
-    "t|timestamp=s"      => sub { $timestamp{$_[1]} = 1; },
-    "w|width=i"          => \$width,
-    "i|init"             => \$init,
-    "a|assignment"       => \$assignment,
-    "h|help"             => sub { usage(); exit(0); },
-    "I|no-array-index:s" => sub {
+    'tabs'               => \$opt_tabs,
+    'x|exclude=s'        => sub { $exclude{$_[1]} = 1; },
+    't|timestamp=s'      => sub { $timestamp{$_[1]} = 1; },
+    'w|width=i'          => \$width,
+    'i|init'             => \$init,
+    'a|assignment'       => \$assignment,
+    'h|help'             => sub { usage(); exit(0); },
+    'I|no-array-index:s' => sub {
         if (defined $_[1] && $_[1] ne '') {
             $noArrayIndex{$_[1]} = 1;
         } else {
@@ -103,7 +103,7 @@ if (scalar @ARGV) {
         $i->inspect_file($arg);
     }
 } else {
-    $i->inspect_file("-");
+    $i->inspect_file('-');
 }
 
 package My::JSON::Inspector;
@@ -122,7 +122,7 @@ use Data::Dumper;
 sub new {
     my ($class, %args) = @_;
     my $self = bless(\%args, $class);
-    $self->init if $self->can("init");
+    $self->init if $self->can('init');
     $self->{tabs} //= 0;
     $self->{mode} //= 'json';
     if (!$self->{json}) {
@@ -164,7 +164,7 @@ sub inspect_url {
     import LWP::UserAgent qw();
 
     $self->{ua} //= LWP::UserAgent->new();
-    my $request = HTTP::Request->new("GET", $url);
+    my $request = HTTP::Request->new('GET', $url);
     my $response = $self->{ua}->request($request);
     my $contentType = $response->content_type;
     my $o;
@@ -198,7 +198,7 @@ sub inspect {
     }
     my @result;
     if (ref $o) {
-        if (ref $o eq "ARRAY") {
+        if (ref $o eq 'ARRAY') {
             my $noArrayIndex = $self->{noArrayIndexAtAll} || (scalar @path && $self->{noArrayIndex}->{$path[-1]});
             if ($init) {
                 push(@result, [$prefix, []]);
@@ -215,15 +215,15 @@ sub inspect {
                         my $newPrefix = '[]';
                         push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
                     } else {
-                        my $newPrefix = "[++]";
+                        my $newPrefix = '[++]';
                         push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
                     }
                 } else {
-                    my $newPrefix = "[" . $i . "]";
+                    my $newPrefix = '[' . $i . ']';
                     push(@result, $self->inspect($o->[$i], $prefix . $newPrefix, [@path, $i]));
                 }
             }
-        } elsif (ref $o eq "HASH") {
+        } elsif (ref $o eq 'HASH') {
             my @keys = sort keys %$o;
             if ($init) {
                 push(@result, [$prefix, {}]);
@@ -287,8 +287,8 @@ sub inspect {
 sub accessor {
     my ($self, $key) = @_;
     if ($key =~ m{^[A-Za-z_\$][0-9A-Za-z_\$]*$}) {
-        return "." . $key;
+        return '.' . $key;
     } else {
-        return "[" . $self->{json}->encode($key) . "]";
+        return '[' . $self->{json}->encode($key) . ']';
     }
 }
