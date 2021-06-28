@@ -265,7 +265,7 @@ sub inspect {
                     if ($assignment) {
                         printf("%-*s = %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
                     } else {
-                        printf("%-*s %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
+                        printf("%-*s  %s\n", $max_prefix_len, $result->[0], $self->{json}->encode($result->[1]));
                     }
                 }
             } else {
