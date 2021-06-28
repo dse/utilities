@@ -40,13 +40,13 @@ our $init;
 use Getopt::Long;
 Getopt::Long::Configure(qw(bundling gnu_compat no_ignore_case));
 Getopt::Long::GetOptions(
-    "tabs"             => \$opt_tabs,
-    "x|exclude=s"      => sub { $exclude{$_[1]} = 1; },
-    "t|timestamp=s"    => sub { $timestamp{$_[1]} = 1; },
-    "w|width=i"        => \$width,
-    "i|init"           => \$init,
-    "a|assignment"     => \$assignment,
-    "h|help"           => sub { usage(); exit(0); },
+    "tabs"               => \$opt_tabs,
+    "x|exclude=s"        => sub { $exclude{$_[1]} = 1; },
+    "t|timestamp=s"      => sub { $timestamp{$_[1]} = 1; },
+    "w|width=i"          => \$width,
+    "i|init"             => \$init,
+    "a|assignment"       => \$assignment,
+    "h|help"             => sub { usage(); exit(0); },
     "I|no-array-index:s" => sub {
         if (defined $_[1] && $_[1] ne '') {
             $noArrayIndex{$_[1]} = 1;
