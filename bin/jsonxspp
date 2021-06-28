@@ -55,10 +55,17 @@ while (<>) {
     exclude($o) if scalar keys %exclude;
     clean($o) if $clean;
     my $result = $json->encode($o);
+
+    # convert 3- to 4-space indent
     $result =~ s{^(   )+}{'    ' x int(length($&) / 3)}gem;
+
+    # remove spaces before colons ("foo" : "bar" => "foo": "bar")
     $result =~ s{^ *\".*?\"\K\s+:}{:}gm;
+
+    # normalize terminating newline
     $result =~ s{\R\z}{};
     $result .= "\n";
+
     print $result;
 }
 
