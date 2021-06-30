@@ -1,0 +1,96 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $dryRun = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'n|dry-run'  => \$dryRun,
+    'h|help'     => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+    -n, --dry-run
+END
+
+###############################################################################
+
+if (scalar @ARGV < 2) {
+    die("not enough arguments\n");
+}
+
+my $regexp = shift(@ARGV);
+my $extract = shift(@ARGV);
+
+$regexp = qr{$regexp};
+
+my %files;
+
+while (<>) {
+    s{\R\z}{};
+    if ($_ =~ $regexp) {
+        my $expr = '"' . $extract . '"';
+        my $extracted = eval $expr;
+        if ($@) {
+            warn($@);
+            next;
+        }
+        my $filename = prependExtension($ARGV, $extracted);
+        if ($dryRun) {
+            $files{$filename} //= 1;
+        } else {
+            $files{$filename} //= '';
+            $files{$filename} .= "$_\n";
+        }
+    }
+}
+
+if ($dryRun) {
+    foreach my $filename (sort keys %files) {
+        warn("$filename\n");
+    }
+} else {
+    foreach my $filename (sort keys %files) {
+        writeFile($filename, $files{$filename});
+    }
+}
+
+sub writeFile {
+    my ($filename, $contents) = @_;
+    my $fh;
+    if (!open($fh, '>', $filename)) {
+        warn("write $filename: $!\n");
+        return;
+    }
+    warn("Writing $filename\n");
+    print $fh $contents;
+    close($fh);
+}
+
+sub prependExtension {
+    my ($filename, $extension) = @_;
+    if ($filename =~ s{([^.\\/])(\.+[^.\\/]+)$}{$1.$extension$2}) {
+        return $filename;
+    }
+    return $filename . '.' . $extension;
+}
