@@ -10,7 +10,10 @@ use utf8;
 
 #------------------------------------------------------------------------------
 use File::Basename qw(basename);
-our $PROGNAME = basename($0);
+our $PROGNAME;
+BEGIN {
+    $PROGNAME = basename($0);
+}
 
 #------------------------------------------------------------------------------
 use open IO => qw(:locale);
@@ -20,11 +23,13 @@ BEGIN {
     @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
 }
 
-# for jsoninspect
-use JSON::XS;
-
-# for yamlinspect
-use YAML qw();
+BEGIN {
+    if ($PROGNAME eq 'jsoninspect') {
+        require JSON::XS;
+    } elsif ($PROGNAME eq 'yamlinspect') {
+        require YAML;
+    }
+}
 
 #------------------------------------------------------------------------------
 our $opt_tabs = 0;
@@ -112,12 +117,18 @@ use strict;
 use v5.10.0;
 
 use List::MoreUtils;
-use JSON;
-use YAML;
 use List::Util qw(max);
 use POSIX qw(strftime);
 use Tie::IxHash;
 use Data::Dumper;
+
+BEGIN {
+    if ($PROGNAME eq 'jsoninspect') {
+        require JSON::XS;
+    } elsif ($PROGNAME eq 'yamlinspect') {
+        require YAML;
+    }
+}
 
 sub new {
     my ($class, %args) = @_;
