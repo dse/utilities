@@ -1,0 +1,69 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $verbose = 0;
+our $dryRun = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    # ...
+    'v|verbose+' => \$verbose,
+    'n|dry-run'  => \$dryRun,
+    'h|help'     => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+    -n, --dry-run
+    -v, --verbose
+    ...
+END
+
+###############################################################################
+
+my $thingy = My::Thingy->new();
+$thingy->verbose($verbose);
+$thingy->dryRun($dryRun);
+$thingy->run();
+
+###############################################################################
+
+package My::Thingy {
+    use feature qw(say);
+
+    use File::Basename qw(basename);
+    our $PROGNAME; BEGIN { $PROGNAME = basename($0); }
+
+    use Moo;
+    INIT {
+        has 'verbose' => (is => 'rw', default => 0);
+        has 'dryRun' => (is => 'rw', default => 0);
+        # ...
+    }
+
+    sub run {
+        my ($self) = @_;
+        # ...
+    }
+};

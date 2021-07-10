@@ -1,0 +1,134 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $gitLog;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'git-log' => \$gitLog,
+    'h|help' => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.  Type 'perldoc $PROGNAME' for a manual page.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+        --git-log
+Type 'perldoc $PROGNAME' for a manual page.
+END
+
+###############################################################################
+
+while (<>) {
+    s{\R\z}{};                  # safer chomp
+
+    my $nocensor = '';
+
+    if ($gitLog) {
+        if (m{^(merge|date):\s+}i) {
+            print "$_\n";
+            next;
+        }
+        if (s{^(author):\s*}{}i) {
+            $nocensor .= $&;
+        } elsif (s{^commit\s+[[:xdigit:]]{7,}}{}) {
+            $nocensor .= $&;
+            while (s{\s+[[:xdigit:]]{7,}}{}) {
+                $nocensor .= $&;
+            }
+        } elsif (s{^[[:xdigit:]]{7,}}{}) {
+            $nocensor .= $&;
+            while (s{\s+[[:xdigit:]]{7,}}{}) {
+                $nocensor .= $&;
+            }
+        }
+    }
+
+    s{[[:upper:]]}{chr(65 + int(rand(26)))}ge;
+    s{[[:lower:]]}{chr(97 + int(rand(26)))}ge;
+    s{[[:digit:]]}{chr(48 + int(rand(10)))}ge;
+
+    print $nocensor;
+    print $_;
+    print "\n";
+}
+
+=head1 NAME
+
+censor --- replace text provided as input with random text
+
+=head1 SYNOPSIS
+
+    censor [--git-log] [<filename> ...]
+
+    censor --help
+
+=head1 DESCRIPTION
+
+The censor program reads text from one or more filenames, replaces
+each letter or digit in the text with a randomly selected letter or
+digit, and outputs the result.
+
+If no filename arguments are specified, text is read from standard
+input.  Punctuation and spaces are left as is.
+
+=head1 EXAMPLE
+
+    $ cat credentials.txt
+    bob69420@example.com
+    hunter2
+    $ censor credentials.txt
+    min17957@skigquc.cmc
+    grvahg1
+
+=head1 OPTIONS
+
+=over 4
+
+=item --git-log
+
+Accepts the output of "git log".  Attempts to leave commit ids and
+dates alone while censoring the rest of the contents.  Useful for
+generating test data based on a private repository's branch history
+while censoring commit log messages, names, email addresses, and other
+information not needed to reconstruct a branch graph.
+
+Leaves the following lines untouched in their entirety:
+
+    Merge: <commitid> <commitid> ...
+    Date: <date>
+
+Leaves the following line prefixes untouched:
+
+    Author:
+    commit <commitid> [<commitid> ...]
+    <commitid> [<commitid> ...]
+
+=back
+
+=head1 BUGS
+
+Any proprietary information found in "Merge:" and "Date:" lines will
+be preserved.  This program assumes those lines will not contain any.
+
+=head1 AUTHOR
+
+Darren Embry (dse@webonastick.com)
