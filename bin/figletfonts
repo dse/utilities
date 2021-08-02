@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+MAIN () {
+    if (( $# < 1 )) ; then
+        list-fonts
+        list-control-files
+    elif [[ "$1" = "show" ]] ; then
+        show-fonts
+    elif [[ "$1" = "list" ]] ; then
+        list-fonts
+    elif [[ "$1" = "control-files" ]] ; then
+        show-control-files
+    fi
+}
+
+list-fonts () {
+    echo '# fonts'
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./#figlet -f #;s#\.(flc|flf)$##;'
+    echo
+}
+
+show-fonts () {
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./##;s#\.(flc|flf)$##;' | while read font ; do
+        echo "# $font"
+        figlet -f "$font" "Hello, world!"
+        echo
+    done
+}
+
+list-control-files () {
+    echo '# control files'
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flc' \) ) | sed -E 's#^\./#figlet -C #;s#\.(flc|flf)$##;'
+    echo
+}
+
+###############################################################################
+MAIN "$@"
