@@ -14,21 +14,21 @@ MAIN () {
 }
 
 list-fonts () {
-    echo '# fonts'
+    echo '# figlet fonts'
     ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./#figlet -f #;s#\.(flc|flf)$##;'
     echo
 }
 
 show-fonts () {
     ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./##;s#\.(flc|flf)$##;' | while read font ; do
-        echo "# $font"
+        echo "# '$font' figlet font"
         figlet -f "$font" "Hello, world!"
         echo
     done
 }
 
 list-control-files () {
-    echo '# control files'
+    echo '# figlet control files'
     ( cd /usr/share/figlet && find . -type f \( -name '*.flc' \) ) | sed -E 's#^\./#figlet -C #;s#\.(flc|flf)$##;'
     echo
 }
