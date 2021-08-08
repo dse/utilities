@@ -35,7 +35,7 @@ Getopt::Long::GetOptions(
     'm|max'          => sub { $useDefaultAction = 0; $printMaxLength = 1; },
     'l|lengths'      => sub { $useDefaultAction = 0; $printLineLengths = 1; },
     'n|number-lines' => sub { $numberLines = 1; },
-    'N|number-by-file'  => sub { $number = 1; $numberByFile = 1; },
+    'N|number-by-file'  => sub { $numberLines = 1; $numberByFile = 1; },
     't|text'         => sub { $printText = 1; },
     'p|percentile=i' => sub { $useDefaultAction = 0; $printPercentile = $_[1]; },
 ) or die("Type '$PROGNAME --help' for help.\n");
