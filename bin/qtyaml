@@ -1,0 +1,64 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use v5.10.0;
+use utf8;
+
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+###############################################################################
+
+use YAML;
+use Template::Mustache;
+
+my $template = '';
+my @items;
+my $indent;
+my $eof;
+
+$eof = 1;
+while (<>) {
+    s{\R\z}{};
+    if (m{^(?<indent>\s*)---\s*$}) {
+        $indent = $+{indent};
+        $eof = 0;
+        last;
+    }
+    $template .= "$_\n";
+}
+
+while (1) {
+    my $item = "";
+    $eof = 1;
+    while (<>) {
+        s{\R\z}{};
+        if (m{^(?<indent>\s*)---\s*$}) {
+            $indent = $+{indent};
+            $eof = 0;
+            last;
+        }
+        $item .= "$_\n";
+    }
+    printTemplate($template, $item);
+    if ($eof) {
+        last;
+    }
+}
+
+sub printTemplate {
+    my ($template, $item) = @_;
+    $item =~ s{^\Q$indent\E}{}gm;
+    my $o = YAML::Load($item);
+    my $mustache = Template::Mustache->new(template => $template);
+    print $mustache->render($o);
+}
