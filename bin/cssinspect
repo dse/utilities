@@ -4,20 +4,187 @@ use strict;
 use v5.10.0;
 use utf8;
 
-use open IO => ":locale";
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
 
-use Data::Dumper;
-
-local $/ = undef;
-while (<>) {
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
 }
 
-# CSS::Parser
-# http://perl.mines-albi.fr/perl5.6.1/site_perl/5.6.1/CSS/Parser.html
-# is not on CPAN.
+#------------------------------------------------------------------------------
+our $debug = 0;
 
-# CSS::Selector::Parser
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'D|debug' => \$debug,
+    'h|help'     => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.\n");
 
-# CSS::Inliner::Parser
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -D, --debug
+    -h, --help
+    ...
+END
 
-# CSS::Simple
+###############################################################################
+
+my $ph;
+if (!open($ph, '-|', 'css-beautify', @ARGV)) {
+    die("pipe open failed: $!\n");
+}
+
+my $isComment;
+my $prefix = '';
+my $context = '';
+my @context = ();
+my $mode = '';
+
+while (<$ph>) {
+    # safer form of chomp
+    s{\R\z}{};
+
+    # filter out comments
+    s{ /\* .*? \*/ }{}x;
+
+    # filter out blank lines
+    if (m{^\s*$}) {
+        next;
+    }
+
+    # line only contains }
+    if (m{^ \s* \} \s* $}x) {
+
+        $context = pop(@context);
+        print("[POP]  popped '$context'\n") if $debug;
+
+        $prefix = '';
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        next;
+    }
+
+    # line contains an atqueries query and starts a block
+    if ($mode eq '' && m{^\s*(?<atqueries>\@.*?)\s*\{\s*$}) {
+
+        $prefix .= "$+{atqueries} { ";
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        print("[PUSH] pushed         '$context'\n") if $debug;
+        push(@context, $context);
+        $context .= $prefix;
+        print("       context is now '$context'\n") if $debug;
+
+        $prefix = '';
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        $mode = '';
+        next;
+    }
+
+    # line starts an atqueries query that will be continued on the next line.
+    if ($mode eq '' && m{^\s*(?<atqueries>\@.*?)\s*$}) {
+
+        $prefix .= "$+{atqueries} { ";
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        $mode = 'atqueries';
+        next;
+    }
+
+    # line ends an atqueries query and starts a block.
+    if ($mode eq 'atqueries' && m{^(?<atqueries>.*?)\s*\{\s*$}) {
+
+        $prefix .= "$+{atqueries} { ";
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        print("[PUSH] pushed         '$context'\n") if $debug;
+        push(@context, $context);
+        $context .= $prefix;
+        print("[PUSH] context is now '$context'\n") if $debug;
+
+        $prefix = '';
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        $mode = '';
+        next;
+    }
+
+    # there will be selectors on the next line
+    if (($mode eq '' || $mode eq 'selector') && m{^\s*(?<selector>.*)\,\s*$}) {
+
+        $prefix .= "$+{selector}, ";
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        $mode = 'selector';
+        next;
+    }
+
+    # line contains selector(s) and ends with an opening brace
+    if (($mode eq '' || $mode eq 'selector') && m{^(?<selector>.*?)\s*\{\s*$}) {
+
+        $prefix .= "$+{selector} { ";
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        print("[PUSH] pushed         '$context'\n") if $debug;
+        push(@context, $context);
+        $context .= $prefix;
+        print("[PUSH] context is now '$context'\n") if $debug;
+
+        $prefix = '';
+        print("[PREF] prefix is now '$prefix'\n") if $debug;
+
+        $mode = '';
+        next;
+    }
+
+    my $closing = (' }' x scalar @context);
+    $_ = trim($_);
+    print("$context$prefix$_$closing\n");
+}
+
+sub trim {
+    my @s = @_;
+    my @result = @s;
+    foreach my $result (@result) {
+        $result =~ s{^\s*}{};
+        $result =~ s{\s*$}{};
+    }
+    if (wantarray) {
+        return @result;
+    }
+    return $result[0];
+}
+
+=pod
+
+    | inpt | expected output         |
+    |:-----|:------------------------|
+    | @1 { |                         |
+    | S2 { |                         |
+    | P3   | @1 { S2 { P3 } }        |
+    |    } |                         |
+    |    } |                         |
+    |      |                         |
+    | S1 { |                         |
+    | P2   | S1 { P2 }               |
+    |    } |                         |
+    |      |                         |
+    | @1 { |                         |
+    | @2 { |                         |
+    | S3 { |                         |
+    | P4   | @1 { @2 { S3 { P4 } } } |
+    |    } |                         |
+    |    } |                         |
+    |    } |                         |
+
+=cut
