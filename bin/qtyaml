@@ -62,3 +62,61 @@ sub printTemplate {
     my $mustache = Template::Mustache->new(template => $template);
     print $mustache->render($o);
 }
+
+=head1 NAME
+
+qtyaml - quick template in Mustache and YAML
+
+=head1 SYNOPSIS
+
+    qtyaml [<file> ...]
+
+=head1 DESCRIPTION
+
+C<qtyaml> is a quick command-line templating tool.
+
+It accepts a Mustache template, then multiple data objects in YAML,
+and renders the template repeatedly through each data object.
+
+When C<qtyaml> starts reading its input, it builds the Mustache
+template from it.
+
+As soon as a line consisting entirely of three hyphen-minus signs
+("---"), and optional leading and/or trailing whitespace, is
+encountered, it starts to read its first YAML data object.
+
+When the next line containing three hyphen-minus signs is encountered,
+this starts the second YAML data object; and so forth.
+
+=head1 EXAMPLE
+
+Input:
+
+    {
+        "img": "/images/{{filename}}",
+        "name": "{{name}}"
+    },
+    ---
+    filename: john.jpg
+    name: John Jacob Jingleheimerschmidt
+    ---
+    filename: bob.jpg
+    name: Bob Smith
+    ---
+    filename: alice.jpg
+    name: Alice Smith
+
+Output:
+
+    {
+        "img": "/images/john.jpg",
+        "name": "John Jacob Jingleheimerschmidt"
+    },
+    {
+        "img": "/images/bob.jpg",
+        "name": "Bob Smith"
+    },
+    {
+        "img": "/images/alice.jpg",
+        "name": "Alice Smith"
+    },
