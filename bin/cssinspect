@@ -1,7 +1,6 @@
 #!/usr/bin/perl
 use warnings;
 use strict;
-use v5.10.0;
 use utf8;
 
 #------------------------------------------------------------------------------
@@ -16,26 +15,6 @@ BEGIN {
     @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
 }
 
-#------------------------------------------------------------------------------
-our $debug = 0;
-
-#------------------------------------------------------------------------------
-use Getopt::Long;
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
-Getopt::Long::GetOptions(
-    'D|debug' => \$debug,
-    'h|help'     => sub { usage(); exit(0); },
-) or die("Type '$PROGNAME --help' for help.\n");
-
-sub usage { print(<<"END"); }
-usage:
-    $PROGNAME [<option> ...] [<filename> ...]
-options:
-    -D, --debug
-    -h, --help
-    ...
-END
-
 ###############################################################################
 
 my $ph;
@@ -48,6 +27,9 @@ my $prefix = '';
 my $context = '';
 my @context = ();
 my $mode = '';
+my @selectors = ();
+
+my $blockCommentStarts;
 
 while (<$ph>) {
     # safer form of chomp
@@ -56,6 +38,12 @@ while (<$ph>) {
     # filter out comments
     s{ /\* .*? \*/ }{}x;
 
+    # filter out block comments, part 1.  part 2 at bottom.
+    $blockCommentStarts = 0;
+    if (s{\s*/\*(?!.*\*/).*$}{}) {
+        $blockCommentStarts = 1;
+    }
+
     # filter out blank lines
     if (m{^\s*$}) {
         next;
@@ -63,128 +51,113 @@ while (<$ph>) {
 
     # line only contains }
     if (m{^ \s* \} \s* $}x) {
-
-        $context = pop(@context);
-        print("[POP]  popped '$context'\n") if $debug;
-
+        my $hash = pop(@context);
+        $context = $hash->{context};
         $prefix = '';
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
+        @selectors = ();
+        $mode = '';
         next;
     }
 
     # line contains an atqueries query and starts a block
     if ($mode eq '' && m{^\s*(?<atqueries>\@.*?)\s*\{\s*$}) {
-
-        $prefix .= "$+{atqueries} { ";
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
-        print("[PUSH] pushed         '$context'\n") if $debug;
-        push(@context, $context);
+        my $x = $+{atqueries};
+        $x = trim($x);
+        $prefix .= "${x} { ";
+        my $hash = {
+            context => $context
+        };
+        push(@context, $hash);
         $context .= $prefix;
-        print("       context is now '$context'\n") if $debug;
-
         $prefix = '';
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
         $mode = '';
+        @selectors = ();
         next;
     }
 
     # line starts an atqueries query that will be continued on the next line.
     if ($mode eq '' && m{^\s*(?<atqueries>\@.*?)\s*$}) {
-
-        $prefix .= "$+{atqueries} { ";
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
+        my $x = $+{atqueries};
+        $x = trim($x);
+        $prefix .= "${x} { ";
         $mode = 'atqueries';
         next;
     }
 
     # line ends an atqueries query and starts a block.
     if ($mode eq 'atqueries' && m{^(?<atqueries>.*?)\s*\{\s*$}) {
-
-        $prefix .= "$+{atqueries} { ";
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
-        print("[PUSH] pushed         '$context'\n") if $debug;
-        push(@context, $context);
+        my $x = $+{atqueries};
+        $x = trim($x);
+        $prefix .= "${x} { ";
+        my $hash = {
+            context => $context
+        };
+        push(@context, $hash);
         $context .= $prefix;
-        print("[PUSH] context is now '$context'\n") if $debug;
-
         $prefix = '';
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
         $mode = '';
+        @selectors = ();
         next;
     }
 
     # there will be selectors on the next line
     if (($mode eq '' || $mode eq 'selector') && m{^\s*(?<selector>.*)\,\s*$}) {
-
-        $prefix .= "$+{selector}, ";
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
+        my $x = $+{selector};
+        $x = trim($x);
+        push(@selectors, $x);
+        $prefix .= "${x}, ";
         $mode = 'selector';
         next;
     }
 
     # line contains selector(s) and ends with an opening brace
     if (($mode eq '' || $mode eq 'selector') && m{^(?<selector>.*?)\s*\{\s*$}) {
-
-        $prefix .= "$+{selector} { ";
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
-        print("[PUSH] pushed         '$context'\n") if $debug;
-        push(@context, $context);
+        my $x = $+{selector};
+        $x = trim($x);
+        push(@selectors, $x);
+        $prefix .= "${x} { ";
+        my $hash = {
+            context => $context,
+            selectors => [@selectors],
+        };
+        push(@context, $hash);
         $context .= $prefix;
-        print("[PUSH] context is now '$context'\n") if $debug;
-
         $prefix = '';
-        print("[PREF] prefix is now '$prefix'\n") if $debug;
-
         $mode = '';
+        @selectors = ();
         next;
     }
 
     my $closing = (' }' x scalar @context);
     $_ = trim($_);
-    print("$context$prefix$_$closing\n");
+
+    if (scalar @context >= 1 && $context[-1]->{selectors}) {
+        my $ctxt = (scalar @context >= 2) ? $context[-1]->{context} : '';
+        foreach my $selector (@{$context[-1]->{selectors}}) {
+            print("$ctxt${selector} { $prefix$_$closing\n");
+        }
+    } else {
+        print("$context$prefix$_$closing\n");
+    }
+
+} continue {
+    # filter out block comments, part 2.  part 1 near top.
+    if ($blockCommentStarts) {
+        while (<$ph>) {
+            if (m{ \*/ }x) {
+                $_ = $';
+                last;
+            }
+        }
+        if (!defined $_) {
+            last;
+        }
+    }
 }
 
 sub trim {
-    my @s = @_;
-    my @result = @s;
-    foreach my $result (@result) {
-        $result =~ s{^\s*}{};
-        $result =~ s{\s*$}{};
-    }
-    if (wantarray) {
-        return @result;
-    }
-    return $result[0];
+    my $x = shift;
+    $x =~ s{^\s*}{};
+    $x =~ s{\s*$}{};
+    return $x;
 }
-
-=pod
-
-    | inpt | expected output         |
-    |:-----|:------------------------|
-    | @1 { |                         |
-    | S2 { |                         |
-    | P3   | @1 { S2 { P3 } }        |
-    |    } |                         |
-    |    } |                         |
-    |      |                         |
-    | S1 { |                         |
-    | P2   | S1 { P2 }               |
-    |    } |                         |
-    |      |                         |
-    | @1 { |                         |
-    | @2 { |                         |
-    | S3 { |                         |
-    | P4   | @1 { @2 { S3 { P4 } } } |
-    |    } |                         |
-    |    } |                         |
-    |    } |                         |
-
-=cut
