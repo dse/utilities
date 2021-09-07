@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# _script_elements_ () {
+#     sed -E -n -e '/<script>.*<\/script>/{p;n;}' \
+#         -e '/<script>/,/<\/script>/{p;}' \
+#         "$@"
+# }
+
+# if (( ! $# )) ; then
+#     _script_elements_ | sed 's#^#(standard input):#;'
+# else
+#     for filename ; do
+#         _script_elements_ "${filename}" | sed -E -e 's#^#'"${filename}"':#'
+#     done
+# fi
+
+our $OPEN_SCRIPT_TAG = qr{<\s*script(?:\s+[^>]*)?>}xi;
+our $CLOSE_SCRIPT_TAG = qr{<\s*/\s*script\s*>}xi;
+our $SCRIPT_ELEMENT = qr{(?<element>(?<open>${OPEN_SCRIPT_TAG})(?<contents>.*?)(?<close>${CLOSE_SCRIPT_TAG}))}xism;
+
+local $/ = undef;
+while (<>) {
+    s{\R\z}{};
+    while (s{${SCRIPT_ELEMENT}}{}i) {
+        my @lines = split(/\R/, $+{element});
+        foreach my $line (@lines) {
+            printf("%s:%s\n", $ARGV, $line);
+        }
+    }
+}
