@@ -10,8 +10,6 @@ if (exists $ENV{TERM} && $ENV{TERM} =~ m{^(screen|xterm|vt\d|linux|putty)}) {
     $RESET = "\e[0m";
 }
 
-our $green =
-
 my $oldFilename;
 while (<>) {
     s{\R\z}{};
