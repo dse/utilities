@@ -1,0 +1,26 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+our $GREEN = '';
+our $RESET = '';
+
+if (exists $ENV{TERM} && $ENV{TERM} =~ m{^(screen|xterm|vt\d|linux|putty)}) {
+    $GREEN = "\e[32m";
+    $RESET = "\e[0m";
+}
+
+our $green =
+
+my $oldFilename;
+while (<>) {
+    s{\R\z}{};
+    if (s{^(?<filename>.*?):}{}) {
+        my $filename = $+{filename};
+        if (!defined $oldFilename || $oldFilename ne $filename) {
+            printf("%s==> %s <==%s\n", $GREEN, $filename, $RESET);
+            $oldFilename = $filename;
+        }
+    }
+    printf("%s\n", $_);
+}
