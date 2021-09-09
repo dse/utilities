@@ -1,0 +1,17 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my @lines;
+my $length;
+while (<>) {
+    s{\R\z}{};
+    push(@lines, $_);
+    if (!defined $length || $length < length $_) {
+        $length = length $_;
+    }
+}
+
+foreach my $line (@lines) {
+    printf("%-*s -\n", $length, $line);
+}
