@@ -2,6 +2,40 @@
 use warnings;
 use strict;
 
+#------------------------------------------------------------------------------
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+our $trim = 0;
+
+#------------------------------------------------------------------------------
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    't|trim' => \$trim,
+    'h|help' => sub { usage(); exit(0); },
+) or die("Type '$PROGNAME --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    $PROGNAME [<option> ...] [<filename> ...]
+options:
+    -h, --help
+    -t, --trim
+    ...
+END
+
+###############################################################################
+
 our $GREEN = '';
 our $RESET = '';
 
@@ -18,6 +52,17 @@ while (<>) {
         if (!defined $oldFilename || $oldFilename ne $filename) {
             printf("%s==> %s <==%s\n", $GREEN, $filename, $RESET);
             $oldFilename = $filename;
+        }
+    }
+    if ($trim) {
+        if (s{^(?<prefix>\d+:)}{}) {
+            my $prefix = $+{prefix};
+            s{^\s*}{};
+            s{\s*$}{};
+            $_ = $prefix . $_;
+        } else {
+            s{^\s*}{};
+            s{\s*$}{};
         }
     }
     printf("%s\n", $_);
