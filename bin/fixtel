@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# RFC 2806 URLs for Telephone Calls
+#          https://datatracker.ietf.org/doc/html/rfc3966
+# RFC 3966 The tel URI for Telephone Numbers
+#          https://datatracker.ietf.org/doc/html/rfc3966
+
+my $viz = qr{[\-\.\(\)]*};      # visual separators allowed per RFC 2806
+
+while (<>) {
+    s{(?<=tel:)$viz(?:(?:\+$viz)?1$viz)?
+      (?<phone>(?:\d$viz){10})(?=[;"'<>wp\*\#abcd\s])}
+     {formatPhoneNumber($+{phone})}gxie;
+    # ;  future extension, service provider, or area specifier
+    # "' quotes
+    # <> html tag delimiter
+    # w  wait for dialtone
+    # p  one-second pause
+    # \* \# ABCD other dial digits
+    #
+    print;
+}
+
+sub formatPhoneNumber {
+    my $x = shift;
+    $x =~ s{\D+}{}g;
+    return $x if length $x != 10;
+    my $npa  = substr($x, 0, 3);
+    my $nxx  = substr($x, 3, 3);
+    my $xxxx = substr($x, 6, 4);
+    return "+1-(${npa})-${nxx}-${xxxx}";
+}
