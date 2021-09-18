@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my @passwords = @ARGV;
+
+if (!scalar @passwords) {
+    my $fh;
+    my $filename = "$ENV{HOME}/REDACTIONS.txt";
+    open($fh, '<', $filename) or die("$filename: $!\n");
+    while (<$fh>) {
+        s{\R\z}{};
+        s{^\s+}{};
+        s{\s+$}{};
+        push(@passwords, $_);
+    }
+}
+
+foreach my $pw (@passwords) {
+    $pw =~ s{.}{quotemeta2($&)}ge;
+    print("$pw\n");
+}
+
+sub quotemeta2 {
+    my $s = shift;
+    my $qm = quotemeta($s);
+    if ($s !~ m{^[A-Za-z0-9]$}) {
+        return '.?' . $qm;      # match optional preceding escape char
+    }
+    return $qm;
+}
