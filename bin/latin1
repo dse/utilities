@@ -1,0 +1,29 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature 'say';
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+
+use Unicode::UCD qw(charinfo);
+use Data::Dumper qw(Dumper);
+
+print("Ch.   Codept.   Name\n");
+print("---   -------   ----------------------------------------\n");
+
+for (my $i = 160; $i <= 255; $i += 1) {
+    my $charinfo = charinfo($i);
+
+    my $uxxxx = sprintf('U+%04X', $i);
+    my $name  = $charinfo->{name};
+
+    printf("%-3s   %7s   %s\n", chr($i), $uxxxx, $name);
+}
