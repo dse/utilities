@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 
 clockfile="${HOME}/.clock.txt"
-date="$(date +'%Y-%m-%d %H:%M:%S')"
+date="$(date +'%a %Y-%m-%d %H:%M:%S')"
 
 if (( $# < 1 )) ; then
     if [[ -e "${clockfile}" ]] ; then
         tail -20 "${clockfile}"
     fi
-    exit 1
+    exit 0
 fi
 
 >>"${clockfile}" echo "[${date}] $@"
+exit 0

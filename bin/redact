@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+set -o pipefail
+set -o nounset
+set -o errexit
+shopt -s lastpipe
+
+main () {
+    declare -i force=0
+    declare -i print_patterns=0
+    declare -i print_perl=0
+    declare -i dry_run=0
+    declare -i git=0
+    declare -i xtrace=0
+
+    root="$(command git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ "${root}" = "" ]] ; then
+        :
+    else
+        cd "${root}"
+    fi
+
+    declare -a grep_options
+    declare -a git_grep_options
+    declare -a git_grep_paths
+
+    while getopts 'lfpPnGx' OPTION ; do
+        case "${OPTION}" in
+            'p') print_patterns=1;;
+            'P') print_perl=1;;
+            'l') grep_options+=(-l);git_grep_options+=(-l);;
+            'f') force=1;;
+            'n') dry_run=1;;
+            'G') git=1;;
+            'x') xtrace=1;;
+            '?') exit 1;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    declare -a exclude_dir=()
+    declare -a exclude=()
+
+    exclude_dir+=(
+    )
+    exclude+=(
+        '*.bak'
+        '*.bak.*'
+    )
+
+    if (( !git )) ; then
+        exclude_dir+=(
+            '.svn'
+            '.git'
+            'node_modules'
+        )
+        exclude+=(
+        )
+    fi
+
+    ignore_excludes
+
+    declare -a patterns
+    redact--patterns | mapfile -t patterns
+
+    if (( print_patterns )) ; then
+        for i in "${patterns[@]}" ; do
+            echo "$i"
+        done
+        exit 0
+    fi
+
+    declare -a grep_pattern_args
+    for i in "${patterns[@]}" ; do
+        grep_pattern_args+=(-e "${i}")
+    done
+
+    declare -a perl_substitutions
+    for i in "${patterns[@]}" ; do
+        perl_substitutions+=(-e "s/${i}/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/g;")
+    done
+
+    if (( print_perl )) ; then
+        for i in "${perl_substitutions[@]}" ; do
+            if [[ "$i" != "-e" ]] ; then
+                echo "$i"
+            fi
+        done
+        exit 0
+    fi
+
+    if (( dry_run )) ; then
+        declare -a files
+        if (( git )) ; then
+            X git grep -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+        else
+            X grep -r -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+        fi
+        X perl -n -e 's{\R\z}{}; $orig = $_;' "${perl_substitutions[@]}" \
+          -e 'print("< $orig\n> $_\n") if $orig ne $_;' \
+          "${files[@]}"
+        return
+    fi
+
+    ext=".bak.$(date +'%s.%N').$$"
+
+    if (( force )) ; then
+        declare -a files
+        if (( git )) ; then
+            X git grep -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+        else
+            X grep -r -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+        fi
+        X perl -p -i"${ext}" "${perl_substitutions[@]}" "${files[@]}"
+        return
+    fi
+
+    if (( git )) ; then
+        X git grep -E -I "${git_grep_options[@]}" "${grep_pattern_args[@]}"
+    else
+        X grep -r -E -I "${grep_options[@]}" "${grep_pattern_args[@]}"
+    fi
+}
+
+usage () { cat <<EOF; }
+usage: redact [<option> ...]
+    -p  print grep patterns
+    -P  print perl substitution code
+    -l  print filenames instead of occurrences
+    -f  edit files in place
+EOF
+
+ignore_excludes () {
+    for i in "${exclude_dir[@]}" ; do
+        grep_options+=(--exclude-dir="$i")
+        git_grep_paths+=(
+            ":(exclude)$i"
+        )
+    done
+    for i in "${exclude[@]}" ; do
+        if [[ "${root}" != "" ]] ; then
+            if ! grep --quiet --files-with-matches --line-regexp --fixed-strings -e "$i" -e "$i" .gitignore >/dev/null 2>/dev/null ; then
+                echo "$i" >> .gitignore
+            fi
+        fi
+        grep_options+=(--exclude="$i")
+        git_grep_paths+=(
+            ":(exclude)$i"
+        )
+    done
+}
+
+X () {
+    if (( xtrace )) ; then
+        >&2 echo "+ ${@@Q}"
+    fi
+    "$@"
+}
+
+#------------------------------------------------------------------------------
+main "$@"
