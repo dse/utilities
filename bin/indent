@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use POSIX qw(dup2);
+
+my ($read1, $write1);
+if (!pipe($read1, $write1)) {
+    die("pipe: $!");
+}
+my $pid1 = fork();
+if (!defined $pid1) {
+    die("fork: $!");
+}
+if (!$pid1) {
+    close($write1);
+    dup2(fileno($read1), 0);
+    exec('sed', 's/^/<OUT>   /');
+}
+close($read1);
+
+my ($read2, $write2);
+if (!pipe($read2, $write2)) {
+    die("pipe: $!");
+}
+my $pid2 = fork();
+if (!defined $pid2) {
+    die("fork: $!");
+}
+if (!$pid2) {
+    close($write2);
+    dup2(fileno($read2), 0);
+    dup2(2, 1);
+    exec('sed', 's/^/<ERR>   /');
+}
+close($read2);
+
+dup2(fileno($write1), 1);
+dup2(fileno($write2), 2);
+exec(@ARGV);
