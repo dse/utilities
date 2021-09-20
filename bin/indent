@@ -14,7 +14,7 @@ if (!defined $pid1) {
 }
 if (!$pid1) {
     close($write1);
-    dup2(fileno($read1), 0);
+    dup2(fileno($read1), fileno(\*STDIN)); # redirect stdin from the first pipe
     exec('sed', 's/^/<OUT>   /');
 }
 close($read1);
@@ -29,12 +29,12 @@ if (!defined $pid2) {
 }
 if (!$pid2) {
     close($write2);
-    dup2(fileno($read2), 0);
-    dup2(2, 1);
+    dup2(fileno($read2), fileno(\*STDIN)); # redirect stdin from the second pipe
+    dup2(fileno(\*STDERR), fileno(\*STDOUT)); # redirect stdout to stderr
     exec('sed', 's/^/<ERR>   /');
 }
 close($read2);
 
-dup2(fileno($write1), 1);
-dup2(fileno($write2), 2);
+dup2(fileno($write1), fileno(\*STDOUT));  # redirect stdout to the first pipe
+dup2(fileno($write2), fileno(\*STDERR));  # redirect stderr to the second pipe
 exec(@ARGV);
