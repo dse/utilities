@@ -4,6 +4,9 @@ use strict;
 
 use POSIX qw(dup2);
 
+our @pipe1 = ('sed', 's/^/STDOUT: /');
+our @pipe2 = ('sed', 's/^/STDERR: /');
+
 my ($read1, $write1);
 if (!pipe($read1, $write1)) {
     die("pipe: $!");
@@ -15,7 +18,7 @@ if (!defined $pid1) {
 if (!$pid1) {
     close($write1);
     dup2(fileno($read1), fileno(\*STDIN)); # redirect stdin from the first pipe
-    exec('sed', 's/^/<OUT>   /');
+    exec(@pipe1);
 }
 close($read1);
 
@@ -31,7 +34,7 @@ if (!$pid2) {
     close($write2);
     dup2(fileno($read2), fileno(\*STDIN)); # redirect stdin from the second pipe
     dup2(fileno(\*STDERR), fileno(\*STDOUT)); # redirect stdout to stderr
-    exec('sed', 's/^/<ERR>   /');
+    exec(@pipe2);
 }
 close($read2);
 
