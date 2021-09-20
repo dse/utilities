@@ -4,16 +4,15 @@ use strict;
 
 use POSIX qw(dup2);
 
-our $hasPty = 0;
+our $hasPty;
 BEGIN {
-    $hasPty = eval { require IO::Pty; }
+    $hasPty = eval { require IO::Pty; };
 }
 our $stdoutPty = $hasPty && -t 1;
 our $stderrPty = $hasPty && -t 2;
 
 our @pipe1 = ('sed', 's/^/STDOUT: /');
 our @pipe2 = ('sed', 's/^/STDERR: /');
-
 
 my ($read1, $write1);
 if ($stdoutPty) {
