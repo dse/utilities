@@ -20,7 +20,7 @@ if (!defined $pid1) {
 if (!$pid1) {
     $write1->make_slave_controlling_terminal();
     close($write1);
-    dup2(fileno($read1), fileno(\*STDIN)); # redirect stdin from the pty
+    dup2(fileno($read1), fileno(\*STDIN)); # redirect stdin from the first pty
     exec(@pipe1);
 }
 close($read1);
@@ -38,8 +38,8 @@ if (!defined $pid2) {
 if (!$pid2) {
     $write2->make_slave_controlling_terminal();
     close($write2);
-    dup2(fileno($read2), fileno(\*STDIN)); # redirect stdin from the pty
-    dup2(fileno(\*STDERR), fileno(\*STDOUT));        # redirect stdout to stderr
+    dup2(fileno($read2), fileno(\*STDIN)); # redirect stdin from the second pty
+    dup2(fileno(\*STDERR), fileno(\*STDOUT)); # redirect stdout to stderr
     exec(@pipe2);
 }
 close($read2);
