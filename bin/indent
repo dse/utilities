@@ -1,0 +1,81 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use POSIX qw(dup2);
+
+our @cmd1 = ('sed', 's/^/STDOUT: /');
+our @cmd2 = ('sed', 's/^/STDERR: /');
+
+my $p = My::Pipe::StdoutStderr->new();
+$p->{cmd1} = [@cmd1];
+$p->{cmd2} = [@cmd2];
+$p->exec(@ARGV) or die("exec: $!");
+
+package My::Pipe::StdoutStderr {
+    use POSIX qw(dup2);
+    sub new {
+        my ($class) = @_;
+        my $self = bless({}, $class);
+        return $self;
+    }
+    sub exec {
+        my ($self, @exec) = @_;
+        my $p1 = My::Pipe->new(\*STDOUT, @{$self->{cmd1}});
+        my $p2 = My::Pipe->new(\*STDERR, @{$self->{cmd2}});
+        $p1->run();
+        $p2->run();
+        exec(@exec);
+    }
+};
+package My::Pipe {
+    use POSIX qw(dup2);
+    our $hasPty;
+    BEGIN {
+        $hasPty = eval { require IO::Pty; };
+    }
+    sub new {
+        my ($class, $fh, @cmd) = @_;
+        my $self = bless({}, $class);
+        $self->{fh} = $fh;
+        $self->{cmd} = [@cmd];
+        $self->{isPty} = $hasPty && -t fileno($self->{fh});
+        return $self;
+    }
+    sub run {
+        my ($self) = @_;
+        my ($r, $w);
+        if ($self->{isPty}) {
+            $w = IO::Pty->new();
+            if (!$w) {
+                die("pty: $!");
+            }
+            $r = $w->slave();
+        } else {
+            if (!pipe($r, $w)) {
+                die("pipe: $!");
+            }
+        }
+        my $pid = fork();
+        if (!defined $pid) {
+            die("fork: $!");
+        }
+        if (!$pid) {
+            if ($self->{isPty}) {
+                $w->make_slave_controlling_terminal();
+            }
+            close($w);
+            dup2(fileno($r), fileno(\*STDIN)); # redirect stdin from the pipe
+            if (fileno($self->{fh}) != fileno(\*STDOUT)) {
+                dup2(fileno($self->{fh}), fileno(\*STDOUT)); # redirect stdout to $self->{fh}
+            }
+            exec(@{$self->{cmd}}) or die("exec: $!");
+        }
+        if ($self->{isPty}) {
+            $w->close_slave();
+        } else {
+            close($r);
+        }
+        dup2(fileno($w), fileno($self->{fh}));
+    }
+};
