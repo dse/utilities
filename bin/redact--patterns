@@ -6,7 +6,7 @@ my @passwords = @ARGV;
 
 if (!scalar @passwords) {
     my $fh;
-    my $filename = "$ENV{HOME}/REDACTIONS.txt";
+    my $filename = "$ENV{HOME}/.REDACT/REDACTIONS.txt";
     open($fh, '<', $filename) or die("$filename: $!\n");
     while (<$fh>) {
         s{\R\z}{};
