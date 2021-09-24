@@ -18,7 +18,7 @@ BEGIN {
 ###############################################################################
 
 my $ph;
-if (!open($ph, '-|', 'css-beautify', @ARGV)) {
+if (!open($ph, '-|', 'css-beautify', '-o-', @ARGV)) {
     die("pipe open failed: $!\n");
 }
 
