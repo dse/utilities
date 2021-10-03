@@ -39,9 +39,25 @@ main () {
     SED='/^<SPACE>*#<SPACE>*\./,/^<SPACE>*[^#]/{/^<SPACE>*[^#]/d;/^<SPACE>*#/p}'
     SED="$(echo "${SED}" | sed -E "s/<SPACE>/[ "$'\t'"]/g")"
 
+    if [[ -v SHELP_PAGER ]] ; then
+        pager="${SHELP_PAGER}"
+    elif [[ -v PAGER ]] ; then
+        pager="${PAGER}"
+    fi
+
     for exe in "${paths}" ; do
-        cat "${exe}" | sed -E -n "${SED}"
+        cat "${exe}" | sed -E -n "${SED}" >"${temp}"
+        if grep . "${temp}" >/dev/null 2>/dev/null ; then
+            if [[ -v pager ]] ; then
+                cat "${exe}" | sed -E -n "${SED}" | $pager
+            else
+                cat "${exe}" | sed -E -n "${SED}"
+            fi
+            return 0
+        fi
     done
+    >&2 echo "shelp: $1: no help found; try man, perldoc, etc."
+    return 1
 }
 
 AT_EXIT () {
