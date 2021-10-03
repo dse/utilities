@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+# .name
+#     pathexec - execute a command removing directories from PATH.
+# .synopsis
+#     pathexec [-r <dirname|filename>] ... <cmd> [<arg> ...]
+# .description
+#     The `pathexec` utility removes one or more directories
+#     from the PATH environment variable, then executes
+#     the specified command with any specified arguments.
+#
+#     When a file that is not a directory is specified via
+#     a `-r` option, the directory it is contained in is
+#     removed from the PATH, not the specified non-directory
+#     file.
+# .example 1 - execute /usr/bin/ls instead of /usr/local/bin/ls
+#     $ echo $PATH
+#     /usr/local/bin:/usr/bin:/bin
+#     $ which --all ls
+#     /usr/local/bin/ls
+#     /usr/bin/ls
+#     $ pathexec -r /usr/local/bin ls -l
+#     <executes /usr/bin/ls, not /usr/local/bin/ls>
+# .example 2 - specifying via `-r` an executable instead of its parent directory
+#     $ echo $PATH
+#     /usr/local/bin:/usr/bin:/bin
+#     $ which --all ls
+#     /usr/local/bin/ls
+#     /usr/bin/ls
+#     $ pathexec -r /usr/local/bin/ls ls -l
+#     <executes /usr/bin/ls, not /usr/local/bin/ls>
+# .example 3 - invoking something via `env` to temporarily set environment variables
+#     $ echo $PATH
+#     /usr/local/bin:/usr/bin:/bin
+#     $ which --all ls
+#     /usr/local/bin/ls
+#     /usr/bin/ls
+#     $ pathexec -r /usr/local/bin env LS_COLORS='' ls -l
+#     <executes /usr/bin/ls, not /usr/local/bin/ls>
+
+main () {
+    while getopts 'r:' OPTION ; do
+        case "${OPTION}" in
+            'r')
+                remove-from-PATH "${OPTARG}"
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    exec "$@"
+}
+
+remove-from-PATH () {
+    local arg
+    local dir
+    for arg in "$@" ; do
+        if ! [[ -d "${arg}" ]] ; then
+            dir="$(dirname "${arg}")"
+        else
+            dir="${arg}"
+        fi
+        while : ; do
+            if [[ "${PATH}" = "${dir}" ]] ; then
+                PATH=""
+                break
+            elif [[ "${PATH}" = *:"${dir}" ]] ; then
+                PATH="${PATH%:${dir}}"
+            elif [[ "${PATH}" = "${dir}":* ]] ; then
+                PATH="${PATH#${dir}:}"
+            elif [[ "${PATH}" = *:"${dir}":* ]] ; then
+                PATH="${PATH%:${dir}:*}:${PATH##*:${dir}:}"
+            else
+                break
+            fi
+        done
+    done
+}
+
+###############################################################################
+main "$@"
