@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+# .name
+#     shelp - a shitty help system for shell scripts
+# .synopsis
+#     shelp <program-name>
+# .description
+#     The `shelp` utility
+
+main () {
+    if (( $# < 1 )) ; then
+        >&2 echo "shelp: not enough arguments"
+        exit 1
+    fi
+
+    if (( $# > 1 )) ; then
+        >&2 echo "shelp: too many arguments"
+        exit 1
+    fi
+
+    declare -a paths
+    declare exe
+
+    { type -a -p "$1" || true; } | readarray -t paths
+
+    temp="$(mktemp)"
+
+    if (( ! "${#paths[@]}" )) ; then
+        >&2 echo "shelp: $1: command not found"
+        exit 1
+    fi
+
+    TAB=$'\t'
+
+    SED='/^<SPACE>*#<SPACE>*\./,/^<SPACE>*[^#]/{/^<SPACE>*[^#]/d;/^<SPACE>*#/p}'
+    SED="$(echo "${SED}" | sed -E "s/<SPACE>/[ "$'\t'"]/g")"
+
+    for exe in "${paths}" ; do
+        cat "${exe}" | sed -E -n "${SED}"
+    done
+}
+
+AT_EXIT () {
+    [[ -v temp ]]  && [[ -e "${temp}" ]]  && rm "${temp}"  || true
+}
+
+###############################################################################
+trap AT_EXIT EXIT
+main "$@"
