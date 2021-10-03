@@ -49,15 +49,23 @@ main () {
         cat "${exe}" | sed -E -n "${SED}" >"${temp}"
         if grep . "${temp}" >/dev/null 2>/dev/null ; then
             if [[ -v pager ]] ; then
-                cat "${exe}" | sed -E -n "${SED}" | $pager
+                pp1 "${exe}" | $pager
             else
-                cat "${exe}" | sed -E -n "${SED}"
+                pp1 "${exe}"
             fi
             return 0
         fi
     done
     >&2 echo "shelp: $1: no help found; try man, perldoc, etc."
     return 1
+}
+
+pp1 () {
+    sed -E -n "${SED}" "$@"
+}
+
+pp2 () {
+    :
 }
 
 AT_EXIT () {
