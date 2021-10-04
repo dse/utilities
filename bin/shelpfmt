@@ -1,0 +1,59 @@
+#!/bin/sh
+# -*- mode: awk -*-
+true + /; exec gawk -f "$0"; exit; / {} # polyglot
+# awk script starts here
+
+# .NAME
+#     shelpfmt - underlying formatting engine for shelp
+# .SYNOPSIS
+#     shelpfmt
+# .DESCRIPTION
+#     shelpfmt takes its input and sends a more nicely
+#     formatted version of it to stdout.
+
+BEGIN {
+    mode = 0
+    blank = 0
+    started = 0
+}
+
+# line that is neither a comment nor blank ends shelp section
+mode && /^ *[^#]/ {
+    if (!blank) { print "" }
+    blank = 1
+    mode = 0
+    next
+}
+
+# line starting with # followed by . starts a shelp section
+/^ *# *\. */ {
+    if (!started) { started = 1 }
+    else if (!blank) { print "" }
+    mode = 1
+    gsub(/^ *# *\. */, "")
+    if (match($0, /^(.*?)[ ]+-[ ]+(.*)$/, matches)) {
+        print toupper(matches[1]), "-", matches[2]
+    } else {
+        print toupper($0)
+    }
+    print ""
+    blank = 1
+    next
+}
+
+# blank lines and comment lines separate section names and/or
+# paragraphs
+mode && (/^ *# *$/ || /^ *$/) {
+    if (!blank) { print ""; blank = 1 }
+    next
+}
+
+mode && /^ *# */ {
+    gsub(/^ *# */, "    ")
+    print; blank = 0
+    next
+}
+
+END {
+    if (!blank) { print "" }
+}
