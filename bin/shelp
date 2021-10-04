@@ -44,15 +44,17 @@ main () {
 
     for exe in "${paths}" ; do
         cat "${exe}" | expand | sed -E -n '
-            /^ *# *\. */,/^ *[^#]/{
-                /^ *[^#]/d;
-                /^ *# *\. */{
+            /^ *# *\. */,/^ *[^#]/{      # shelp comments
+                /^ *[^#]/d;              # first non-shelp line
+                /^ *# *\. */{            # section lines
+                    i
                     s///g;p;d;
                 };
-                /^ *# */{
+                /^ *# */{                # lines of text
                     s//    /g;p;d;
                 }
-            }' >"${temp}"
+            }
+        ' >"${temp}"
         if grep . "${temp}" >/dev/null 2>/dev/null ; then
             if [[ -v pager ]] ; then
                 cat "${temp}" | $pager
