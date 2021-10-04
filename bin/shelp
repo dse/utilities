@@ -22,62 +22,29 @@ main () {
         exit 1
     fi
 
-    declare -a paths
-    declare exe
-
-    { type -a -p "$1" || true; } | readarray -t paths
-
-    temp="$(mktemp)"
-
-    if (( ! "${#paths[@]}" )) ; then
-        >&2 echo "shelp: $1: command not found"
-        exit 1
-    fi
-
-    TAB=$'\t'
-
+    local pager
     if [[ -v SHELP_PAGER ]] ; then
         pager="${SHELP_PAGER}"
     elif [[ -v PAGER ]] ; then
         pager="${PAGER}"
     fi
 
+    local -a paths
+    if [[ "$1" = */* ]] ; then
+        paths=("$1")
+    else
+        { type -a -p "$1" || true; } | readarray -t paths
+        if (( ! "${#paths[@]}" )) ; then
+            >&2 echo "shelp: $1: command not found"
+            exit 1
+        fi
+    fi
+
+    temp="$(mktemp)"
+
+    local exe
     for exe in "${paths}" ; do
-        cat "${exe}" | expand | awk '
-            BEGIN {
-                mode = 0
-                init = 1
-            }
-
-            # line that is neither a comment nor blank ends shelp section
-            mode && /^ *[^#]/ {
-                mode = 0
-            }
-
-            # line starting with # followed by . starts a shelp section
-            /^ *# *\. */ {
-                mode = 1
-                gsub(/^ *# *\. */, "")
-                if (init) {
-                    init = 0
-                } else {
-                    print ""
-                }
-                if (match($0, /^(.*?) - (.*)$/, matches)) {
-                    print toupper(matches[1]), "-", matches[2]
-                } else {
-                    print toupper($0)
-                }
-                next
-            }
-
-            # comment lines and blank lines continue the shelp session
-            mode && (/^ *# */ || /^ *$/) {
-                gsub(/^ *# */, "    ")
-                print ""
-                next
-            }
-        ' >"${temp}"
+        format-shelp <"${exe}" >"${temp}"
         if grep . "${temp}" >/dev/null 2>/dev/null ; then
             if [[ -v pager ]] ; then
                 cat "${temp}" | $pager
@@ -87,8 +54,47 @@ main () {
             return 0
         fi
     done
+
     >&2 echo "shelp: $1: no help found; try man, perldoc, etc."
     return 1
+}
+
+format-shelp () {
+    expand | awk '
+        BEGIN {
+            mode = 0
+            init = 1
+        }
+
+        # line that is neither a comment nor blank ends shelp section
+        mode && /^ *[^#]/ {
+            mode = 0
+        }
+
+        # line starting with # followed by . starts a shelp section
+        /^ *# *\. */ {
+            mode = 1
+            gsub(/^ *# *\. */, "")
+            if (init) {
+                init = 0
+            } else {
+                print ""
+            }
+            if (match($0, /^(.*?)[ ]+-[ ]+(.*)$/, matches)) {
+                print toupper(matches[1]), "-", matches[2]
+            } else {
+                print toupper($0)
+            }
+            next
+        }
+
+        # comment lines and blank lines continue the shelp session
+        mode && (/^ *# */ || /^ *$/) {
+            gsub(/^ *# */, "    ")
+            print
+            next
+        }
+    '
 }
 
 AT_EXIT () {
