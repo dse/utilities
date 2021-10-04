@@ -43,16 +43,39 @@ main () {
     fi
 
     for exe in "${paths}" ; do
-        cat "${exe}" | expand | sed -E -n '
-            /^ *# *\. */,/^ *[^#]/{      # shelp comments
-                /^ *[^#]/d;              # first non-shelp line
-                /^ *# *\. */{            # section lines
-                    i
-                    s///g;p;d;
-                };
-                /^ *# */{                # lines of text
-                    s//    /g;p;d;
+        cat "${exe}" | expand | awk '
+            BEGIN {
+                mode = 0
+                init = 1
+            }
+
+            # line that is neither a comment nor blank ends shelp section
+            mode && /^ *[^#]/ {
+                mode = 0
+            }
+
+            # line starting with # followed by . starts a shelp section
+            /^ *# *\. */ {
+                mode = 1
+                gsub(/^ *# *\. */, "")
+                if (init) {
+                    init = 0
+                } else {
+                    print ""
                 }
+                if (match($0, /^(.*?) - (.*)$/, matches)) {
+                    print toupper(matches[1]), "-", matches[2]
+                } else {
+                    print toupper($0)
+                }
+                next
+            }
+
+            # comment lines and blank lines continue the shelp session
+            mode && (/^ *# */ || /^ *$/) {
+                gsub(/^ *# */, "    ")
+                print ""
+                next
             }
         ' >"${temp}"
         if grep . "${temp}" >/dev/null 2>/dev/null ; then
