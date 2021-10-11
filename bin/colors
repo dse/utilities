@@ -1,0 +1,164 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+our $ESC   = "\e";
+our $IND   = "${ESC}D";         # Index (IND  is 0x84).
+our $NEL   = "${ESC}E";         # Next Line (NEL  is 0x85).
+our $HTS   = "${ESC}H";         # Tab Set (HTS  is 0x88).
+our $RI    = "${ESC}M";         # Reverse Index (RI  is 0x8d).
+our $SS2   = "${ESC}N"; # Single Shift Select of G2 Character Set (SS2  is 0x8e), VT220.  This affects next character only.
+our $SS3   = "${ESC}O"; # Single Shift Select of G3 Character Set (SS3  is 0x8f), VT220.  This affects next character only.
+our $DCS   = "${ESC}P"; # Device Control String (DCS  is 0x90).
+our $SPA   = "${ESC}V"; # Start of Guarded Area (SPA  is 0x96).
+our $EPA   = "${ESC}W"; # End of Guarded Area (EPA  is 0x97).
+our $SOS   = "${ESC}X"; # Start of String (SOS  is 0x98).
+our $DECID = "${ESC}Z"; # Return Terminal ID (DECID is 0x9a).  Obsolete form of CSI c  (DA).
+our $CSI   = "${ESC}["; # Control Sequence Introducer (CSI  is 0x9b).
+our $ST    = "${ESC}\\"; # String Terminator (ST  is 0x9c).
+our $OSC   = "${ESC}]";  # Operating System Command (OSC  is 0x9d).
+our $PM    = "${ESC}^";  # Privacy Message (PM  is 0x9e).
+our $APC   = "${ESC}_";  # Application Program Command (APC  is 0x9f).
+
+our $BEL   = "\x07";            # Bell
+our $BS    = "\x08";            # Backspace
+our $CR    = "\x0d";            # Carriage Return
+our $ENQ   = "\x05";            # Return Terminal Status
+our $FF    = "\x0c";            # Form Feed or New Page (NP)
+our $LF    = "\x0a";            # Line Feed or New Line (NL)
+our $SI    = "\x0f";            # Switch to Standard Char. Set (LS0)
+our $SO    = "\x0e";            # Switch to Alternate Char. Set (LS1)
+our $SP    = " ";               # Space
+our $TAB   = "\x09";            # Horizontal Tab (HTS)
+our $VT    = "\x0b";            # Vertical Tab (VT)
+
+our $NORMAL          = "${CSI}0m";
+our $RESET           = "${CSI}0m";
+our $BOLD            = "${CSI}1m";
+our $FAINT           = "${CSI}2m";
+our $ITALIC          = "${CSI}3m";
+our $UNDERLINE       = "${CSI}4m";
+our $BLINK           = "${CSI}5m";
+our $INVERSE         = "${CSI}7m";
+our $INVISIBLE       = "${CSI}8m";
+our $CROSSED         = "${CSI}9m";
+our $DOUBLEUNDERLINE = "${CSI}21m";
+our $UNBOLDUNFAINT   = "${CSI}22m";
+our $UNITALIC        = "${CSI}23m";
+our $UNUNDERLINE     = "${CSI}24m";
+our $UNBLINK         = "${CSI}25m";
+our $UNINVERSE       = "${CSI}27m";
+our $UNHIDDEN        = "${CSI}28m";
+our $UNCROSSED       = "${CSI}29m";
+
+our $FGBLACK         = "${CSI}30m";
+our $FGRED           = "${CSI}31m";
+our $FGGREEN         = "${CSI}32m";
+our $FGYELLOW        = "${CSI}33m";
+our $FGBLUE          = "${CSI}34m";
+our $FGCYAN          = "${CSI}35m";
+our $FGMAGENTA       = "${CSI}36m";
+our $FGWHITE         = "${CSI}37m";
+our $FGDEFAULT       = "${CSI}39m";
+our $BGBLACK         = "${CSI}40m";
+our $BGRED           = "${CSI}41m";
+our $BGGREEN         = "${CSI}42m";
+our $BGYELLOW        = "${CSI}43m";
+our $BGBLUE          = "${CSI}44m";
+our $BGCYAN          = "${CSI}45m";
+our $BGMAGENTA       = "${CSI}46m";
+our $BGWHITE         = "${CSI}47m";
+our $BGDEFAULT       = "${CSI}49m";
+
+our $FGBRIGHTBLACK         = "${CSI}1;30m";
+our $FGBRIGHTRED           = "${CSI}1;31m";
+our $FGBRIGHTGREEN         = "${CSI}1;32m";
+our $FGBRIGHTYELLOW        = "${CSI}1;33m";
+our $FGBRIGHTBLUE          = "${CSI}1;34m";
+our $FGBRIGHTCYAN          = "${CSI}1;35m";
+our $FGBRIGHTMAGENTA       = "${CSI}1;36m";
+our $FGBRIGHTWHITE         = "${CSI}1;37m";
+
+our $AIXFGBRIGHTBLACK         = "${CSI}1;90m";
+our $AIXFGBRIGHTRED           = "${CSI}1;91m";
+our $AIXFGBRIGHTGREEN         = "${CSI}1;92m";
+our $AIXFGBRIGHTYELLOW        = "${CSI}1;93m";
+our $AIXFGBRIGHTBLUE          = "${CSI}1;94m";
+our $AIXFGBRIGHTCYAN          = "${CSI}1;95m";
+our $AIXFGBRIGHTMAGENTA       = "${CSI}1;96m";
+our $AIXFGBRIGHTWHITE         = "${CSI}1;97m";
+our $AIXBGBRIGHTBLACK         = "${CSI}1;100m";
+our $AIXBGBRIGHTRED           = "${CSI}1;101m";
+our $AIXBGBRIGHTGREEN         = "${CSI}1;102m";
+our $AIXBGBRIGHTYELLOW        = "${CSI}1;103m";
+our $AIXBGBRIGHTBLUE          = "${CSI}1;104m";
+our $AIXBGBRIGHTCYAN          = "${CSI}1;105m";
+our $AIXBGBRIGHTMAGENTA       = "${CSI}1;106m";
+our $AIXBGBRIGHTWHITE         = "${CSI}1;107m";
+
+our $CLEARLEDS = "${CSI}0q";
+our $LIGHTNUMLOCK = "${CSI}1q";
+our $LIGHTCAPSLOCK = "${CSI}2q";
+our $LIGHTSCROLLLOCK = "${CSI}3q";
+our $UNLIGHTNUMLOCK = "${CSI}21q";
+our $UNLIGHTCAPSLOCK = "${CSI}22q";
+our $UNLIGHTSCROLLLOCK = "${CSI}23q";
+
+our $CURSORBLINKBLOCK = "${CSI}0${SP}q";
+our $CURSORDEFAULT = "${CSI}1${SP}q";
+our $CURSORSTEADYBLOCK = "${CSI}2${SP}q";
+our $CURSORBLINKUNDERLINE = "${CSI}3${SP}q";
+our $CURSORSTEADYUNDERLINE = "${CSI}4${SP}q";
+our $CURSORBLINKBAR = "${CSI}5${SP}q";
+our $CURSORSTEADYBAR = "${CSI}6${SP}q";
+
+sub SETFGRGB { my ($r, $g, $b) = @_; return sprintf("${CSI}38:2:0:%d:%d:%dm", $r, $g, $b); }
+sub SETBGRGB { my ($r, $g, $b) = @_; return sprintf("${CSI}48:2:0:%d:%d:%dm", $r, $g, $b); }
+sub SETFGINDEX { my ($index) = @_; return sprintf("${CSI}38:5:%d", $index); }
+sub SETBGINDEX { my ($index) = @_; return sprintf("${CSI}48:5:%d", $index); }
+
+print("${CSI}#3${ST}Double-height line\n");
+print("${CSI}#4${ST}Double-height line\n");
+print("${CSI}#6${ST}Double-width line\n");
+
+print("normal ");
+print("${BOLD}bold${RESET} ");
+print("${FAINT}faint${RESET} ");
+print("${ITALIC}italic${RESET} ");
+print("${UNDERLINE}underline${RESET} ");
+print("${BLINK}blink${RESET} ");
+print("${INVERSE}inverse${RESET} ");
+print("${CROSSED}crossed${RESET} ");
+print("${DOUBLEUNDERLINE}double underline${RESET}\n");
+
+our @colors = qw(BLK RED GRN BRN BLU MGN CYN WHT);
+
+print("         @colors     @colors\n");
+foreach my $bold (0, 1) {
+    my @fg;
+    if ($bold) {
+        @fg = (30 .. 37);
+    } else {
+        @fg = (30 .. 37, 39);
+    }
+    foreach my $fg (@fg) {
+        my $line = '';
+        my $color = $colors[$fg - 30] // '   ';
+        if ($bold) {
+            $line .= sprintf("1;%-2d ", $fg);
+        } else {
+            $line .= sprintf("  %-2d ", $fg);
+        }
+        $line .= "$color ";
+        foreach my $bg (40 .. 47, 49, 100 .. 107) {
+            my $bgfg;
+            if ($bold) {
+                $bgfg = "${CSI}1;${bg};${fg}m";
+            } else {
+                $bgfg = "${CSI}${bg};${fg}m";
+            }
+            $line .= sprintf("${bgfg}%03d${RESET} ", $bg);
+        }
+        print($line, "\n");
+    }
+}
