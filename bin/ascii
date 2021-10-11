@@ -92,26 +92,37 @@ foreach my $i (@codes) {
 if ($longLine) {
     print("$_\n") foreach @lines;
 } else {
-    print("Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr\n");
-    print("--- --- -- ---  --- --- -- ---  --- --- -- ---  --- --- -- ---  --- --- -- ---\n");
-    my $columnCount = 5;
-    my @column = ();
-    for (my $i = 0; $i <= $#lines; $i += 1) {
-        push(@{$column[$i % $columnCount]}, $lines[$i]);
-    }
-    my @row = ();
-    my $rowCount = floor((scalar @lines + $columnCount - 1) / $columnCount);
-    my $rowIndex = 0;
-    for (my $i = 0; $i <= $#lines; $i += 1) {
-        push(@{$row[$rowIndex]}, $lines[$i]);
-        $rowIndex += 1;
-        if ($rowIndex >= $rowCount) {
-            $rowIndex = 0;
+    if (-t 1) {
+        print("Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr  Dec Oct Hx Chr\n");
+        print("--- --- -- ---  --- --- -- ---  --- --- -- ---  --- --- -- ---  --- --- -- ---\n");
+        my $columnCount = 5;
+        my @column = ();
+        for (my $i = 0; $i <= $#lines; $i += 1) {
+            push(@{$column[$i % $columnCount]}, $lines[$i]);
         }
-    }
-    foreach my $row (@row) {
-        printf("%s\n", join('  ', @$row));
+        my @row = ();
+        my $rowCount = floor((scalar @lines + $columnCount - 1) / $columnCount);
+        my $rowIndex = 0;
+        for (my $i = 0; $i <= $#lines; $i += 1) {
+            push(@{$row[$rowIndex]}, $lines[$i]);
+            $rowIndex += 1;
+            if ($rowIndex >= $rowCount) {
+                $rowIndex = 0;
+            }
+        }
+        foreach my $row (@row) {
+            printf("%s\n", join('  ', @$row));
+        }
+    } else {
+        print("#Dc Oct Hx Chr\n");
+        print("#-- --- -- ---\n");
+        print("$_\n") foreach @lines;
     }
 }
 
+my @other = ('ascii', 'controls', 'printable');
+@other = grep { $_ ne $PROGNAME } @other;
+my $other = join('       ', '', @other);
 
+print("# ") if !-t 1;
+print("You can also type one of the following: $other\n");
