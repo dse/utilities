@@ -2,6 +2,9 @@
 use warnings;
 use strict;
 
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
 use Unicode::UCD qw(charinfo);
 use IO::Pager;
 use Data::Dumper;
@@ -47,13 +50,26 @@ my %char = (
 );
 
 my @lines;
-for (my $i = 0; $i < 128; $i += 1) {
+my @codes = (0 .. 127);
+
+if ($PROGNAME eq 'controls') {
+    @codes = (0 .. 31, 127);
+    $longLine = 1;
+} elsif ($PROGNAME eq 'printable') {
+    @codes = (32 .. 126);
+}
+
+foreach my $i (@codes) {
     my $charinfo = charinfo($i);
     my $char = chr($i);
     my $isPrint = $i >= 32 && $i <= 126;
     my $charDisplayed = $char{$i}{shortName} // " $char ";
     my $name = $charinfo->{name};
     my $unicode10 = $charinfo->{unicode10};
+    my $control = '^' . chr($i + 64);
+    if ($i == 127) {
+        $control = '^?';
+    }
     $name = undef if $name eq '';
     $unicode10 = undef if $unicode10 eq '';
     if (defined $name && $name eq '<control>') {
@@ -64,7 +80,7 @@ for (my $i = 0; $i < 128; $i += 1) {
     my $line;
 
     if ($longLine) {
-        $line = sprintf("%3d  0%03o  0x%02x  %-3s", $i, $i, $i, $charDisplayed);
+        $line = sprintf("%3d  0%03o  0x%02x  %2s  %-3s ", $i, $i, $i, $control, $charDisplayed);
         $line .= sprintf(" %s", $name) if defined $name;
         $line .= sprintf(" (%s)", $unicode10) if defined $unicode10;
     } else {
