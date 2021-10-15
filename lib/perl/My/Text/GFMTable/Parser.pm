@@ -1,7 +1,6 @@
 package My::Text::GFMTable::Parser; # -*- mode: perl; comment-column: 56; -*-
 use warnings;
 use strict;
-use v5.10.0;
 
 BEGIN {
     eval {
@@ -49,9 +48,20 @@ sub parseLine {
     local $Data::Dumper::Useqq    = 1;
 
     local $_ = $line;
-    if (s{^\|\s*}{}) {
+    if (s{^(?<indent>\s*)\|\s*}{}) {
+        my $indent = $+{indent};
         if (!$self->table) {
             $self->table({
+                indent => $indent,
+                rows => [],
+                lines => [],
+            });
+        } elsif ($self->table->{indent} ne $indent) {
+            my $ht = $self->handleTable;
+            $self->$ht($self->table);
+            $self->table(undef);
+            $self->table({
+                indent => $indent,
                 rows => [],
                 lines => [],
             });
@@ -151,8 +161,10 @@ sub printTable {
 
     my @h = @{$table->{headerRow}};
 
+    my $indent = $table->{indent};
+
     my $hl = ('| ' . join(' | ', map { sprintf('%-*s', $columnWidths[$_], $h[$_] // '-') } (0 .. $#columnWidths)) . ' |');
-    say $hl;
+    print("${indent}${hl}\n");
 
     my $dl = ('|' . join('|', map {
         my $a = $align[$_];
@@ -161,7 +173,7 @@ sub printTable {
             $a eq 'right' ? ('-' x ($w + 1) . ':') :
             (':' . '-' x ($w + 1));
     } (0 .. $#columnWidths)) . '|');
-    say $dl;
+    print("${indent}${dl}\n");
 
     foreach my $row (@{$table->{rows}}) {
         my $l = ('| ' .
@@ -172,7 +184,7 @@ sub printTable {
                          $a eq 'right' ? sprintf('%*s', $w, $t) : sprintf('%-*s', $w, $t);
                      } (0 .. $#columnWidths))
                      . ' |');
-        say $l;
+        print("${indent}${l}\n");
     }
 }
 
