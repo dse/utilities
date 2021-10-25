@@ -27,7 +27,9 @@ my %solarizedColors = (
     green   => '#859900',       # 133 153 0
 );
 
-my %solarizedDark = (
+my $themes = {};
+
+$themes->{'solarized-dark'} = {
     0                   => $solarizedColors{base02},
     1                   => $solarizedColors{red},
     2                   => $solarizedColors{green},
@@ -49,18 +51,18 @@ my %solarizedDark = (
     highlightForeground => $solarizedColors{base1},
     highlightBackground => $solarizedColors{base02},
     cursor              => '#0f4999',
-);
+};
 
-my %solarizedDark2 = (
-    %solarizedDark,
+$themes->{'solarized-dark-2'} = {
+    %{$themes->{'solarized-dark'}},
     foreground          => $solarizedColors{base1},
     background          => $solarizedColors{base02},
     highlightForeground => $solarizedColors{base2},
     highlightBackground => $solarizedColors{base01},
-);
+};
 
-my %solarizedLight = (
-    %solarizedDark,
+$themes->{'solarized-light'} = {
+    %{$themes->{'solarized-dark'}},
     0                   => $solarizedColors{base2},
     7                   => $solarizedColors{base02},
     8                   => $solarizedColors{base3},
@@ -73,17 +75,17 @@ my %solarizedLight = (
     background          => $solarizedColors{base3},
     highlightForeground => $solarizedColors{base01},
     highlightBackground => $solarizedColors{base2},
-);
+};
 
-my %solarizedLight2 = (
-    %solarizedLight,
+$themes->{'solarized-light-2'} = {
+    %{$themes->{'solarized-light'}},
     foreground          => $solarizedColors{base01},
     background          => $solarizedColors{base2},
     highlightForeground => $solarizedColors{base02},
     highlightBackground => $solarizedColors{base1},
-);
+};
 
-my %zenburn = (
+$themes->{'zenburn'} = {
     0                   => '#1f1f1f',
     1                   => '#cc9393',
     2                   => '#5f7f5f',
@@ -105,25 +107,56 @@ my %zenburn = (
     highlightForeground => '#ffffef',
     highlightBackground => '#1f1f1f',
     cursor              => '#8faf9f',
-);
+};
 
-my $style = shift(@ARGV);
-if (!defined $style) {
-    setColorScheme(%solarizedDark);
-} elsif ($style eq 'dark') {
-    setColorScheme(%solarizedDark);
-} elsif ($style eq 'dark2') {
-    setColorScheme(%solarizedDark2);
-} elsif ($style eq 'light') {
-    setColorScheme(%solarizedLight);
-} elsif ($style eq 'light2') {
-    setColorScheme(%solarizedLight2);
-} elsif ($style eq 'zenburn') {
-    setColorScheme(%zenburn);
+$themes->{easy} = {
+    #                        1 2 4
+    #                        ------
+    0                   => '#000000', # black
+    1                   => '#cc3333', # red
+    2                   => '#339933', # green
+    3                   => '#996633', # brown
+    4                   => '#333399', # blue
+    5                   => '#cc3399', # magenta
+    6                   => '#339999', # cyan
+    7                   => '#cccccc', # white
+    8                   => '#222222', # dark gray
+    9                   => '#ff0000', # bright red
+    10                  => '#00ff00', # bright green
+    11                  => '#ffff00', # bright yellow
+    12                  => '#0000ff', # bright blue
+    13                  => '#ff00ff', # bright magenta
+    14                  => '#00ffff', # bright cyan
+    15                  => '#ffffff', # bright white
+    foreground          => '#aabbbb',
+    background          => '#333333',
+    highlightForeground => '#ffffff',
+    highlightBackground => '#000000',
+    cursor              => '#ff9933',
+};
+
+my $theme = shift(@ARGV);
+if (!defined $theme) {
+    setColorScheme($themes->{'solarized-dark'});
+    exit;
 }
 
+if ($theme eq 'themes') {
+    print("$_\n") foreach sort keys %{$themes};
+    exit;
+}
+
+if (exists $themes->{$theme}) {
+    setColorScheme($themes->{$theme});
+    exit;
+}
+
+die("unknown theme name: $theme\n");
+
 sub setColorScheme {
-    my (%args) = @_;
+    my $theme = shift;
+    my %args = %$theme;
+
     for (my $i = 0; $i <= 15; $i += 1) {
         setColor($i, $args{$i});
     }
