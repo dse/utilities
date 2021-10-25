@@ -157,8 +157,32 @@ foreach my $bold (0, 1) {
             } else {
                 $bgfg = "${CSI}${bg};${fg}m";
             }
-            $line .= sprintf("${bgfg}%03d${RESET} ", $bg);
+            $line .= sprintf("${bgfg}%3d${RESET} ", $bg);
         }
         print($line, "\n");
     }
 }
+
+print("         BLACK   RED     GREEN   BRN/YEL BLUE    MAGENTA CYAN    WHITE\n");
+print("         ------- ------- ------- ------- ------- ------- ------- -------\n");
+print(" regular");
+foreach my $bg (40..47) {
+    printf(" ${CSI}${bg}m  %3d  ${RESET}", $bg);
+}
+print("\n");
+print("        ");
+foreach my $bg (40..47) {
+    print(" ${CSI}${bg}m       ${RESET}");
+}
+print("\n");
+
+print("    bold");
+foreach my $bg (100..107) {
+    printf(" ${CSI}1;${bg}m  %3d  ${RESET}", $bg);
+}
+print("\n");
+print("        ");
+foreach my $bg (100..107) {
+    print(" ${CSI}${bg}m       ${RESET}");
+}
+print("\n");
