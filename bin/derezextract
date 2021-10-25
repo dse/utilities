@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# pipe the output of `DeRez <filename>` to this script.
+
+my $fh;
+
+while (<>) {
+    if (m{^data\s*'([^']+)'\s*\(\d+,\s*"([^"]+)".*?\)\s*\{\s*$}) {
+        my $filename = "$2.$1";
+        eval { close($fh); };
+        open($fh, '>', "$filename") or die("$filename: $!\n");
+        binmode($fh);
+        warn("Writing $filename\n");
+        while (<>) {
+            if (m{^\s*\$\"([^"]*)\"}) {
+                my $hex = $1;
+                $hex =~ s{[^A-Fa-f0-9]+}{}g;
+                syswrite $fh, pack('H*', $hex);
+            } elsif (m{^\s*\}\s*(\;\s*)?$}) {
+                last;
+            }
+        }
+    }
+}
+eval { close($fh); };
