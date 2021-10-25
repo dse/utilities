@@ -86,22 +86,24 @@ $themes->{'solarized-light-2'} = {
 };
 
 $themes->{'zenburn'} = {
-    0                   => '#1f1f1f',
-    1                   => '#cc9393',
-    2                   => '#5f7f5f',
-    3                   => '#ffd7a7',
-    4                   => '#8cb0d3',
-    5                   => '#8f8f8f',
-    6                   => '#71d3b4',
-    7                   => '#dfe4cf',
-    8                   => '#6f6f6f',
-    9                   => '#ecb3b3',
-    10                  => '#ffd7a7',
-    11                  => '#8cb0d3',
-    12                  => '#8f8f8f',
-    13                  => '#71d3b4',
-    14                  => '#dfe4cf',
-    15                  => '#ffcfaf',
+    #                        1 2 4
+    #                        ------
+    0                   => '#1f1f1f', # black
+    1                   => '#cc9393', # red
+    2                   => '#5f7f5f', # green
+    3                   => '#ffd7a7', # brown
+    4                   => '#8cb0d3', # blue
+    5                   => '#8f8f8f', # magenta
+    6                   => '#71d3b4', # cyan
+    7                   => '#dfe4cf', # white
+    8                   => '#6f6f6f', # dark gray
+    9                   => '#ecb3b3', # bright red
+    10                  => '#ffd7a7', # bright green
+    11                  => '#8cb0d3', # bright yellow
+    12                  => '#8f8f8f', # bright blue
+    13                  => '#71d3b4', # bright magenta
+    14                  => '#dfe4cf', # bright cyan
+    15                  => '#ffcfaf', # bright white
     foreground          => '#dcdccc',
     background          => '#3f3f3f',
     highlightForeground => '#ffffef',
@@ -115,24 +117,33 @@ $themes->{easy} = {
     0                   => '#000000', # black
     1                   => '#cc3333', # red
     2                   => '#339933', # green
-    3                   => '#996633', # brown
+    3                   => '#999933', # brown
     4                   => '#333399', # blue
-    5                   => '#cc3399', # magenta
+    5                   => '#993399', # magenta
     6                   => '#339999', # cyan
-    7                   => '#cccccc', # white
-    8                   => '#222222', # dark gray
-    9                   => '#ff0000', # bright red
-    10                  => '#00ff00', # bright green
-    11                  => '#ffff00', # bright yellow
-    12                  => '#0000ff', # bright blue
-    13                  => '#ff00ff', # bright magenta
-    14                  => '#00ffff', # bright cyan
-    15                  => '#ffffff', # bright white
-    foreground          => '#aabbbb',
+    7                   => '#999999', # white
+    8                   => '#444444', # dark gray
+    9                   => '#ff3333', # bright red
+    10                  => '#33cc33', # bright green
+    11                  => '#cccc33', # bright yellow
+    12                  => '#3333cc', # bright blue
+    13                  => '#cc33cc', # bright magenta
+    14                  => '#33cccc', # bright cyan
+    15                  => '#cccccc', # bright white
+    foreground          => '#bbbbbb',
     background          => '#333333',
     highlightForeground => '#ffffff',
     highlightBackground => '#000000',
     cursor              => '#ff9933',
+};
+
+$themes->{greenscreen} = {
+    %{$themes->{easy}},
+    foreground          => '#11cc11',
+    background          => '#113311',
+    highlightForeground => '#22ff22',
+    highlightBackground => '#116611',
+    cursor              => '#55ff55',
 };
 
 my $theme = shift(@ARGV);
