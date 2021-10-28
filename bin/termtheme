@@ -146,6 +146,202 @@ $themes->{greenscreen} = {
     cursor              => '#55ff55',
 };
 
+# from mintty
+$themes->{'dracula'} = {
+    'foreground'             => '#f8f8f2',
+    'background'             => '#282a36',
+    '0'                      => '#000000',
+    '8'                      => '#686868',
+    '1'                      => '#ff5555',
+    '9'                      => '#ff6e67',
+    '2'                      => '#50fa7b',
+    '10'                     => '#5af78e',
+    '3'                      => '#f1fa8c',
+    '11'                     => '#f4f99d',
+    '4'                      => '#caa9fa',
+    '12'                     => '#caa9fa',
+    '5'                      => '#ff79c6',
+    '13'                     => '#ff92d0',
+    '6'                      => '#8be9fd',
+    '14'                     => '#9aedfe',
+    '7'                      => '#bfbfbf',
+    '15'                     => '#e6e6e6',
+};
+$themes->{'flat-ui'} = {
+    'foreground'             => '#ecf0f1',
+    'background'             => '#181818',
+    'cursor'                 => '#d35400',
+    '8'                      => '#34495e',
+    '0'                      => '#2c3e50',
+    '9'                      => '#e74c3c',
+    '1'                      => '#c0392b',
+    '10'                     => '#2ecc71',
+    '2'                      => '#27ae60',
+    '11'                     => '#f1c40f',
+    '3'                      => '#f39c12',
+    '12'                     => '#3498db',
+    '4'                      => '#2980b9',
+    '13'                     => '#9b59b6',
+    '5'                      => '#8e44ad',
+    '14'                     => '#1abc9c',
+    '6'                      => '#7aa085',
+    '15'                     => '#ecf0f1',
+    '7'                      => '#bdc3c7',
+};
+$themes->{'gruvbox'} = {
+    'foreground'             => '#ebdbb2',
+    'background'             => '#1d2021',
+    'cursor'                 => '#fd9d4f',
+    '0'                      => '#282828',
+    '8'                      => '#928374',
+    '1'                      => '#cc241d',
+    '9'                      => '#fb4934',
+    '2'                      => '#98971a',
+    '10'                     => '#b8bb26',
+    '3'                      => '#d79921',
+    '11'                     => '#fabd2f',
+    '4'                      => '#458588',
+    '12'                     => '#83a598',
+    '5'                      => '#b16286',
+    '13'                     => '#d3869b',
+    '6'                      => '#689d6a',
+    '14'                     => '#8ec07c',
+    '7'                      => '#a89984',
+    '15'                     => '#ebdbb2',
+};
+$themes->{'html'} = {
+    '0'                      => '#000000',
+    '1'                      => '#800000',
+    '2'                      => '#008000',
+    '3'                      => '#808000',
+    '4'                      => '#000080',
+    '5'                      => '#800080',
+    '6'                      => '#008080',
+    '7'                      => '#c0c0c0',
+    '8'                      => '#808080',
+    '9'                      => '#ff0000',
+    '10'                     => '#00ff00',
+    '11'                     => '#ffff00',
+    '12'                     => '#0000ff',
+    '13'                     => '#ff00ff',
+    '14'                     => '#00ffff',
+    '15'                     => '#ffffff',
+};
+$themes->{'mintty'} = {
+    '0'                      => '#000000',
+    '1'                      => '#bf0000',
+    '2'                      => '#00bf00',
+    '3'                      => '#bfbf00',
+    '4'                      => '#0000bf',
+    '5'                      => '#bf00bf',
+    '6'                      => '#00bfbf',
+    '7'                      => '#bfbfbf',
+    '8'                      => '#404040',
+    '9'                      => '#ff4040',
+    '10'                     => '#40ff40',
+    '11'                     => '#ffff40',
+    '12'                     => '#6060ff',
+    '13'                     => '#ff40ff',
+    '14'                     => '#40ffff',
+    '15'                     => '#ffffff',
+};
+$themes->{'nord'} = {
+    'background'             => '#2e3440',
+    'foreground'             => '#d8dee9',
+    'cursor'                 => '#d8dee9',
+    '0'                      => '#3b4252',
+    '8'                      => '#4c566a',
+    '1'                      => '#bf616a',
+    '9'                      => '#bf616a',
+    '2'                      => '#a3be8c',
+    '10'                     => '#a3be8c',
+    '3'                      => '#ebcb8b',
+    '11'                     => '#ebcb8b',
+    '4'                      => '#81a1c1',
+    '12'                     => '#81a1c1',
+    '5'                      => '#b48ead',
+    '13'                     => '#b48ead',
+    '6'                      => '#88c0d0',
+    '14'                     => '#8fbcbb',
+    '7'                      => '#e5e9f0',
+    '15'                     => '#eceff4',
+};
+$themes->{'rosipov'} = {
+    'foreground'             => '#839496',
+    'background'             => '#000000',
+    'cursor'                 => '#dc322f',
+    '0'                      => '#073642',
+    '8'                      => '#002b36',
+    '1'                      => '#dc322f',
+    '9'                      => '#cb4b16',
+    '2'                      => '#00c884',
+    '10'                     => '#00c884',
+    '3'                      => '#cccc66',
+    '11'                     => '#cccc66',
+    '4'                      => '#6699cc',
+    '12'                     => '#6699cc',
+    '5'                      => '#d33682',
+    '13'                     => '#6c71c4',
+    '6'                      => '#2aa198',
+    '14'                     => '#93a1a1',
+    '7'                      => '#eee8d5',
+    '15'                     => '#fdf6e3',
+};
+$themes->{'vga'} = {
+    '0'                      => '#000000',
+    '4'                      => '#0000aa',
+    '2'                      => '#00aa00',
+    '6'                      => '#00aaaa',
+    '1'                      => '#aa0000',
+    '5'                      => '#aa00aa',
+    '3'                      => '#aa5500',
+    '7'                      => '#aaaaaa',
+    '8'                      => '#555555',
+    '12'                     => '#5555ff',
+    '10'                     => '#55ff55',
+    '14'                     => '#55ffff',
+    '9'                      => '#ff5555',
+    '13'                     => '#ff55ff',
+    '11'                     => '#ffff55',
+    '15'                     => '#ffffff',
+};
+$themes->{'windows10'} = {
+    '0'                      => '#0c0c0c',
+    '4'                      => '#0037da',
+    '2'                      => '#13a10e',
+    '6'                      => '#3a96dd',
+    '1'                      => '#c50f1f',
+    '5'                      => '#881798',
+    '3'                      => '#c19c00',
+    '7'                      => '#cccccc',
+    '8'                      => '#767676',
+    '12'                     => '#3b78ff',
+    '10'                     => '#16c60c',
+    '14'                     => '#61d6d6',
+    '9'                      => '#e74856',
+    '13'                     => '#b4009e',
+    '11'                     => '#f9f1a5',
+    '15'                     => '#f2f2f2',
+};
+$themes->{'xterm'} = {
+    '0'                      => '#000000',
+    '1'                      => '#cd0000',
+    '2'                      => '#00cd00',
+    '3'                      => '#cdcd00',
+    '4'                      => '#0000ee',
+    '5'                      => '#cd00cd',
+    '6'                      => '#00cdcd',
+    '7'                      => '#e5e5e5',
+    '8'                      => '#7f7f7f',
+    '9'                      => '#ff0000',
+    '10'                     => '#00ff00',
+    '11'                     => '#ffff00',
+    '12'                     => '#5c5cff',
+    '13'                     => '#ff00ff',
+    '14'                     => '#00ffff',
+    '15'                     => '#ffffff',
+};
+
 my $theme = shift(@ARGV);
 if (!defined $theme) {
     setColorScheme($themes->{'solarized-dark'});
@@ -171,11 +367,11 @@ sub setColorScheme {
     for (my $i = 0; $i <= 15; $i += 1) {
         setColor($i, $args{$i});
     }
-    setForeground($args{foreground});
-    setBackground($args{background});
-    setHighlightForeground($args{highlightForeground});
-    setHighlightBackground($args{highlightBackground});
-    setCursor($args{cursor});
+    setForeground($args{foreground} // $args{7});
+    setBackground($args{background} // $args{0});
+    setHighlightForeground($args{highlightForeground} // $args{15});
+    setHighlightBackground($args{highlightBackground} // $args{8});
+    setCursor($args{cursor} // $args{7});
 }
 
 sub setColor {
