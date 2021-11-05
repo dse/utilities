@@ -68,7 +68,7 @@ while (<>) {
     $result =~ s{^ *\".*?\"\K\s+:}{:}gm;
 
     # normalize terminating newline
-    $result =~ s{\R\z}{};
+    $result =~ s{\r}{};
     $result .= "\n";
 
     print $result;
