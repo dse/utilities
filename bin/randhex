@@ -1,0 +1,18 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my $hexDigits = 32;
+my $bytes = int(($hexDigits + 1) / 2);
+
+my $filename = '/dev/random';
+
+my $fh;
+open($fh, '<', $filename) or die("$filename: $!\n");
+binmode($fh);
+my $data;
+read($fh, $data, $bytes);
+close($fh);
+
+my $unpacked = unpack('H*', $data);
+print "$unpacked\n";
