@@ -1,0 +1,37 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+while (<>) {
+    s{\R\z}{};
+    print("> $_\n");
+    if (m{\((?<filename>.*?):(?<lineNumber>\d+):\d+\)}) {
+        context($+{filename}, $+{lineNumber});
+    } elsif (m{at\s+(?<filename>.*?):(?<lineNumber>\d+):\d+}) {
+        context($+{filename}, $+{lineNumber});
+    }
+}
+
+use constant HIGHLIGHT => "\e[33;1;41m";
+use constant RESET     => "\e[0m";
+
+sub context {
+    my ($filename, $lineNumber) = @_;
+    my $fh;
+    local $. = 0;
+    open($fh, '<', $filename) or return;
+    while (<$fh>) {
+        s{\R\z}{};
+        if ($. == $lineNumber) {
+            printf("%s        %6d  %s%s\n", HIGHLIGHT, $., $_, RESET);
+            next;
+        }
+        if ($. >= ($lineNumber - 3) && $. <= ($lineNumber + 3)) {
+            printf("        %6d- %s\n", $., $_);
+            next;
+        }
+        if ($. > $lineNumber + 3) {
+            return;
+        }
+    }
+}
