@@ -1,0 +1,39 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use List::Util qw(sum);
+
+my %lookingFor;
+my %lookingFor2;
+my %load;
+my %request;
+
+while (<>) {
+    s{\R\z}{};
+    s{^\d\d:\d\d:\d\d\.\d+\s+}{};
+    next unless s{^MODULE\s+\d+\s*:\s*}{};
+
+    if (m{^looking \s+ for \s+ "(.*?)"}x) {
+        $lookingFor{$1} += 1;
+    } elsif (m{^looking \s+ for \s+ \["(.*?)"\]}x) {
+        $lookingFor2{$1} += 1;
+    } elsif (m{^load \s+ "(.*?)" \s+ for \s+ module \s+ "(.*?)"}x) {
+        $load{$1} += 1;
+    } elsif (m{^Module\._load \s+ REQUEST \s+ (.*?) \s+ parent:}x) {
+        $request{$1} += 1;
+    }
+}
+
+# load "..."
+# load native module <>
+# looking for "<>" in [<>]
+# looking for [<>]
+# Module._load REQUEST .. parent: <>
+# RELATIVE: requested: <> from parent.id <>
+
+
+printf("lookingFor  %d\n", sum values %lookingFor);
+printf("lookingFor2 %d\n", sum values %lookingFor2);
+printf("load        %d\n", sum values %load);
+printf("request     %d\n", sum values %request);
