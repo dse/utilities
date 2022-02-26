@@ -28,7 +28,8 @@ sub dull {
     if (!scalar @stat) {
         print("# $filename: $!\n");
     }
-    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+        $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
     my $isSymlink = (($mode & 0170000) >> 12) == 10;
     my $readlink;
     if ($isSymlink) {
@@ -62,7 +63,8 @@ sub dull {
     }
     if (defined $mtime) {
         my @localtime = localtime($mtime);
-        my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = @localtime;
+        my ($sec, $min, $hour, $mday, $mon, $year,
+            $wday, $yday, $isdst) = @localtime;
         if (time() - $mtime < $sixMonths) {
             printf('%s %2d %02d:%02d ', $months[$mon], $mday, $hour, $min);
         } else {
