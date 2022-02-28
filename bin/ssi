@@ -5,11 +5,36 @@ use strict;
 use v5.10.0;
 
 use File::Basename qw(dirname);
+use Getopt::Long;
 
-local $/ = undef;
-while (<>) {
-    $_ = ssi($_, $ARGV);
-    print;
+our $pageTemplate = 0;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'h|help' => sub { usage(); exit(0); },
+    'p|page-template' => \$pageTemplate,
+) or die("Type '$0 --help' for help.\n");
+
+sub usage { print(<<"END"); }
+usage:
+    ssi [<option>] [<file> ...]
+options:
+    -h, --help
+    -p, --page-template
+END
+
+if ($pageTemplate) {
+    printPageTemplate();
+} else {
+    processSSI();
+}
+
+sub processSSI {
+    local $/ = undef;
+    while (<>) {
+        $_ = ssi($_, $ARGV);
+        print;
+    }
 }
 
 sub ssi {
@@ -25,6 +50,7 @@ sub ssi {
 
 sub include {
     my ($filename) = @_;
+    warn("include $filename\n");
     my $contents = getContents($filename);
     return ssi($contents, dirname($filename));
 }
@@ -32,7 +58,35 @@ sub include {
 sub getContents {
     my ($filename) = @_;
     my $fh;
-    open($fh, '<', $filename) or return '';
+    if (!open($fh, '<', $filename)) {
+        warn("ssi: $filename: $!\n");
+        return '';
+    }
+    warn("reading $filename\n");
     local $/ = undef;
-    return <$fh>;
+    my $result = <$fh>;
+    warn("got ", length($result), " bytes\n");
+    return $result;
 }
+
+sub printPageTemplate { print(<<"END"); }
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+        <title>{{ pageTitle }}</title>
+    </head>
+    <body>
+
+        <h1>
+            {{ pageTitle }}
+        </h1>
+
+        <!--#include virtual="index.inc.html" -->
+
+    </body>
+</html>
+END

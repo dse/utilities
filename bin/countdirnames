@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use File::Basename qw(dirname);
+
+my %dir;
+while (<>) {
+    s{\R\z}{};
+    $dir{dirname($_)} += 1;
+}
+
+foreach my $key (sort keys %dir) {
+    printf("%7d %s\n", $dir{$key}, $key);
+}
+

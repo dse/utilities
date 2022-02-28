@@ -72,9 +72,18 @@ cmd_window_title                        () { echo -n "${osc}2;${1}${st}"; }
 
 cmd_x_property                          () { echo -n "${osc}3;${1}${st}"; }
 
-cmd_font                                () { echo -n "${osc}50;${1}${st}"; }
+cmd_font () {
+    if (( $# == 1 )) ; then
+        echo -n "${osc}50;${1}${st}";
+    elif (( $# >= 2 )) ; then
+        echo -n "${osc}7777;${2}${st}"; # mintty
+        echo -n "${osc}50;${1}${st}";
+    fi
+}
+cmd_font_size () {
+    echo -n "${osc}7777;${1}${st}"; # mintty
+}
 cmd_query_font                                () { echo -n "${osc}50;?${st}"; }
-cmd_font_size                           () { echo -n "${osc}7777;${1}${st}"; } # mintty
 cmd_enable_font_shifting                () { echo -n "${csi}?35h"; }
 cmd_disable_font_shifting               () { echo -n "${csi}?35l"; }
 

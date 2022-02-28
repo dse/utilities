@@ -33,7 +33,7 @@ extract-file () {
         *.zip|*.ZIP)
             extract-zip-file "${file}"
             ;;
-        *.tar.gz)
+        *.tar.gz|*.tgz)
             extract-tar-gz-file "${file}"
             ;;
         *)
@@ -57,6 +57,7 @@ extract-zip-file () {
 extract-tar-gz-file () {
     local file="$1"
     local dir="${file%.[Tt][Aa][Rr].[Gg][Zz]}"
+    dir="${file%.[Tt][Gg][Zz]}"
     if ! safe-for-extraction "${dir}" ; then
         return 1
     fi

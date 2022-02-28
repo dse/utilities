@@ -1,0 +1,108 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Text::Tabs qw(expand);
+
+while (<>) {
+    s{\R\z}{};                  # safer chomp
+    my $line = $_;
+    if (s{^(\s*(\S+)\s+)}{}) {
+        my $sizeColumn = expand($1);
+        my $size = $2;
+        my $filename = $_;
+        dull($filename, $size, $sizeColumn);
+    }
+}
+
+my $sixMonths;
+my @months;
+BEGIN {
+    $sixMonths = 60 * 60 * 24 * (365 / 2);
+    @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+}
+sub dull {
+    my $error;
+    my ($filename, $duSize, $duSizeColumn) = @_;
+    my @stat = lstat($filename);
+    if (!scalar @stat) {
+        print("# $filename: $!\n");
+    }
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+        $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
+    my $isSymlink = (($mode & 0170000) >> 12) == 10;
+    my $readlink;
+    if ($isSymlink) {
+        eval { $readlink = readlink($filename) };
+        if (!defined $readlink) {
+            if ($@) {
+                print("# $filename: $@\n");
+            } else {
+                print("# $filename: $!\n");
+            }
+        }
+    }
+    printf('%-11s ', $duSizeColumn);
+    printf('%10s ', $ino // '__________');
+    printf('%4s ', $blocks // '____');
+    my $format_mode = defined $mode ? format_mode($mode) : undef;
+    printf('%-10s ', $format_mode // '__________');
+    printf('%3s ', $nlink // '___');
+    my $uname = defined $uid ? (getpwuid($uid))[0] : undef;
+    my $gname = defined $gid ? (getgrgid($gid))[0] : undef;
+    printf('%-8s ', $uname // $uid // '________');
+    printf('%-8s ', $gname // $gid // '________');
+    if (defined $mode) {
+        if ($mode & 0140000) {
+            printf('%9d ', $size);
+        } else {
+            printf('%4x,%4x ', ($dev & 0xffff0000 >> 16), ($dev & 0xffff));
+        }
+    } else {
+        print('_________ ');
+    }
+    if (defined $mtime) {
+        my @localtime = localtime($mtime);
+        my ($sec, $min, $hour, $mday, $mon, $year,
+            $wday, $yday, $isdst) = @localtime;
+        if (time() - $mtime < $sixMonths) {
+            printf('%s %2d %02d:%02d ', $months[$mon], $mday, $hour, $min);
+        } else {
+            printf('%s %2d %5d ', $months[$mon], $mday, $year + 1900);
+        }
+    } else {
+        print('___ __ _____ ');
+    }
+    print($filename);
+    if ($isSymlink) {
+        printf(' -> %s', $readlink);
+    }
+    print("\n");
+
+}
+
+my @perms;
+my @ftype;
+BEGIN {
+    @perms = qw(--- --x -w- -wx r-- r-x rw- rwx);
+    @ftype = qw(. p c ? d ? b ? - ? l ? s ? ? ?);
+}
+# stolen from Perl Power Tools
+sub format_mode {
+    my $mode = shift;
+    my $setids = ($mode & 07000)>>9;
+    my @permstrs = @perms[($mode&0700)>>6, ($mode&0070)>>3, $mode&0007];
+    my $ftype = $ftype[($mode & 0170000)>>12];
+    if ($setids) {
+        if ($setids & 01) {     # Sticky bit
+            $permstrs[2] =~ s/([-x])$/$1 eq 'x' ? 't' : 'T'/e;
+        }
+        if ($setids & 04) {     # Setuid bit
+            $permstrs[0] =~ s/([-x])$/$1 eq 'x' ? 's' : 'S'/e;
+        }
+        if ($setids & 02) {     # Setgid bit
+            $permstrs[1] =~ s/([-x])$/$1 eq 'x' ? 's' : 'S'/e;
+        }
+    }
+    return join '', $ftype, @permstrs;
+}

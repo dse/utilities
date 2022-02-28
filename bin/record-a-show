@@ -119,6 +119,9 @@ if (defined $ffmpeg) {
             '-i', $url, '-t', $maxTime, $filename);
 }
 
+
+# ffmpeg -y -loglevel warning -i <url> -t <seconds> <filename>
+
 warn("Executing: @cmd\n");
 exec(@cmd);
 
