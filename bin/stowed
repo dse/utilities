@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+usage () { cat <<EOF; }
+usage:
+    stowed [-f] [-h]
+options:
+    -f  force symlink removal
+    -h  print this message
+EOF
+
+main () {
+    rm=0
+    while getopts 'fh' OPTION ; do
+        case "${OPTION}" in
+            'f')
+                rm=1;;
+            'h')
+                usage; exit 0;;
+            '?')
+                exit 1;;
+        esac
+    done
+    if (( rm )) ; then
+        find_stow_links -exec rm -v {} +
+    else
+        find_stow_links -ls
+    fi
+}
+
+find_stow_links () {
+    find /usr/local \
+         \! \( -type d -path /usr/local/Cellar -prune \) \
+         \! \( -type d -path /usr/local/Homebrew -prune \) \
+         \! \( -type d -path /usr/local/Caskroom -prune \) \
+         -type l \
+         \! \( -lname */Cellar/* -prune \) \
+         \! \( -lname */Homebrew/* -prune \) \
+         \! \( -lname */Caskroom/* -prune \) \
+         -lname '*/stow/*' \
+         "$@"
+}
+
+#------------------------------------------------------------------------------
+main "$@"
