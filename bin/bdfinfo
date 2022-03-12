@@ -1,0 +1,53 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my %values;
+my $parse = 1;
+my $properties = 0;
+my $fileCount = 0;
+
+my $OLDARGV;
+while (<>) {
+    if (!defined $OLDARGV || $ARGV ne $OLDARGV) {
+        $OLDARGV = $ARGV;
+        $fileCount += 1;
+        rreset();
+    }
+    if ($parse) {
+        s{\R\z}{};
+        next if m{^\s*comment($|\s+)}i;
+        if (m{^\s*startproperties\s+\d+\s*$}i) {
+            $properties = 1;
+            next;
+        }
+        if (m{^\s*endproperties\s*$}i) {
+            $properties = 0;
+            next;
+        }
+        my ($name, $value) = split(' ', $_, 2);
+        if ($properties) {
+            # print("PROPERTIES.$name\n");
+            $values{"PROPERTIES.$name"}{$value} += 1;
+        } else {
+            # print("$name\n");
+            $values{$name}{$value} += 1;
+        }
+        if (m{^\s*chars\s+\d+\s*$}i) {
+            $parse = 0;
+        }
+    }
+}
+
+foreach my $key (sort keys %values) {
+    my $hash = $values{$key};
+    print("$key\n");
+    my @values = sort { $hash->{$b} <=> $hash->{$a} } keys %$hash;
+    splice(@values, 4);
+    printf("    %4d / %d  %s\n", $hash->{$_}, $fileCount, $_) foreach @values;
+}
+
+sub rreset {
+    $parse = 1;
+    $properties = 0;
+}

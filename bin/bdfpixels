@@ -1,0 +1,119 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use List::Util qw(sum);
+
+my %count;
+my $charname;
+my $encoding1;
+my $encoding2;
+my $bbxWidth;
+my $bbxHeight;
+my $bbxXoffset;
+my $bbxYoffset;
+my $bitmap;
+my $bitmapRawRow;
+my $bitmapRow;
+my $ascent;
+my $descent;
+my $pixelSize;
+
+my %nbits = qw(0 0 1 1 2 1 3 2 4 1 5 2 6 2 7 3 8 1 9 2 a 2 b 3 c 2 d 3 e 3 f 4);
+
+my $OLDARGV;
+while (<>) {
+    s{\R\z}{};
+    if (!defined $OLDARGV || $ARGV ne $OLDARGV) {
+        rreset();
+        $OLDARGV = $ARGV;
+    }
+    if (m{^\s*startchar\s+(.*?)\s*$}i) {
+        $charname = $1;
+        next;
+    }
+    if (m{^\s*encoding\s+(\S+)(?:\s+(\S+))?\s*$}i) {
+        $encoding1 = $1;
+        $encoding2 = $2;
+        next;
+    }
+    if (m{^\s*font_ascent\s+(\S+)\s*$}i) {
+        $ascent = $1;
+        next;
+    }
+    if (m{^\s*font_descent\s+(\S+)\s*$}i) {
+        $descent = $1;
+        next;
+    }
+    if (m{^\s*endchar\s*$}i) {
+        $charname = undef;
+        $encoding1 = undef;
+        $encoding2 = undef;
+        $bitmap = undef;
+        $bbxWidth = undef;
+        $bbxHeight = undef;
+        $bbxXoffset = undef;
+        $bbxYoffset = undef;
+        next;
+    }
+    if (m{^\s*bbx\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s*$}i) {
+        # print("$_\n");
+        $bbxWidth = $1;
+        $bbxHeight = $2;
+        $bbxXoffset = $3;
+        $bbxYoffset = $4;
+        next;
+    }
+    if (m{^\s*bitmap\s*$}i) {
+        $bitmap = 1;
+        $bitmapRawRow = 0;
+        next;
+    }
+    if ($bitmap) {
+        $bitmapRawRow += 1;
+        s{^\s*}{};
+        s{\s*$}{};
+        my @chars = split('', $_);
+        my @nbits = map { $nbits{lc($_)} } @chars;
+        my $nbits = sum(@nbits);
+        $bitmapRow = $bbxHeight + $bbxYoffset - $bitmapRawRow;
+        $count{$bitmapRow} += $nbits;
+        # printf("%-40s | %6s %6s | %3d | %s\n", $ARGV, $encoding1 // '-', $encoding2 // '-',
+        #        $bitmapRow, $_);
+    }
+}
+rreset();
+
+sub rreset {
+    if (defined $OLDARGV) {
+        print("$OLDARGV");
+        if (defined $ascent && defined $descent) {
+            printf(" (pixel height %d)", $ascent + $descent);
+        }
+        print("\n");
+        foreach my $key (sort { $b <=> $a } keys %count) {
+            my $in = defined $ascent && defined $descent && $key < $ascent && $key >= -$descent;
+            printf("    row %3d %s | %7d px ($ascent, $descent)",
+                   $key,
+                   $in ? '*' : ' ',
+                   $count{$key});
+            if ($key >= $ascent - 1) {
+                printf(" <ascent %d>", $key + 1);
+            } elsif ($key <= -$descent) {
+                printf(" <descent %d>", -$key);
+            }
+            print("\n");
+        }
+    }
+    %count = ();
+    $charname = undef;
+    $encoding1 = undef;
+    $encoding2 = undef;
+    $bbxWidth = undef;
+    $bbxHeight = undef;
+    $bbxXoffset = undef;
+    $bbxYoffset = undef;
+    $ascent = undef;
+    $descent = undef;
+    $pixelSize = undef;
+}

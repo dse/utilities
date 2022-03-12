@@ -1,0 +1,86 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+use Text::CSV_XS;
+use Data::Dumper qw(Dumper);
+use HTTP::Date qw(parse_date str2time);
+use POSIX qw(strftime);
+
+my $csv = Text::CSV_XS->new({ binary => 1, auto_diag => 1 });
+
+my $headerArray = $csv->getline(\*ARGV);
+my $fieldHash = {};
+my $fieldArray = [];
+
+for (my $i = 0; $i < scalar(@$headerArray); $i += 1) {
+    $fieldHash->{$headerArray->[$i]} = $i;
+    $fieldArray->[$i] = $headerArray->[$i];
+}
+
+my $shazams = [];
+while (my $rowArray = $csv->getline(\*ARGV)) {
+    my $rowHash;
+    for (my $i = 0; $i < scalar(@$fieldArray); $i += 1) {
+        $rowHash->{$fieldArray->[$i]} = $rowArray->[$i];
+    }
+    push(@$shazams, $rowHash);
+}
+
+preamble();
+foreach my $shazam (@$shazams) {
+    my $lat = $shazam->{latitude};
+    my $lon = $shazam->{longitude};
+    my $date = $shazam->{date};
+    next if $lon < -85.705 || $lon > -85.675;
+    next if $lat < 38.205 || $lat > 38.235;
+    last if $date lt '2021-06-26';
+    my $time_t = str2time($date);
+    my $stamp = strftime('%m/%d/%Y %H:%M', localtime($time_t));
+
+    print( "    <Placemark>\n");
+    printf("      <name>%s - %s (%s)</name>\n", encode_entities($shazam->{artist}), encode_entities($shazam->{title}), $stamp);
+    print( "      <visibility>1</visibility>\n");
+    print( "      <open>1</open>\n");
+    print( "      <Point>\n");
+    printf("        <coordinates>%s,%s</coordinates>\n", $lon, $lat);
+    print( "      </Point>\n");
+    print( "    </Placemark>\n");
+}
+postamble();
+
+sub encode_entities {
+    my ($string) = @_;
+    $string =~ s{&}{&amp;}g;
+    $string =~ s{<}{&lt;}g;
+    $string =~ s{>}{&gt;}g;
+    $string =~ s{"}{&quot;}g;
+    $string =~ s{'}{&apos;}g;
+    $string =~ s{[^ -~]}{'&#' . ord($&) . ';'}ge;
+    return $string;
+}
+
+sub preamble { print(<<"END"); }
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="document">
+  <name>My Shazams</name>
+  <open>1</open>
+  <Folder id="shazams">
+    <name>Shazams</name>
+    <open>1</open>
+END
+
+sub postamble { print(<<"END"); }
+  </Folder>
+</Document>
+</kml>
+END

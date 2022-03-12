@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+
+if (( $# < 2 )) ; then
+    >&2 echo "usage: difffind <dir1> <dir2>"
+    exit 1
+fi
+
+(cd "$1" && find | sort) >dir1.find.txt
+(cd "$2" && find | sort) >dir2.find.txt
+
+diff -u dir1.find.txt dir2.find.txt

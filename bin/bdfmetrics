@@ -1,0 +1,51 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use List::Util qw(sum);
+
+my $ascent;
+my $descent;
+my $pixelSize;
+my $pointSize;
+my $size;
+
+my $OLDARGV;
+while (<>) {
+    s{\R\z}{};
+    if (!defined $OLDARGV || $ARGV ne $OLDARGV) {
+        rreset();
+        $OLDARGV = $ARGV;
+    }
+    if (m{^\s*font_ascent\s+(\S+)\s*$}i) {
+        $ascent = $1;
+        next;
+    }
+    if (m{^\s*font_descent\s+(\S+)\s*$}i) {
+        $descent = $1;
+        next;
+    }
+    if (m{^\s*pixel_size\s+(\S+)\s*$}i) {
+        $pixelSize = $1;
+        next;
+    }
+    if (m{^\s*point_size\s+(\S+)\s*$}i) {
+        $pointSize = $1;
+        next;
+    }
+    if (m{^\s*size\s+(\S+)}i) {
+        $size = $1;
+        next;
+    }
+}
+rreset();
+
+sub rreset {
+    if (defined $OLDARGV) {
+        printf("%-40s | pointSize %3d | pixelSizeProp %3d | pointSizeProp %3d | ascentProp %3d | descentProp %3d\n",
+               $OLDARGV, $size // -1, $pixelSize // -1, $pointSize // -1, $ascent // -1, $descent // -1);
+    }
+    $ascent = undef;
+    $descent = undef;
+    $pixelSize = undef;
+}
