@@ -7,12 +7,14 @@ use utf8;
 use Getopt::Long;
 
 our $count = 0;
+our $size = 0;
 
 Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
-Getopt::Long::GetOptions('c|count' => \$count)
+Getopt::Long::GetOptions('c|count' => \$count, 's|size' => \$size)
   or die("Don't type '$0 --help' for help just yet.\n");
 
 my %count;
+my %size;
 while (<>) {
     s{\R\z}{};
     my $ext;
@@ -22,6 +24,7 @@ while (<>) {
     $ext //= '-';
     if ($count) {
         $count{$ext} += 1;
+        $size{$ext} += -s $_ if $size;
     } else {
         printf("%-15s %s\n", $ext, $_);
     }
@@ -29,6 +32,10 @@ while (<>) {
 
 if ($count) {
     foreach my $key (sort keys %count) {
-        printf("%-7d %s\n", $count{$key}, $key);
+        if ($size) {
+            printf("%-7d %-11d %s\n", $count{$key}, $size{$key}, $key);
+        } else {
+            printf("%-7d %s\n", $count{$key}, $key);
+        }
     }
 }
