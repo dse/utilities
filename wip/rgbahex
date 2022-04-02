@@ -1,0 +1,75 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+use List::Util qw(max min);
+use POSIX qw(round);
+use Regexp::Common;
+
+#------------------------------------------------------------------------------
+my $RGB_SEP = qr{(?:\s*,\s*|\s+)};
+my $RGB_ALPHA_SEP = qr{(?:\s*,\s*|\s*/\s*)};
+my $replacementCount = 0;
+while (<>) {
+    s{\R\z}{};
+    $replacementCount += s{rgb\(\s*
+                           (\S+)\s*
+                           ${RGB_SEP}
+                           (\S+)\s*
+                           ${RGB_SEP}
+                           (\S+)
+                           \s*\)}
+                          {sprintf('#%02x%02x%02x', rgb($1), rgb($2), rgb($3))}xige;
+    $replacementCount += s{rgba\(\s*
+                           (\S+)
+                           ${RGB_SEP}
+                           (\S+)
+                           ${RGB_SEP}
+                           (\S+)
+                           ${RGB_ALPHA_SEP}
+                           (\S+)
+                           \s*\)}
+                          {sprintf('rgba(#%02x%02x%02x, %s)', rgb($1), rgb($2), rgb($3), alpha($4))}xige;
+    print("$_\n");
+}
+
+warn("Replaced %d occurrence(s)\n", $replacementCount);
+
+sub rgb {
+    my ($component) = @_;
+    if ($component =~ m{^($RE{num}{real})%$}) {
+        my $percentage = $1 + 0;
+        return round(clamp($percentage, 0, 100) / 100 * 255);
+    }
+    if ($component =~ m{^($RE{num}{real})$}) {
+        return round(clamp($component, 0, 255));
+    }
+}
+
+sub alpha {
+    my ($alpha) = @_;
+    if ($alpha =~ m{^($RE{num}{real})%$}) {
+        my $percentage = $1 + 0;
+        return clamp($percentage / 100, 0, 1);
+    }
+    if ($alpha =~ m{^($RE{num}{real})$}) {
+        return clamp($alpha, 0, 1);
+    }
+}
+
+sub clamp {
+    my ($x, $min, $max) = @_;
+    if ($min > $max) {
+        ($min, $max) = ($max, $min);
+    }
+    return max($min, min($x, $max));
+}

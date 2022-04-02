@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+
+use HTML::Entities qw(decode_entities);
+
+local $/ = undef;
+while (<>) {
+    my $html = $_;
+    $html =~ s{\s+}{ }g;
+    while ($html =~ m{<table(\s+[^>]*)?>.*?</table>}g) {
+        my $table = $&;
+        $table =~ s{<table(\s+[^>]*)?>}{}g;
+        $table =~ s{<thead(\s+[^>]*)?>}{}g;
+        $table =~ s{<tbody(\s+[^>]*)?>}{}g;
+        $table =~ s{<tr(\s+[^>]*)?>}{\n}g;
+        $table =~ s{<t[dh](\s+[^>]*)?>}{\t}g;
+        $table =~ s{<br>}{ }g;
+        $table =~ s{<[^>]*>}{}g;
+        $table =~ s{^\t}{}gm;
+
+        my @lines = split(/\r?\n/, $table);
+
+        foreach my $line (@lines) {
+            $line =~ s{&nbsp;}{ }g;
+            my @split = split(/\t/, $line);
+            my $price = $split[4];
+            # print("$price\n");
+            if (defined $price && $price =~ m{^
+                                              \s*
+                                              \$?
+                                              \s*
+                                              (?<amount>[0-9,]+(?:\.[0-9]*)?)}x) {
+                my $amount = $+{amount};
+                $amount =~ s{[\$,]}{}g;
+                $split[4] = $amount;
+            }
+            $split[0] =~ s{^sale\.}{.}g;
+            print(join("\t", @split), "\n");
+        }
+    }
+}
+# sort -b -g -k5 -t$'\t'

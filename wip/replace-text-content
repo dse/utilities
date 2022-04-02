@@ -1,0 +1,67 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+local $/ = undef;
+while (<>) {
+    my $p = My::Parser->new();
+    $p->parse($_);
+    $p->eof();
+    print($p->{result});
+}
+
+package My::Parser {
+    use Data::Dumper qw(Dumper);
+    use HTML::Parser;
+    use vars '@ISA';
+    BEGIN {
+        unshift(@ISA, 'HTML::Parser');
+    }
+    sub init {
+        my ($self) = @_;
+        $self->SUPER::init();
+        $self->{result} = '';
+        $self->{leavealone} = 0;
+        return $self;
+    }
+    sub start {
+        my ($self, $tagname, $attr, $attrseq, $text) = @_;
+        $self->{result} .= $text;
+        if ($tagname eq 'style' || $tagname eq 'script') {
+            $self->{leavealone} += 1;
+        }
+    }
+    sub end {
+        my ($self, $tagname, $text) = @_;
+        $self->{result} .= $text;
+        if ($tagname eq 'style' || $tagname eq 'script') {
+            $self->{leavealone} -= 1;
+        }
+    }
+    sub text {
+        my ($self, $text, $is_cdata) = @_;
+        if ($self->{leavealone}) {
+            $self->{result} .= $text;
+            return;
+        }
+        $text =~ s{[^\s.,:;]+}{'x' x length($&)}ge;
+        $text =~ s{^\s+}{}s;
+        $text =~ s{\s+$}{}s;
+        $text =~ s{\s+}{ }gs;
+        $self->{result} .= $text;
+    }
+    sub comment {
+        my ($self, @tokens) = @_;
+        foreach my $token (@tokens) {
+            $self->{result} .= '<!--' . $token . '-->';
+        }
+    }
+    sub declaration {
+        my ($self, $text) = @_;
+        $self->{result} .= $text;
+    }
+    sub process {
+        my ($self, $token0, $text) = @_;
+        $self->{result} .= $text;
+    }
+}

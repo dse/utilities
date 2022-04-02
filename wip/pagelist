@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+#------------------------------------------------------------------------------
+use open IO => qw(:locale);
+use Encode::Locale;
+use Encode qw(decode);
+BEGIN {
+    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
+}
+
+#------------------------------------------------------------------------------
+use HTML::Entities qw(encode_entities);
+
+print("<ul>\n");
+
+while (<>) {
+    s{\R\z}{};
+    s{^\s+}{};
+    s{\s+$}{};
+    printf("    <li><a href=\"%s\">%s</a></li>\n",
+           encode_entities($_),
+           encode_entities($_));
+}
+
+print("</ul>\n");

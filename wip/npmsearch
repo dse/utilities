@@ -1,0 +1,81 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use JSON;
+use Text::Wrap qw(wrap fill);
+use URI::Escape qw(uri_escape);
+use File::Basename qw(dirname basename);
+use File::Path qw(make_path);
+use POSIX qw(round);
+
+our $FG_BOLD_WHITE = "\x1b[37;1m";
+our $FG_BOLD_YELLOW = "\x1b[33;1m";
+our $FG_GREEN      = "\x1b[32;22m";
+our $FG_RESET      = "\x1b[39;22m";
+our $RESET         = "\x1b[0m";
+
+my $data = cachedNpmSearchJson(@ARGV);
+
+foreach my $package (@$data) {
+    my $packageVersionColumnCount = 16;
+    my $packageNameColumnCount = $Text::Wrap::columns - $packageVersionColumnCount - 2;
+
+    printf("${FG_BOLD_WHITE}%-*s${FG_RESET}  ${FG_BOLD_YELLOW}%*s${FG_RESET}\n",
+           $packageNameColumnCount, $package->{name},
+           $packageVersionColumnCount, $package->{version});
+    print(fill('    ', '    ', $package->{description}), "\n");
+
+    my $url = eval { $package->{links}->{homepage} };
+    printf("    ${FG_GREEN}%s${FG_RESET}\n", $url) if defined $url;
+}
+
+our $json;
+BEGIN {
+    $json = JSON->new();
+}
+
+our $cache;
+our $cacheDir;
+BEGIN {
+    $cacheDir = "$ENV{HOME}/.cache/npmsearch/cache";
+    $cache = {};
+}
+
+sub cachedNpmSearchJson {
+    my (@args) = @_;
+    my $key = join(' ', @args);
+    if (exists $cache->{$key}) {
+        return $cache->{$key};
+    }
+    my $filename = sprintf('%s/%s', $cacheDir, uri_escape($key));
+    if (-f $filename && round((-M $filename) * 86400) < 60) {
+        my $fh;
+        if (open($fh, '<', $filename)) {
+            local $/ = undef;
+            my $jsonData = <$fh>;
+            close($fh);
+            my $data = $json->decode($jsonData);
+            $cache->{$key} = $data;
+            return $data;
+        }
+    }
+    my $data = npmSearchJson(@args);
+    $cache->{$key} = $data;
+    make_path(dirname($filename));
+    my $fh;
+    if (open($fh, '>', $filename)) {
+        print $fh $json->encode($data);
+    }
+    return $data;
+}
+
+sub npmSearchJson {
+    my (@args) = @_;
+    my $ph;
+    open($ph, '-|', 'npm', 'search', '--json', @args) or die("npm search: $!\n");
+    local $/ = undef;
+    my $jsonData = <$ph>;
+    close($ph);
+    return $json->decode($jsonData);
+}

@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+
+## c1 (8-bit) control characters
+
+index=$'\x1bD'
+ind=$'\x1bD'
+s8c1t_ind=$'\x84'
+#     Index (IND  is 0x84).
+
+next_line=$'\x1bE'
+nel=$'\x1bE'
+s8c1t_nel=$'\x84'
+#     Next Line (NEL  is 0x85).
+
+tab_set=$'\x1bH'
+hts=$'\x1bH'
+s8c1t_hts=$'\x88'
+#     Tab Set (HTS  is 0x88).
+
+reverse_index=$'\x1bM'
+ri=$'\x1bM'
+s8c1t_ri=$'\x8d'
+#     Reverse Index (RI  is 0x8d).
+
+single_shift_select_g2=$'\x1bN'
+ss2=$'\x1bN'
+s8c1t_ss2=$'\x8e'
+#     Single Shift Select of G2 Character Set (SS2  is 0x8e), VT220.
+#     This affects next character only.
+
+single_shift_select_g3=$'\x1bO'
+ss3=$'\x1bO'
+s8c1t_ss3=$'\x8f'
+#     Single Shift Select of G3 Character Set (SS3  is 0x8f), VT220.
+#     This affects next character only.
+
+device_control_string=$'\x1bP'
+dcs=$'\x1bP'
+s8c1t_dcs=$'\x90'
+#     Device Control String (DCS  is 0x90).
+
+start_of_guarded_area=$'\x1bV'
+spa=$'\x1bV'
+s8c1t_spa=$'\x96'
+#     Start of Guarded Area (SPA  is 0x96).
+
+end_of_guarded_area=$'\x1bW'
+epa=$'\x1bW'
+s8c1t_epa=$'\x97'
+#     End of Guarded Area (EPA  is 0x97).
+
+start_of_string=$'\x1bX'
+sos=$'\x1bX'
+s8c1t_sos=$'\x98'
+#     Start of String (SOS  is 0x98).
+
+return_terminal_id=$'\x1bZ'
+decid=$'\x1bZ'
+s8c1t_decid=$'\x9a'
+#     Return Terminal ID (DECID is 0x9a).  Obsolete form of CSI c  (DA).
+
+control_sequence_introducer=$'\x1b['
+csi=$'\x1b['
+s8c1t_csi=$'\x9b'
+#     Control Sequence Introducer (CSI  is 0x9b).
+
+string_terminator=$'\x1b\\'
+st=$'\x1b\\'
+s8c1t_st=$'\x9c'
+#     String Terminator (ST  is 0x9c).
+
+operating_system_command=$'\x1b]'
+osc=$'\x1b]'
+s8c1t_osc=$'\x9d'
+#     Operating System Command (OSC  is 0x9d).
+
+privacy_message=$'\x1b^'
+pm=$'\x1b^'
+s8c1t_pm=$'\x9e'
+#     Privacy Message (PM  is 0x9e).
+
+application_program_command=$'\x1b_'
+apc=$'\x1b_'
+s8c1t_apc=$'\x9f'
+#     Application Program Command (APC  is 0x9f).
+
+## single-character functions
+
+bel=$'\a'
+bs=$'\b'
+cr=$'\r'
+enq=$'\x05'
+ff=$'\f'
+lf=$'\n'
+si=$'\x0f'
+so=$'\x0e'
+sp=' '
+tab=$'\t'
+vt=$'\v'
+esc=$'\e'
+
+s7c1t="${esc} F"
+s8c1t="${esc} G"
+ansi1="${esc} L"
+ansi2="${esc} M"
+ansi3="${esc} N"
+dechdl="${esc}#3"
+decldl="${esc}#4"
+decswl="${esc}#5"
+decdwl="${esc}#6"
+decaln="${esc}#8"
+select_default_charset="${esc}%@"
+select_utf8_charset="${esc}%G"
+designate_g0_uk="${esc}(A"
+designate_g0_usascii="${esc}(B"
+designate_g0_finnish="${esc}(C"
+designate_g0_swedish="${esc}(H"
+designate_g0_german="${esc}(K"
+designate_g0_french_canadian="${esc}(Q"
+designate_g0_french="${esc}(R"
+designate_g0_italian="${esc}(Y"
+designate_g0_spanish="${esc}(Z"
+designate_g0_dutch="${esc}(4"
+designate_g0_greek="${esc}(\">"
+designate_g0_turkish="${esc}(%2"
+designate_g0_portugese="${esc}(%6"
+designate_g0_hebrew="${esc}(%="
+designate_g0_swiss="${esc}(="
+designate_g0_nowegian_danish="${esc}(E"
+
+     designate_g0_dec_special="${esc}(0"
+designate_g0_dec_supplemental="${esc}(<"
+   designate_g0_dec_technical="${esc}(>"
+      designate_g0_dec_hebrew="${esc}(\"4"
+       designate_g0_dec_greek="${esc}(\"?"
+     designate_g0_dec_turkish="${esc}(%0"
+    designate_g0_dec_graphics="${esc}(%5"
+    designate_g0_dec_cyrillic="${esc}(&4"
+        designate_g0_scs_nrcs="${esc}(%3"
+     designate_g0_dec_russian="${esc}(&5"
+
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"
+designate_g0_xxx="${esc}(X"

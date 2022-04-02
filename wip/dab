@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+if (( $# != 2 )) ; then
+    >&2 echo "usage: dab <dir1> <dir2>"
+    exit 1
+fi
+
+( cd "$1" && find . ) | sort > A.txt
+( cd "$2" && find . ) | sort > B.txt
+>&2 echo "Wrote A.txt and B.txt."

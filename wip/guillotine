@@ -1,0 +1,30 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Text::Tabs qw(expand);
+use List::Util qw(max);
+
+my $pattern = shift;
+my $maxindex = -1;
+
+my @lines;
+while (<>) {
+    s{\R\z}{};
+    $_ = expand($_);
+    my $index = index($_, $pattern);
+    if ($index == -1) {
+        push(@lines, { match => 0, text => $_ });
+    } else {
+        push(@lines, { match => 1, index => $index, text => $_ });
+        $maxindex = max($maxindex, $index);
+    }
+}
+
+foreach my $line (@lines) {
+    if ($line->{match}) {
+        print(substr($line->{text}, $line->{index}), "\n");
+    } else {
+        print((' ' x length($pattern)), $line->{text}, "\n");
+    }
+}

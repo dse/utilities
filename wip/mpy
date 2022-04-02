@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+markdown_py \
+    -x markdown.extensions.extra \
+    "$@"
