@@ -10,6 +10,9 @@ bs=$'\b'                        # backspace
 cr=$'\r'                        # carriage return
 lf=$'\n'                        # line feed
 ff=$'\f'                        # form feed
+enq=$'\x05'
+si=$'\x0f'
+so=$'\x0e'
 
 sp=' '                          # space
 
@@ -18,6 +21,40 @@ osc=$'\e]'                      # operating system command
 st=$'\e\\'                      # string terminator
 pm=$'\e^'                       # privacy message
 apc=$'\e_'                      # application program command
+
+index=$'\eD'
+next_line=$'\eE'
+tab_set=$'\eH'
+reverse_index=$'\eM'
+single_shift_select_g2=$'\eN'
+single_shift_select_g3=$'\eO'
+device_control_string=$'\eP'
+start_of_guarded_area=$'\eV'
+end_of_guarded_area=$'\eW'
+start_of_string=$'\eX'
+return_terminal_id=$'\eZ'
+control_sequence_introducer=$'\e['
+string_terminator=$'\e\\'
+operating_system_command=$'\e]'
+privacy_message=$'\e^'
+application_program_command=$'\e_'
+
+S8C1T_IND=$'\x84'
+S8C1T_NEL=$'\x85'
+S8C1T_HTS=$'\x88'
+S8C1T_RI=$'\x8d'
+S8C1T_SS2=$'\x8e'
+S8C1T_SS3=$'\x8f'
+S8C1T_DCS=$'\x90'
+S8C1T_SPA=$'\x96'
+S8C1T_EPA=$'\x97'
+S8C1T_SOS=$'\x98'
+S8C1T_DECID=$'\x9a'
+S8C1T_CSI=$'\x9b'
+S8C1T_ST=$'\x9c'
+S8C1T_OSC=$'\x9d'
+S8C1T_PM=$'\x9e'
+S8C1T_APC=$'\x9f'
 
 main () {
     if (( $# < 1 )) ; then
@@ -83,7 +120,7 @@ cmd_font () {
 cmd_font_size () {
     echo -n "${osc}7777;${1}${st}"; # mintty
 }
-cmd_query_font                                () { echo -n "${osc}50;?${st}"; }
+cmd_query_font                          () { echo -n "${osc}50;?${st}"; }
 cmd_enable_font_shifting                () { echo -n "${csi}?35h"; }
 cmd_disable_font_shifting               () { echo -n "${csi}?35l"; }
 
@@ -219,6 +256,12 @@ cmd_fullscreen_toggle                   () { echo -n "${csi}10;2t"; }
 # Select columns per page
 cmd_80                                  () { echo -n "${csi}80\$|"; }
 cmd_132                                 () { echo -n "${csi}132\$|"; }
+
+# status line
+cmd_select_status_line_type             () { echo -n "${csi}${1:-0}\$~"; }
+cmd_decssdt                             () { echo -n "${csi}${1:-0}\$~"; }
+cmd_select_active_status_display        () { echo -n "${csi}${1:-0}\$}"; }
+cmd_decsasd                             () { echo -n "${csi}${1:-0}\$}"; }
 
 # "returns", by echoing, a #rrggbb color from whatever you provided
 color () {
