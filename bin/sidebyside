@@ -4,53 +4,66 @@ use strict;
 
 use POSIX qw(floor);
 use Text::Tabs qw(expand);
+use Text::Wrap qw(wrap);
 
 if (scalar @ARGV < 2) {
     die("not enough arguments\n");
 }
 
-my $fh1;
-my $fh2;
+my @filenames = @ARGV;
 
-open($fh1, '<', $ARGV[0]) or die("$ARGV[0]: $!\n");
-open($fh2, '<', $ARGV[1]) or die("$ARGV[1]: $!\n");
+my @fh;
+foreach my $filename (@filenames) {
+    my $fh;
+    open($fh, '<', $filename) or die("$filename: $!\n");
+    push(@fh, $fh);
+}
 
 my $totalColumns = columns();
-my $columns = floor(($totalColumns - 2) / 2);
+my $columns = floor($totalColumns / scalar(@filenames)) - 1;
 
-my @line1;
-my @line2;
+my @allWrapped;
+foreach my $filename (@filenames) {
+    my $wrapped = wrap('', '', $filename);
+    my @wrapped = split(/\r?\n/, $wrapped);
+    push(@allWrapped, \@wrapped);
+}
+
+push(@$_, ('-' x $columns)) foreach @allWrapped;
+
+while (grep { scalar(@$_) } @allWrapped) {
+    my @cols = map { shift(@$_) // '' } @allWrapped;
+    print(join('|', map { sprintf('%-*s', $columns, $_) } @cols), "\n");
+}
+
+my @lineArrays = map { [] } @filenames;
 while (1) {
-    my $l1;
-    my $l2;
-    if (!scalar @line1) {
-        $l1 = nextLine($fh1);
-        if (defined $l1) {
-            my @l1 = fold($l1);
-            push(@line1, @l1);
+    foreach my $i (0 .. $#filenames) {
+        my @lines;
+        if (!scalar @{$lineArrays[$i]}) {
+            $lines[$i] = nextLine($fh[$i]);
+            if (defined $lines[$i]) {
+                my @folded = fold($lines[$i]);
+                push(@{$lineArrays[$i]}, @folded);
+            }
         }
-        $fh1 = undef if !defined $l1;
+        $fh[$i] = undef if !defined $lines[$i];
     }
-    if (!scalar @line2) {
-        $l2 = nextLine($fh2);
-        if (defined $l2) {
-            my @l2 = fold($l2);
-            push(@line2, @l2);
+    last if !grep { scalar(@$_) } @lineArrays;
+    foreach my $i (0 .. $#filenames) {
+        if ($i == $#filenames) {
+            if (scalar @{$lineArrays[$i]}) {
+                printf("%s\n", shift(@{$lineArrays[$i]}));
+            } else {
+                printf("\n");
+            }
+        } else {
+            if (scalar @{$lineArrays[$i]}) {
+                printf('%-*s|', $columns, shift(@{$lineArrays[$i]}));
+            } else {
+                printf('%-*s|', $columns, '');
+            }
         }
-        $fh2 = undef if !defined $l2;
-    }
-    if (!scalar @line1 && !scalar @line2) {
-        last;
-    }
-    if (scalar @line1) {
-        printf('%-*s|', $columns, shift(@line1));
-    } else {
-        printf('%-*s|', $columns, '');
-    }
-    if (scalar @line2) {
-        printf("%s\n", shift(@line2));
-    } else {
-        printf("\n");
     }
 }
 
