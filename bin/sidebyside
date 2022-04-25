@@ -1,0 +1,137 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use POSIX qw(floor);
+use Text::Tabs qw(expand);
+
+if (scalar @ARGV < 2) {
+    die("not enough arguments\n");
+}
+
+my $fh1;
+my $fh2;
+
+open($fh1, '<', $ARGV[0]) or die("$ARGV[0]: $!\n");
+open($fh2, '<', $ARGV[1]) or die("$ARGV[1]: $!\n");
+
+my $totalColumns = columns();
+my $columns = floor(($totalColumns - 2) / 2);
+
+my @line1;
+my @line2;
+while (1) {
+    my $l1;
+    my $l2;
+    if (!scalar @line1) {
+        $l1 = nextLine($fh1);
+        if (defined $l1) {
+            my @l1 = fold($l1);
+            push(@line1, @l1);
+        }
+        $fh1 = undef if !defined $l1;
+    }
+    if (!scalar @line2) {
+        $l2 = nextLine($fh2);
+        if (defined $l2) {
+            my @l2 = fold($l2);
+            push(@line2, @l2);
+        }
+        $fh2 = undef if !defined $l2;
+    }
+    if (!scalar @line1 && !scalar @line2) {
+        last;
+    }
+    if (scalar @line1) {
+        printf('%-*s|', $columns, shift(@line1));
+    } else {
+        printf('%-*s|', $columns, '');
+    }
+    if (scalar @line2) {
+        printf("%s\n", shift(@line2));
+    } else {
+        printf("\n");
+    }
+}
+
+sub fold {
+    my $line = shift;
+    my @result;
+    while (length($line) > $columns) {
+        push(@result, substr($line, 0, $columns));
+        $line = substr($line, $columns);
+    }
+    return (@result, $line);
+}
+
+sub nextLine {
+    my $fh = shift;
+    return if !defined $fh;
+    my $line = <$fh>;
+    if (!defined $line) {
+        close($fh);
+        $fh = undef;
+        return;
+    }
+    $line =~ s{\R\z}{};
+    $line = expand($line);
+    return $line;
+}
+
+our $hasIoctl;
+our $hasTermSize;
+BEGIN {
+    eval {
+        require 'sys/ioctl.ph';
+        $hasIoctl = 1;
+    };
+    eval {
+        require Term::Size;
+        $hasTermSize = 1;
+    };
+}
+
+sub columns {
+    if (exists $ENV{COLS}) {
+        return $ENV{COLS};
+    }
+    if (exists $ENV{COLUMNS}) {
+        return $ENV{COLUMNS};
+    }
+    if ($hasTermSize) {
+        my $columns = columnsFromTermSize();
+        return $columns if $columns;
+    }
+    if ($hasIoctl) {
+        my $columns = columnsFromIoctl();
+        return $columns if $columns;
+    }
+    my $columns = columnsFromTput();
+    return $columns if $columns;
+}
+
+sub columnsFromTermSize {
+    my $tty;
+    return unless open($tty, '+</dev/tty');
+    my $chars = Term::Size::chars($tty);
+    return $chars if $chars;
+    return;
+}
+
+sub columnsFromIoctl {
+    return unless defined &TIOCGWINSZ;
+    my $tty;
+    return unless open($tty, '+</dev/tty');
+    my $winsize;
+    return unless ioctl($tty, &TIOCGWINSZ, $winsize = '');
+    my ($row, $col, $xpixel, $ypixel) = unpack('S4', $winsize);
+    return $col if $col;
+    return;
+}
+
+sub columnsFromTput {
+    my $cols = `tput cols`;
+    $cols =~ s{\R\z}{};
+    return $cols if $cols;
+    return;
+}
