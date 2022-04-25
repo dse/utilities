@@ -5,6 +5,7 @@ use strict;
 use POSIX qw(floor);
 use Text::Tabs qw(expand);
 use Text::Wrap qw(wrap);
+use Data::Dumper qw(Dumper);
 
 if (scalar @ARGV < 2) {
     die("not enough arguments\n");
@@ -37,19 +38,22 @@ while (grep { scalar(@$_) } @allWrapped) {
 }
 
 my @lineArrays = map { [] } @filenames;
+my @lineCounter = map { 0 } @filenames;
 while (1) {
     foreach my $i (0 .. $#filenames) {
-        my @lines;
-        if (!scalar @{$lineArrays[$i]}) {
-            $lines[$i] = nextLine($fh[$i]);
-            if (defined $lines[$i]) {
-                my @folded = fold($lines[$i]);
-                push(@{$lineArrays[$i]}, @folded);
+        my $lineArray = $lineArrays[$i];
+        if (!scalar @$lineArray) {
+            my $line = nextLine($fh[$i]);
+            if (defined $line) {
+                $lineCounter[$i] += 1;
+                my @folded = fold($line);
+                push(@$lineArray, @folded);
+            } else {
+                $fh[$i] = undef;
             }
         }
-        $fh[$i] = undef if !defined $lines[$i];
     }
-    last if !grep { scalar(@$_) } @lineArrays;
+    last if !grep { defined $_ } @fh;
     foreach my $i (0 .. $#filenames) {
         if ($i == $#filenames) {
             if (scalar @{$lineArrays[$i]}) {
@@ -83,7 +87,6 @@ sub nextLine {
     my $line = <$fh>;
     if (!defined $line) {
         close($fh);
-        $fh = undef;
         return;
     }
     $line =~ s{\R\z}{};
