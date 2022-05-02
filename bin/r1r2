@@ -1,0 +1,59 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Term::ReadLine;
+
+my $w;
+my $h;
+my $r1;
+
+my $term = Term::ReadLine->new('r1r2');
+
+if (scalar @ARGV >= 3) {
+    ($w, $h, $r1) = @ARGV;
+
+    $w = eval($w);
+    die($@) if $@;
+
+    $h = eval($h);
+    die($@) if $@;
+
+    $r1 = eval($r1);
+    die($@) if $@;
+} elsif (-t 0 && -t 1 && !scalar @ARGV) {
+    $w = $term->readline('w - width?');
+    $w = eval($w);
+    die($@) if $@;
+
+    $h = $term->readline('h - height?');
+    $h = eval($h);
+    die($@) if $@;
+
+    $r1 = $term->readline('r1 - larger radius?');
+    $r1 = eval($r1);
+    die($@) if $@;
+} else {
+    die("invalid arguments\n");
+}
+
+printf("    w = %f\n", $w);
+printf("    h = %f\n", $h);
+printf("    r1 = %f\n", $r1);
+print("\n");
+
+if ($h < $w) {
+    ($h, $w) = ($w, $h);
+}
+
+print("A\n");
+
+if ($r1 < $h/2) {
+    die("r1 cannot be less than h/2\n");
+}
+
+print("B\n");
+
+my $r2 = ($w * $r1 - ($h ** 2 + $w ** 2) / 4) / (2 * $r1 - $h);
+
+printf("w = %f; h = %f; r1 = %f; r2 = %.12f\n", $w, $h, $r1, $r2);

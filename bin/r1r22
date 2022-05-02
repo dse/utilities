@@ -1,0 +1,85 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use Term::ReadLine;
+
+my $w;
+my $h;
+my $r1;
+
+my $term = Term::ReadLine->new('r1r2');
+
+if (scalar @ARGV >= 3) {
+    ($w, $h, $r1) = @ARGV;
+
+    $w = eval($w);
+    die($@) if $@;
+
+    $h = eval($h);
+    die($@) if $@;
+
+    $r1 = eval($r1);
+    die($@) if $@;
+} elsif (-t 0 && -t 1 && !scalar @ARGV) {
+    $w = $term->readline('w - width?');
+    $w = eval($w);
+    die($@) if $@;
+
+    $h = $term->readline('h - height?');
+    $h = eval($h);
+    die($@) if $@;
+
+    $r1 = $term->readline('r1 - larger radius?');
+    $r1 = eval($r1);
+    die($@) if $@;
+} else {
+    die("invalid arguments\n");
+}
+
+printf("    w = %f\n", $w);
+printf("    h = %f\n", $h);
+printf("    r1 = %f\n", $r1);
+print("\n");
+
+if ($h < $w) {
+    ($h, $w) = ($w, $h);
+}
+
+if ($r1 < $h/2) {
+    die("r1 cannot be less than h/2\n");
+}
+
+my $a = 1;
+my $b = 4 * $r1 - $h - 2 * $w;
+my $c = $h ** 2 / 4 + $w ** 2 - 2 * $w * $r1;
+
+my $r21 = (-$b + sqrt($b ** 2 - 4 * $a * $c)) / (2 * $a);
+my $r22 = (-$b - sqrt($b ** 2 - 4 * $a * $c)) / (2 * $a);
+
+printf("w = %f; h = %f; r1 = %f\nr21 = %.12f\nr22 = %.12f\n", $w, $h, $r1, $r21, $r22);
+
+
+# sin theta = h/2 - r2
+#             -----------
+#             r1 - r2
+#
+# cos theta = r1 - w + r2
+#             -----------
+#             r1 - r2
+#
+# (h/2 - r2) ^ 2     + (r1 - w + r2) ^ 2                       = (r1 - r2) ^ 2
+#
+# h^2/4 + r2^2 - hr2 + r1^2 + r2^2 + w^2 - 2wr1 - 2wr2 + 2r1r2 = r1^2 - 2r2r1 + r2^2
+#
+# h^2/4        - hr2        + r2^2 + w^2 - 2wr1 - 2wr2 + 4r1r2 = 0
+# [1]            [2]          [3]    [4]   [5]    [6]    [7]
+#
+# r2^2 + 4r1r2 - hr2 - 2wr2 + h^2/4 + w^2 - 2wr1 = 0
+# [3]    [7]     [2]   [6]    [1]     [4]   [5]
+#
+# a = 1
+#
+# b = 4r1 - h - 2w
+#
+# c = h^2/4 + w^2 - 2wr1
