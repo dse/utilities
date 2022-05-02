@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -o xtrace
+exec markdown_py \
+     -x markdown.extensions.fenced_code \
+     -x markdown.extensions.tables \
+     "$@"
