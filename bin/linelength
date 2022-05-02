@@ -22,7 +22,7 @@ our $printLineLengths;
 our $printPercentile;
 our $printLengthCounts;
 our $numberLines;
-our $printText;
+our $printText = 1;
 our $header;
 our $numberByFile;
 
