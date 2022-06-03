@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+salt1="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt2="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt3="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt4="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt5="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt6="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt7="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+salt8="$(dd if=/dev/urandom count=1 ibs=64 | sha1sum | awk '{print $1}')"
+
+
+cat <<END
+define( 'AUTH_KEY',         '$salt1' );
+define( 'SECURE_AUTH_KEY',  '$salt2' );
+define( 'LOGGED_IN_KEY',    '$salt3' );
+define( 'NONCE_KEY',        '$salt4' );
+define( 'AUTH_SALT',        '$salt5' );
+define( 'SECURE_AUTH_SALT', '$salt6' );
+define( 'LOGGED_IN_SALT',   '$salt7' );
+define( 'NONCE_SALT',       '$salt8' );
+END
+
