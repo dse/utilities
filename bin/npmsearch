@@ -47,13 +47,13 @@ EOF
 
 our $color = -t 1;
 
-our $FG_BOLD_WHITE  = $color ? "\x1b[37;1m" : '';
-our $FG_BOLD_YELLOW = $color ? "\x1b[33;1m" : '';
+our $FG_BOLD_WHITE  = $color ? "\x1b[37;1m"  : '';
+our $FG_BOLD_YELLOW = $color ? "\x1b[33;1m"  : '';
 our $FG_BOLD_PINK   = $color ? "\x1b[31;1m"  : '';
-our $FG_BOLD_BLUE   = $color ? "\x1b[34;1m" : '';
+our $FG_BOLD_BLUE   = $color ? "\x1b[34;1m"  : '';
 our $FG_GREEN       = $color ? "\x1b[32;22m" : '';
 our $FG_RESET       = $color ? "\x1b[39;22m" : '';
-our $RESET          = $color ? "\x1b[0m" : '';
+our $RESET          = $color ? "\x1b[0m"     : '';
 
 my $data = cachedNpmSearchJson(@ARGV);
 
