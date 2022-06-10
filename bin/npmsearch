@@ -3,36 +3,139 @@ use warnings;
 use strict;
 
 use JSON;
+use Getopt::Long;
 use Text::Wrap qw(wrap fill);
 use URI::Escape qw(uri_escape);
 use File::Basename qw(dirname basename);
 use File::Path qw(make_path);
 use POSIX qw(round);
+use POSIX qw(strftime);
+use Date::Parse qw(str2time);
 
-our $FG_BOLD_WHITE = "\x1b[37;1m";
-our $FG_BOLD_YELLOW = "\x1b[33;1m";
-our $FG_GREEN      = "\x1b[32;22m";
-our $FG_RESET      = "\x1b[39;22m";
-our $RESET         = "\x1b[0m";
+our $json = JSON->new()->pretty()->canonical()->ascii();
+
+our $optUrls = 0;
+our $optOneLine = 0;
+our $optDate = 0;
+our $optJson = 0;
+our $optMaintainers = 0;
+our $optSort;
+
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    "a|maintainers" => \$optMaintainers,
+    "u|urls" => \$optUrls,
+    "h|help" => sub { usage(); exit(0); },
+    "o|oneline|one-line" => \$optOneLine,
+    "d|date" => \$optDate,
+    "j|json" => \$optJson,
+    "s|sort=s" => \$optSort,
+    "a|all" => sub {
+        $optUrls = 1;
+        $optDate = 1;
+        $optMaintainers = 1;
+    },
+) or die("Type 'npmsearch --help' for help.\n");
+
+sub usage { print(<<EOF); }
+usage:
+    npmsearch [<option> ...] <keyword> ...
+options:
+    -h, --help
+    -u, --urls
+EOF
+
+our $color = -t 1;
+
+our $FG_BOLD_WHITE  = $color ? "\x1b[37;1m" : '';
+our $FG_BOLD_YELLOW = $color ? "\x1b[33;1m" : '';
+our $FG_BOLD_PINK   = $color ? "\x1b[31;1m"  : '';
+our $FG_BOLD_BLUE   = $color ? "\x1b[34;1m" : '';
+our $FG_GREEN       = $color ? "\x1b[32;22m" : '';
+our $FG_RESET       = $color ? "\x1b[39;22m" : '';
+our $RESET          = $color ? "\x1b[0m" : '';
 
 my $data = cachedNpmSearchJson(@ARGV);
+
+if (defined $optSort) {
+    if ($optSort eq 'name') {
+        @$data = sort { $a->{name} cmp $b->{name} } @$data;
+    } elsif ($optSort eq 'date') {
+        @$data = sort { $b->{date} cmp $a->{date} } @$data;
+    }
+}
+
+if ($optJson) {
+    print($json->encode($data));
+}
 
 foreach my $package (@$data) {
     my $packageVersionColumnCount = 16;
     my $packageNameColumnCount = $Text::Wrap::columns - $packageVersionColumnCount - 2;
+    if ($optDate) {
+        $packageNameColumnCount -= 12;
+        $packageVersionColumnCount += 12;
+        if ($packageNameColumnCount < 0) {
+            $packageNameColumnCount = 0;
+        }
+    }
 
-    printf("${FG_BOLD_WHITE}%-*s${FG_RESET}  ${FG_BOLD_YELLOW}%*s${FG_RESET}\n",
-           $packageNameColumnCount, $package->{name},
-           $packageVersionColumnCount, $package->{version});
-    print(fill('    ', '    ', $package->{description}), "\n");
+    my $name        = $package->{name};
+    my $version     = $package->{version};
+    my $description = $package->{description};
+    my $homePage    = eval { $package->{links}->{homepage} };
+    my $date = strftime('%Y-%m-%d', localtime(str2time($package->{date})));
 
-    my $url = eval { $package->{links}->{homepage} };
-    printf("    ${FG_GREEN}%s${FG_RESET}\n", $url) if defined $url;
+    my @maintainers = map { $_->{username} } @{$package->{maintainers}};
+    my $maintainers = join(' ', map { "=$_" } @maintainers);
+
+    if ($optOneLine) {
+        print(highlightPackageName($package->{name}, 40));
+        print('  ' . highlightPackageVersion($version, 12)) if defined $version;
+        if ($optDate) {
+            print('  ' . highlightDate($date, 10)) if defined $date;
+        }
+        print('  ' . highlightPackageDescription($description)) if defined $description;
+        print('  ' . highlightPackageHomePage($homePage)) if defined $homePage && $optUrls;
+        print('  ' . highlightMaintainers($maintainers)) if defined $maintainers && $optMaintainers;
+        print("\n");
+    } else {
+        print(highlightPackageName($package->{name}));
+        my $fill = $Text::Wrap::columns - length($package->{name}) - length($package->{version});
+        if ($optDate && defined $date) {
+            $fill -= 12;
+        }
+        if ($fill < 2) {
+            $fill = 2;
+        }
+        print(' ' x $fill);
+        print(highlightPackageVersion($version));
+        print('  ' . highlightDate($date)) if $optDate && defined $date;
+        print("\n");
+        print(fill('    ', '    ', $package->{description}), "\n");
+        if ($optMaintainers) {
+            print(highlightMaintainers(fill('    ', '    ', $maintainers)), "\n");
+        }
+        if ($optUrls) {
+            printf("    ${FG_GREEN}%s${FG_RESET}\n", $homePage) if defined $homePage;
+        }
+    }
 }
 
-our $json;
-BEGIN {
-    $json = JSON->new();
+sub highlightPackageName        { my ($s, $w) = @_; return highlightString($s, $FG_BOLD_WHITE, $w); }
+sub highlightPackageDescription { my ($s, $w) = @_; return highlightString($s, '', $w); }
+sub highlightPackageVersion     { my ($s, $w) = @_; return highlightString($s, $FG_BOLD_YELLOW, $w); }
+sub highlightPackageHomePage    { my ($s, $w) = @_; return highlightString($s, $FG_GREEN, $w); }
+sub highlightDate               { my ($s, $w) = @_; return highlightString($s, $FG_BOLD_BLUE, $w); }
+sub highlightMaintainers        { my ($s, $w) = @_; return highlightString($s, $FG_BOLD_PINK, $w); }
+
+sub highlightString {
+    my ($s, $highlight, $w) = @_;
+    my $result = $highlight . $s . $FG_RESET;
+    if (defined $w) {
+        $result .= (' ' x ($w - length($s)));
+    }
+    return $result;
 }
 
 our $cache;
