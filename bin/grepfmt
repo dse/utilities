@@ -7,6 +7,11 @@ while (<>) {
     s{\R\z}{};                  # safer chomp
     my $filename;
     my $lineNumber;
+    if (m{^Binary file .* matches}i) {
+        $lastFilename = undef;
+        print("$_\n");
+        next;
+    }
     if (s{^(?!\d+:)(?<filename>.*?):}{}x) {
         $filename = $+{filename};
         if ((!defined $lastFilename) || ($lastFilename ne $filename)) {
@@ -21,3 +26,48 @@ while (<>) {
     printf("%6d:", $lineNumber) if defined $lineNumber;
     print("$_\n");
 }
+
+# grep options:
+#     -A, -B, -C                        not yet
+#     -a, --text                        ok
+#     -b, --byte-offset                 not needed?
+#     -c, --count                       n/a
+#     --colour, --color                 ok
+#     -D, --devices                     ok
+#     -d, --directories                 ok
+#     -E, -F, -G, -P                    ok
+#     -e <pattern>                      ok
+#     --exclude                         ok
+#     -f <file>                         ok
+#     -H                                ok
+#     -h, --no-filename                 ok
+#     -I, --binary-file=without-match   ok
+#     -i, --ignore-case, -y             ok
+#     --include                         ok
+#     --include-dir                     ok
+#     -J, --bz2decompress               ok
+#     -L, --files-without-match         n/a
+#     -l, --files-with-matches          ok
+#     --label                           ok
+#     --mmap                            ok
+#     -M, --lzma                        ok
+#     -m, --max-count                   ok
+#     -n, --line-number                 ok
+#     --null                            n/a
+#     -O, -p, -R, -r, --recursive, -S   ok
+#     -o, --only-matching               ok
+#     -q, --quiet, --silent             n/a
+#     -s, --no-messages                 ok
+#     -U, --binary                      ok
+#     -u                                ok
+#     -V, --version                     n/a
+#     -v, --invert-match                ok
+#     -w, --word-regexp                 ok
+#     -x, --line-regexp                 ok
+#     -z, --null-data                   ok
+#     -X, --xz                          ok
+#     -Z, --decompress                  ok
+#     --binary-files=without-match      ok
+#     --binary-files=text               ok, but ick
+#     --binary-files=binary (default)   ??? ("Binary file xxx matches") lines
+#     --line-buffered                   ok
