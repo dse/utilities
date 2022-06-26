@@ -5,12 +5,18 @@ use strict;
 my $lastFilename;
 while (<>) {
     s{\R\z}{};                  # safer chomp
+    processLine($_);
+}
+
+sub processLine {
+    my ($line) = @_;
+    local $_ = $line;
     my $filename;
     my $lineNumber;
     if (m{^Binary file .* matches}i) {
         $lastFilename = undef;
         print("$_\n");
-        next;
+        return;
     }
     if (s{^(?!\d+:)(?<filename>.*?):}{}x) {
         $filename = $+{filename};
