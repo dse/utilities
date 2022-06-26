@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use open IO => qw(:locale);
+
+our $optHeadings = 0;
+our $optContext = 0;
+our $optLineNumber = 0;
+our $optInitialTab = 0;
+our $optKitty = 0;
+our $optNumberNonBlankLines = 0;   # a la kitty
+our $optColumn = 0;
+
+use Getopt::Long;
+Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'help'            => sub { usage(); exit(0); },
+    'context'         => \$optContext,
+    'line-number'     => \$optLineNumber,
+    'initial-tab'     => \$optInitialTab,
+    'kitty'           => \$optKitty,
+    'number-nonblank' => \$optNumberNonBlankLines,
+    'column=i'        => \$optColumn,
+    'headings'        => \$optHeadings,
+) or die("you can't type 'feformat --help' for help.\n");
+
+use Text::Tabs qw(expand);
+
+my $chunkSeparatorFlag;
+my $lastFilename;
+
+while (<>) {
+    s{\R\z}{};                       # safer chomp
+    if ($optContext && $_ eq '--') { # context output, chunk separator
+        $chunkSeparatorFlag = 1;
+        next;
+    }
+    my $prefix;                 # everything before the matched line
+    my $filename;
+    my $lineNumber;
+    my $contextChar;
+    if (s{^(?<prefix>
+              (?<filename>.+?)(?<contextChar>[-:])
+              \s*(?<lineNumber>\d+)(?<contextChar2>[-:])
+              (?:$|\t)
+          )}{}x ||
+        s{^(?<prefix>
+              \s*(?<lineNumber>\d+)(?<contextChar>[-:])
+              (?:$|\t)
+          )}{}x ||
+        s{^(?<prefix>
+              (?<filename>.*?)(?<contextChar>[-:])
+              (?:$|\t)
+          )}{}x) {
+        $contextChar = $+{contextChar};
+        $prefix      = $+{prefix};
+        $filename    = $+{filename};
+        $lineNumber  = $+{lineNumber};
+    } else {
+        print("$_\n");
+        next;
+    }
+    if ($optKitty || $optHeadings) {
+        if (!defined $lastFilename || $lastFilename ne $filename) {
+            $chunkSeparatorFlag = 0;
+            if ($optKitty) {
+                print("==> $filename <==\n");
+            } elsif ($optHeadings) {
+                print("$filename\n");
+            }
+            $lastFilename = $filename;
+        }
+    }
+    if ($chunkSeparatorFlag) {
+        if ($optKitty) {
+            print("\t--\n");
+        } elsif ($optHeadings) {
+            print("    --\n");
+        } else {
+            print("--\n");
+        }
+        $chunkSeparatorFlag = 0;
+    }
+    my $outputPrefix = '';
+    my $expand = 0;
+    if ($optKitty) {
+        if ($optNumberNonBlankLines) {
+            if (defined $contextChar && $contextChar ne ':') {
+                if ($contextChar eq '-') {
+                    $outputPrefix .= "\t";
+                } else {
+                    $outputPrefix .= sprintf("%6s\t", $contextChar);
+                }
+            } else {
+                $outputPrefix .= sprintf("%6d\t", $lineNumber);
+            }
+        } else {
+            if ($lineNumber) {
+                if ($optContext && defined $contextChar) {
+                    $outputPrefix .= sprintf("%6d%s\t", $lineNumber, $contextChar);
+                } else {
+                    $outputPrefix .= sprintf("%6d\t", $lineNumber);
+                }
+            } else {
+                if ($optContext) {
+                    if (defined $contextChar) {
+                        $outputPrefix .= sprintf("%s\t", $contextChar);
+                    } else {
+                        $outputPrefix .= "\t";
+                    }
+                }
+            }
+        }
+    } elsif ($optHeadings) {
+        $expand = 1;
+        $outputPrefix = '    ';
+        if ($lineNumber) {
+            $outputPrefix .= sprintf("%6d%s", $lineNumber, $contextChar);
+        }
+        if ($optInitialTab) { # must be immediately before matching line
+            if ($outputPrefix eq '    ') {
+                $outputPrefix = "\t";
+                $expand = 0;
+            } else {
+                $outputPrefix .= "\t";
+                $expand = 0;
+            }
+        }
+    } else {
+        $outputPrefix = $prefix;
+        $expand = 1;
+    }
+    if ($optColumn) {
+        $outputPrefix = expand($outputPrefix);
+        if (length($outputPrefix) < $optColumn) {
+            $outputPrefix .= (' ' x ($optColumn - length($outputPrefix)));
+        }
+        $outputPrefix .= '|';
+        $expand = 1;
+    }
+    if ($expand) {
+        $_ = expand($_);
+    }
+    print("$outputPrefix$_\n");
+}
