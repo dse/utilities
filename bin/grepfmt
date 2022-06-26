@@ -1,0 +1,23 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my $lastFilename;
+while (<>) {
+    s{\R\z}{};                  # safer chomp
+    my $filename;
+    my $lineNumber;
+    if (s{^(?!\d+:)(?<filename>.*?):}{}x) {
+        $filename = $+{filename};
+        if ((!defined $lastFilename) || ($lastFilename ne $filename)) {
+            printf("%s\n", $filename);
+            $lastFilename = $filename;
+        }
+    }
+    if (s{^\s*(?<lineNumber>\d+):}{}x) {
+        $lineNumber = $+{lineNumber};
+    }
+    print('    ');
+    printf("%6d:", $lineNumber) if defined $lineNumber;
+    print("$_\n");
+}
