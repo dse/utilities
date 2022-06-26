@@ -33,47 +33,91 @@ sub processLine {
     print("$_\n");
 }
 
-# grep options:
-#     -A, -B, -C                        not yet
-#     -a, --text                        ok
-#     -b, --byte-offset                 not needed?
-#     -c, --count                       n/a
-#     --colour, --color                 ok
-#     -D, --devices                     ok
-#     -d, --directories                 ok
-#     -E, -F, -G, -P                    ok
-#     -e <pattern>                      ok
-#     --exclude                         ok
-#     -f <file>                         ok
-#     -H                                ok
-#     -h, --no-filename                 ok
-#     -I, --binary-file=without-match   ok
-#     -i, --ignore-case, -y             ok
-#     --include                         ok
-#     --include-dir                     ok
-#     -J, --bz2decompress               ok
-#     -L, --files-without-match         n/a
-#     -l, --files-with-matches          ok
-#     --label                           ok
-#     --mmap                            ok
-#     -M, --lzma                        ok
-#     -m, --max-count                   ok
-#     -n, --line-number                 ok
-#     --null                            n/a
-#     -O, -p, -R, -r, --recursive, -S   ok
-#     -o, --only-matching               ok
-#     -q, --quiet, --silent             n/a
-#     -s, --no-messages                 ok
-#     -U, --binary                      ok
-#     -u                                ok
-#     -V, --version                     n/a
-#     -v, --invert-match                ok
-#     -w, --word-regexp                 ok
-#     -x, --line-regexp                 ok
-#     -z, --null-data                   ok
-#     -X, --xz                          ok
-#     -Z, --decompress                  ok
-#     --binary-files=without-match      ok
-#     --binary-files=text               ok, but ick
-#     --binary-files=binary (default)   ??? ("Binary file xxx matches") lines
-#     --line-buffered                   ok
+=head1 NAME
+
+C<grepfmt>, the grep output beautifier
+
+=head1 SYNOPSIS
+
+grep <arguments> | grepfmt
+
+=head1 DESCRIPTION
+
+C<grepfmt> beautifies grep's output by printing each filename once and
+indenting each matching line.
+
+C<grepfmt> handles the output of grep when it is invoked with most
+options.  See L</CAVEATS>.
+
+=head1 EXAMPLE
+
+    $ grep verisi /usr/share/dict/* | grepfmt
+    /usr/share/dict/web2
+        inverisimilitude
+        verisimilar
+        verisimilarly
+        verisimilitude
+        verisimilitudinous
+        verisimility
+    /usr/share/dict/words
+        inverisimilitude
+        verisimilar
+        verisimilarly
+        verisimilitude
+        verisimilitudinous
+        verisimility
+
+=head1 CAVEATS
+
+If grep is invoked with both C<--line-number> and C<--byte-offset>,
+C<grepfmt> will treat the byte offset as part of the matching line.
+
+C<grepfmt> does not yet support grep's output if it is invoked with
+any of the context options: C<-A>, C<--after-context>, C<-B>,
+C<--before-context>, C<-C>, C<--context>.  I may remedy this in the
+future.
+
+C<grepfmt>'s output is undefined if grep is invoked with any of the
+list of options below.  In these cases, C<grepfmt> has no intended
+purpose or forseen utility.
+
+=over 4
+
+=item *
+
+-c, --count
+
+=item *
+
+-L, --files-without-match
+
+=item *
+
+-l, --files-with-match
+
+=item *
+
+--null
+
+=item *
+
+-q, --quiet, --silent
+
+=item *
+
+-V, --version
+
+=back
+
+=head1 BUGS
+
+None of which your author is aware.
+
+=head1 AUTHOR
+
+Darren Embry (C<dse@webonastick.com>)
+
+=head1 LICENSE
+
+You can use and distribute this program under the same terms as Perl
+itself.
