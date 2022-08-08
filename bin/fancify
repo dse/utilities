@@ -1,0 +1,80 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my $fs = "\t";
+
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_compat bundling no_ignore_case));
+
+my $limit;
+my $trim;
+
+Getopt::Long::GetOptions(
+    '1' => sub { $limit = 1; },
+    '2' => sub { $limit = 2; },
+    '3' => sub { $limit = 3; },
+    '4' => sub { $limit = 4; },
+    '5' => sub { $limit = 5; },
+    '6' => sub { $limit = 6; },
+    '7' => sub { $limit = 7; },
+    '8' => sub { $limit = 8; },
+    '9' => sub { $limit = 9; },
+    't|trim' => \$trim,
+);
+
+my @prevPrefix;
+while (<>) {
+    s{\R\z}{};
+    my @prefix;
+    my $space;
+    if (m{^\s*}) {
+        $space = $&;
+    }
+    while (s{^((\s*).*?)\Q$fs\E}{}) {
+        push(@prefix, $1);
+        if ($limit && scalar @prefix == $limit) {
+            last;
+        }
+    }
+    my $i = 0;
+    for (; $i < scalar @prefix && $i < scalar @prevPrefix; $i += 1) {
+        if (!defined $prevPrefix[$i] || $prevPrefix[$i] ne $prefix[$i]) {
+            last;
+        }
+    }
+    for (; $i < scalar @prefix; $i += 1) {
+        print("\t" x $i);
+        print($prefix[$i], "\n");
+    }
+    print($space);
+    print("\t" x $i);
+
+    if ($trim) {
+        s/^\s*//;
+        s/\s*$//;
+    }
+
+    print("$_\n");
+    @prevPrefix = @prefix;
+}
+
+# INPUT:  a <SEP> b <SEP> c
+#
+# OUTPUT: a
+#             b
+#                 c
+#
+# INPUT:  a <SEP> b <SEP> d
+#
+# OUTPUT:         d
+#
+# INPUT:  a <SEP> b <SEP> e
+#
+# OUTPUT:         e
+#
+# INPUT:  a <SEP> c <SEP> f <SEP> g
+#
+# OUTPUT:     c
+#                 f
+#                     g
