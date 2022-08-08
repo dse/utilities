@@ -88,12 +88,19 @@ main () {
         exit 0
     fi
 
+    local -a files
+    if (( $# )) ; then
+        files=("$@")
+    else
+        files=(".")
+    fi
+
     if (( dry_run )) ; then
         declare -a files
         if (( git )) ; then
-            X git grep -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+            X git grep -E -l -I "${git_grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}" | mapfile -t files
         else
-            X grep -r -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+            X grep -r -E -l -I "${grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}" | mapfile -t files
         fi
         X perl -n -e 's{\R\z}{}; $orig = $_;' "${perl_substitutions[@]}" \
           -e 'print("< $orig\n> $_\n") if $orig ne $_;' \
@@ -106,23 +113,23 @@ main () {
     if (( force )) ; then
         declare -a files
         if (( git )) ; then
-            X git grep -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+            X git grep -E -l -I "${git_grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}" | mapfile -t files
         else
-            X grep -r -E -l -I "${grep_pattern_args[@]}" | mapfile -t files
+            X grep -r -E -l -I "${grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}" | mapfile -t files
         fi
         X perl -p -i"${ext}" "${perl_substitutions[@]}" "${files[@]}"
         return
     fi
 
     if (( git )) ; then
-        X git grep -E -I "${git_grep_options[@]}" "${grep_pattern_args[@]}"
+        X git grep -E -I "${git_grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}"
     else
-        X grep -r -E -I "${grep_options[@]}" "${grep_pattern_args[@]}"
+        X grep -r -E -I "${grep_options[@]}" "${grep_pattern_args[@]}" "${files[@]}"
     fi
 }
 
 usage () { cat <<EOF; }
-usage: redact [<option> ...]
+usage: redact [<option> ...] [<dir> ...]
     -p  print grep patterns
     -P  print perl substitution code
     -l  print filenames instead of occurrences
