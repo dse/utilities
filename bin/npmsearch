@@ -11,6 +11,7 @@ use File::Path qw(make_path);
 use POSIX qw(round);
 use POSIX qw(strftime);
 use Date::Parse qw(str2time);
+use Term::ReadKey qw(GetTerminalSize);
 
 our $json = JSON->new()->pretty()->canonical()->ascii();
 
@@ -67,6 +68,13 @@ if (defined $optSort) {
 
 if ($optJson) {
     print($json->encode($data));
+}
+
+if (-t 1) {
+    my $width = getTerminalWidth();
+    if (defined $width) {
+        $Text::Wrap::columns = $width - 1;
+    }
 }
 
 foreach my $package (@$data) {
@@ -181,4 +189,22 @@ sub npmSearchJson {
     my $jsonData = <$ph>;
     close($ph);
     return $json->decode($jsonData);
+}
+
+sub getTerminalWidth {
+    # Term::ReadKey ain't installed by default; h/t
+    # https://stackoverflow.com/a/1782149
+    require 'sys/ioctl.ph';
+    if (!defined &TIOCGWINSZ) {
+        return;
+    }
+    if (!open(TTY, "+</dev/tty")) {
+        return;
+    }
+    my $winsize;
+    if (!ioctl(TTY, &TIOCGWINSZ, $winsize='')) {
+        return;
+    }
+    my ($row, $col, $xpixel, $ypixel) = unpack('S4', $winsize);
+    return $col;
 }
