@@ -7,5 +7,5 @@ use Image::Size;
 
 foreach my $filename (@ARGV) {
     my ($width, $height) = imgsize($filename);
-    printf("%5d %5d %s\n", $width, $height, $filename);
+    printf("%5d %5d %8d %s\n", $width, $height, -s $filename, $filename);
 }
