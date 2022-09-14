@@ -1,0 +1,61 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use HTML::Entities qw(encode_entities);
+use Data::Dumper qw(Dumper);
+
+# adds and implements the following special inline syntax
+#
+#     [[ <data> ]]
+#
+# where:
+#
+#     <data> becomes inline monospace text similar to <code>.
+#
+#     Any occurrences of a `<varname>` within are replaced with an
+#     italicized varname.
+
+$/ = "";                        # paragraphs
+
+my $RX_VARCODE = qr{(?<open>\[\[\s+)
+                    (?!\]\])
+                    (?<data>\S.*?)
+                    (?<close>\s+\]\])}xs;
+
+while (<>) {
+    print(varcodeline($_));
+}
+
+sub varcodeline {
+    my ($data) = @_;
+    my @data = split(/$RX_VARCODE/, $data);
+    my $result = '';
+    my $count = 0;
+    while (scalar @data) {
+        ++$count;
+        my $text = shift(@data);
+        if ($count && scalar @data) {
+            $text =~ s{\R}{<br>$&}gs; # newline occurring between [[ whatever ]] and [[ whatever ]]
+        }
+        $result .= $text;
+        last if !scalar @data;
+        my ($open, $varcode, $close) = splice(@data, 0, 3);
+        $result .= varcode($open, $varcode, $close);
+    }
+    return $result;
+}
+
+sub varcode {
+    my ($open, $varcode, $close) = @_;
+    my @varcode = split(/(?:<([^<>]+)>)/, $varcode);
+    my $result = '';
+    while (scalar @varcode) {
+        my $tt = shift(@varcode);
+        $result .= "<tt>$tt</tt>" if $tt ne '';
+        last if !scalar @varcode;
+        my $var = shift(@varcode);
+        $result .= sprintf("<var>%s</var>", encode_entities($var)) if $var ne '';
+    }
+    return $result;
+}
