@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# shove left the contents of standard input by as many spaces as
+# needed until at least one line starts with a non-whitespace
+# character.
+
+use Text::Tabs qw(expand);
+use List::Util qw(min);
+
+my $minspaces;
+my @lines;
+while (<>) {
+    s{\R\z}{};                  # safer chomp.
+    $_ = expand($_);            # 'round these parts, we expand tabs.
+    if ($_ !~ m{\S}) {          # blank or whitespace only.
+        push(@lines, $_);
+        next;
+    }
+    if (m{^( +)}) {             # begins with at least one space.
+        my $sp = length($1);    # how many spaces?
+        push(@lines, $_);
+        if (!defined $minspaces) {
+            $minspaces = $sp;
+        } else {
+            $minspaces = min($minspaces, $sp);
+        }
+        next;
+    }
+
+    # At this point we had a line starting with a non-whitespace
+    # character; can't shove to the left.
+    print("$_\n") foreach (@lines, $_);
+    while (<>) {
+        s{\R\z}{};              # safer chomp.
+        print("$_\n");
+    }
+    exit(0);
+}
+
+foreach (@lines) {
+    s{^[ ]{,$minspaces}}{};
+    print("$_\n");
+}
