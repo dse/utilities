@@ -1,0 +1,18 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use XML::Simple qw(:strict);
+use JSON qw(encode_json);
+use List::Util qw(all);
+
+my $json = JSON->new()->pretty()->canonical();
+local $/ = undef;
+while (<>) {
+    my $ref = XMLin(
+        $_,
+        ForceArray => [],
+        KeyAttr => {},
+    );
+    print($json->encode($ref));
+}
