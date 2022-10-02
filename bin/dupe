@@ -17,6 +17,7 @@ our $run;
 our $help;
 our $man;
 
+our $verbose;
 our $minSize = 2 ** 18;
 our $progress;
 our $action = $PROGNAME;
@@ -33,6 +34,7 @@ Getopt::Long::GetOptions(
     'l|list'                    => \$list,
     's|size|minsize|min-size=s' => \&setMinSize,
     'help|?+'                   => \$help,
+    'v|verbose+'                => \$verbose,
     'man'                       => \$man,
 ) or pod2usage(-exitval => 2);
 pod2usage(-verbose => $help - 1, -exitval => 0) if $help;
@@ -52,6 +54,7 @@ if (!$dryRun && !$list && !$run && !$help && !$man) {
          [-r|--run]                                 \
          [-l|--list]                                \
          [-s|--size|--minsize|--min-size]=<bytes>   \
+         [-v|--verbose]                             \
          [<dir> ...]
     dupe [-'?'|--help]
 
@@ -71,7 +74,7 @@ if ($run || $dryRun) {
 }
 
 sub find {
-    warn("Finding files ...\n");
+    warn("Finding files ...\n") if $verbose;
     $progress = Progress->new();
     $progress->{message}->[0] = '%s total file(s)';
     $progress->{message}->[1] = '%s candidate file(s)';
@@ -108,7 +111,7 @@ sub addFile {
     $ino{$filename} = $ino;
 }
 sub listCandidates {
-    warn("Listing candidate files to remove...\n");
+    warn("Listing candidate files to remove...\n") if $verbose;
     foreach my $size (sort { $b <=> $a } keys %filenames) {
         foreach my $dev (sort { $b <=> $a } keys %{$filenames{$size}}) {
             my @ino = keys %{$filenames{$size}{$dev}};
@@ -125,7 +128,7 @@ sub listCandidates {
     }
 }
 sub linkDupes {
-    warn("Removing large duplicate files...\n");
+    warn("Removing large duplicate files...\n") if $verbose;
     foreach my $size (sort { $b <=> $a } keys %filenames) {
         foreach my $dev (sort { $b <=> $a } keys %{$filenames{$size}}) {
             my @ino = keys %{$filenames{$size}{$dev}};
@@ -136,8 +139,9 @@ sub linkDupes {
             my @filenames = map { $filenames{$size}{$dev}{$_}->[0] } @ino;
 
             foreach my $filename (@filenames) {
-                warn("checksumming $filename ...\n") if -t 2;
+                warn("checksumming $filename ...\n") if -t 2 && $verbose;
                 $sum{$filename} = sum($filename);
+                printf("%s  %s\n", $sum{$filename}, $filename) if $verbose >= 2;
             }
 
             # @filenames is now remaining filenames from the list each
@@ -150,14 +154,19 @@ sub linkDupes {
                 my $ino = $ino{$filename};
                 my @linkFilenames = @{$filenames{$size}{$dev}{$ino}};
                 foreach my $linkFilename (@linkFilenames) {
-                    if ($dryRun) {
+                    if ($dryRun || $verbose) {
                         printf("rm %s &&\n", shell_quote($linkFilename));
-                        printf("ln %s \\\n   %s\n", shell_quote($mainFilename), shell_quote($linkFilename));
-                    } else {
+                    }
+                    if (!$dryRun) {
                         if (!unlink($linkFilename)) {
                             warn("dupe: unlink(%s): %s\n", dumper($linkFilename), "$!");
                             next;
                         }
+                    }
+                    if ($dryRun || $verbose) {
+                        printf("ln %s \\\n   %s\n", shell_quote($mainFilename), shell_quote($linkFilename));
+                    }
+                    if (!$dryRun) {
                         if (!link($mainFilename, $linkFilename)) {
                             warn("dupe: link(%s,\n           %s): %s\n", dumper($mainFilename), dumper($linkFilename), "$!");
                             next;
@@ -311,6 +320,11 @@ Specify twice to describe each option and argument.
 =item --man (action)
 
 Print the full manual page.
+
+=item -v, --verbose
+
+Increase verbosity level.  Specifying multiple times further increases
+verbosity.
 
 =back
 
