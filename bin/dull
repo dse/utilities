@@ -1,17 +1,19 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use locale;
+## no critic 'ProhibitLeadingZeros'
 
 use Text::Tabs qw(expand);
 
 while (<>) {
     s{\R\z}{};                  # safer chomp
-    my $line = expand($_);
     my $prefix = '';
-    if (s{^\s*(?:\d+(\.\d+)?[KMGT]?\s+)?}{}x) {
+    if (s{^([^\t ]*)[ ]*\t}{}) {     # du output
         $prefix = $&;
+        print($prefix);
     }
-    dull($_, $prefix);
+    dull($_);
 }
 
 my $sixMonths;
@@ -22,59 +24,36 @@ BEGIN {
 }
 sub dull {
     my $error;
-    my ($filename, $dusize) = @_;
+    my ($filename) = @_;
     my @stat = lstat($filename);
     if (!scalar @stat) {
-        printf STDERR ("# $filename: $!\n");
-    } elsif (scalar @stat < 13 || grep { !defined } @stat) {
-        printf STDERR ("# $filename: ?: %s\n", join(', ', map { $_ // '-' } @stat));
+        warn(sprintf("%s: %s\n", $filename, "$!"));
+        next;
     }
-    my ($dev, $ino, $mode, $nlink, $uid, $gid,
-        $rdev, $size, $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
     my $isSymlink = (($mode & 0170000) >> 12) == 10;
     my $readlink;
     if ($isSymlink) {
         eval { $readlink = readlink($filename) };
-        if (!defined $readlink) {
-            if ($@) {
-                print STDERR ("# $filename: $@\n");
-            } else {
-                print STDERR ("# $filename: $!\n");
-            }
-        }
+        $readlink //= "<readlink failed>";
     }
-    print($dusize);
-    printf('%10s ', $ino // '__________'); # [0]
-    printf('%4s ', $blocks // '____');     # [1]
-    my $format_mode = defined $mode ? format_mode($mode) : undef;
-    printf('%-10s ', $format_mode // '__________'); # [2]
-    printf('%3s ', $nlink // '___');                # [3]
-    my $uname = defined $uid ? (getpwuid($uid))[0] : undef;
-    my $gname = defined $gid ? (getgrgid($gid))[0] : undef;
-    printf('%-8s ', $uname // $uid // '________'); # [4]
-    printf('%-8s ', $gname // $gid // '________'); # [5]
-    if (defined $mode) {
-        if ($mode & 0140000) {
-            printf('%9d ', $size); # [6]
-        } else {
-            printf('%4x,%4x ', ($dev & 0xffff0000 >> 16), ($dev & 0xffff)); # [6]
-        }
+    my $format_mode = format_mode($mode);
+    my $user  = defined $uid ? (eval { (getpwuid($uid))[0] } // $uid) : '';
+    my $group = defined $gid ? (eval { (getgrgid($gid))[0] } // $gid) : '';
+    printf('%10d %4d %-10s %3d %-8s %-8s ', $ino, $blocks, $format_mode, $nlink, $user, $group); # output fields [0] through [5]
+    if ($mode & 0140000) {
+        printf('%9d ', $size);  # [6]
     } else {
-        print('_________ ');    # [6]
+        printf('%4x,%4x ', ($dev & 0xffff0000 >> 16), ($dev & 0xffff)); # [6]
     }
-    if (defined $mtime) {
-        my @localtime = localtime($mtime);
-        my ($sec, $min, $hour, $mday, $mon, $year,
-            $wday, $yday, $isdst) = @localtime;
-        if (time() - $mtime < $sixMonths) {
-            printf('%s %2d %02d:%02d ', $months[$mon], $mday, $hour, $min); # [7,8,9]
-        } else {
-            printf('%s %2d %5d ', $months[$mon], $mday, $year + 1900); # [7,8,9]
-        }
+    my @localtime = localtime($mtime);
+    my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = @localtime;
+    if (time() - $mtime < $sixMonths) {
+        printf('%s %2d %02d:%02d ', $months[$mon], $mday, $hour, $min); # [7,8,9]
     } else {
-        print('___ __ _____ '); # [7,8,9]
+        printf('%s %2d %5d ', $months[$mon], $mday, $year + 1900); # [7,8,9]
     }
-    print($filename);           # [10...]
+    print($filename);           # [10]
     if ($isSymlink) {
         printf(' -> %s', $readlink);
     }
@@ -91,9 +70,9 @@ BEGIN {
 # stolen from Perl Power Tools
 sub format_mode {
     my $mode = shift;
-    my $setids = ($mode & 07000)>>9;
-    my @permstrs = @perms[($mode&0700)>>6, ($mode&0070)>>3, $mode&0007];
-    my $ftype = $ftype[($mode & 0170000)>>12];
+    my $setids = ($mode & 07000) >> 9;
+    my @permstrs = @perms[($mode & 0700) >> 6, ($mode & 0070) >> 3, $mode & 0007];
+    my $ftype = $ftype[($mode & 0170000) >> 12];
     if ($setids) {
         if ($setids & 01) {     # Sticky bit
             $permstrs[2] =~ s/([-x])$/$1 eq 'x' ? 't' : 'T'/e;
