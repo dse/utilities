@@ -24,16 +24,18 @@ our $totalBytesSaved;
 
 use Getopt::Long qw();
 use Pod::Usage qw(pod2usage);
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+# In order for bundling to work, you must specify 'bundling' after
+# 'gnu_compat'.
 Getopt::Long::GetOptions(
     'n|dryrun|dry-run'          => \$dryRun,
     'r|run'                     => \$run,
     'l|list'                    => \$list,
     's|size|minsize|min-size=s' => \&setMinSize,
-    'help|?'                    => \$help,
+    'help|?+'                   => \$help,
     'man'                       => \$man,
 ) or pod2usage(-exitval => 2);
-pod2usage(-verbose => 1, -exitval => 0) if $help;
+pod2usage(-verbose => $help - 1, -exitval => 0) if $help;
 pod2usage(-verbose => 2, -exitval => 0) if $man;
 
 if (!$dryRun && !$list && !$run && !$help && !$man) {
@@ -42,7 +44,7 @@ if (!$dryRun && !$list && !$run && !$help && !$man) {
 
 =head1 NAME
 
-    dupe - hard-link or list large duplicate files
+    dupe - free disk space by hard-linking duplicate files
 
 =head1 SYNOPSIS
 
@@ -236,15 +238,98 @@ package Progress {
     }
 };
 
-=head1 OPTIONS
+=head1 DESCRIPTION
+
+C<dupe> searches the specified directories (or the current directory)
+for large files of the same size, determines which ones are duplicates
+that are not hard-linked, and hard-links them in order to free disk
+space.
+
+You can specify directories across multiple filesystems.
+
+C<dupe> will recurse into other filesystems.
+
+C<dupe> is smart enough to not try to hard-link files across filesystems.
+
+C<dupe> cleans up duplicates in descending order of file size.
+
+=head1 DEFAULT ACTION
+
+C<dupe>'s default action is to look in the current directory for large
+files, then list them.
+
+The following options specify the action(s) C<dupe> will take:
 
 =over 4
 
 =item -n, --dry-run
 
+=item -r, --run
+
+=item --list
+
+=item --man
+
+=item --help
+
 =back
 
+If no directory arguments are specified, C<dupe> traverses the current
+working directory (".").
+
+=head1 OPTIONS
+
+=over 4
+
+=item -n, --dry-run (action)
+
+Get checksums on large files as needed, then print the actions C<dupe>
+would take, but not take any actions.
+
+=item -r, --run (action)
+
+Get checksums on large files as needed, then perform the actions to
+remove and then hard-link duplicate files.
+
+=item -l, --list (action)
+
+List large files of which C<dupe> would get checksums, then among
+which it would remove duplicates.
+
+=item -s, --size, --minsize, --min-size=<size>
+
+Specify the minimum file size, in bytes, of files on which to take
+action.  Default is 262,144 bytes (256 KiB).
+
+=item -?, --help (action)
+
+Print a brief help message listing C<dupe>'s possible arguments.
+
+Specify twice to describe each option and argument.
+
+=item --man (action)
+
+Print the full manual page.
+
+=back
+
+If none of the options marked C<(action)> are specified, C<dupe>'s
+default is to list large, potentially duplicate files, equivalent to
+the C<--list> option.
+
 =head1 ARGUMENTS
+
+=over 4
+
+=item <dir> ...
+
+Directory names where dupe looks for files from which to hard-link
+duplicates.
+
+If no directory arguments are specified, C<dupe> traverses the current
+working directory (".").
+
+=back
 
 =head1 AUTHOR
 
