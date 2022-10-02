@@ -23,6 +23,8 @@ Getopt::Long::GetOptions(
     't|trim' => \$trim,
 );
 
+$| = 1;
+
 my @prevPrefix;
 while (<>) {
     s{\R\z}{};
@@ -49,12 +51,10 @@ while (<>) {
     }
     print($space);
     print("\t" x $i);
-
     if ($trim) {
         s/^\s*//;
         s/\s*$//;
     }
-
     print("$_\n");
     @prevPrefix = @prefix;
 }

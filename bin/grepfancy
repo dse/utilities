@@ -3,18 +3,64 @@ use warnings;
 use strict;
 use v5.10.0;
 
+# regex to match one or more ansi escape sequences found in grep
+# --color=(always|auto) output
+my $ESC = qr{(?:\e\[(?:(\d+(?:;\d+)*)?m|K))*}x;
+
 my $lastFilename;
+my $matchCount;
+my $lineCount;
 while (<>) {
-    my $filename;
+    $lineCount += 1;
     s{\R\z}{};
-    if (s{^(.*?):(\d+:)?\s*}{}) {
-        $filename = $1;
-        if (!defined $lastFilename || $filename ne $lastFilename) {
-            say "$filename:";
-        }
-        say "\t", $_;
-        $lastFilename = $filename;
-    } else {
-        say $_;
+    if (s{^
+          (?<esc1>$ESC)
+          (?<filename>.*?)
+          (?<esc2>$ESC)
+          (?<sep>[-:])
+          (?:
+              (?<esc3>$ESC)
+              \s*(?<lineNumber>\d+)
+              (?<esc4>$ESC)
+              \k<sep>
+          )?
+          (?<esc5>$ESC)
+          \t}{}x) {
+        my %match = %+;
+        matchLine($_, %match);
     }
+}
+if ($lineCount && !$matchCount) {
+    printf STDERR ("WARNING: have you run grep with the -T (--initial-tab) option?\n");
+}
+
+sub matchLine {
+    my ($line, %match) = @_;
+    my $filename = $match{filename};
+    my $lineNumber = $match{lineNumber};
+    $matchCount += 1;
+    if (!defined $lastFilename || $lastFilename ne $filename) {
+        printff("%<esc1>s%<filename>s%<esc2>s:\n", %match, filename => $filename);
+        $lastFilename = $filename;
+    }
+    my $sep = $match{sep};
+    printff("\t%<esc3>s%<lineNumber>d%<esc4>s:%<esc5>s\t%<line>s\n", %match, line => $line);
+}
+
+sub printff {
+    my ($format, %args) = @_;
+    print(sprintff($format, %args));
+}
+
+sub sprintff {
+    my ($format, %args) = @_;
+    # all arguments in $format must be %<...>...
+    my @printfArgs;
+    my $repl = sub {
+        my ($name) = @_;
+        push(@printfArgs, $args{$name} // '');
+        return '%';
+    };
+    $format =~ s{%<(.*?)>}{$repl->($1)}ge;
+    return sprintf($format, @printfArgs);
 }
