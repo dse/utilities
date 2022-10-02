@@ -47,31 +47,13 @@ int main(int argc, char** argv) {
     }
 }
 
-               /* dev_t     st_dev;         /\* ID of device containing file *\/ */
-               /* ino_t     st_ino;         /\* Inode number *\/ */
-               /* mode_t    st_mode;        /\* File type and mode *\/ */
-               /* nlink_t   st_nlink;       /\* Number of hard links *\/ */
-               /* uid_t     st_uid;         /\* User ID of owner *\/ */
-               /* gid_t     st_gid;         /\* Group ID of owner *\/ */
-               /* dev_t     st_rdev;        /\* Device ID (if special file) *\/ */
-               /* off_t     st_size;        /\* Total size, in bytes *\/ */
-               /* blksize_t st_blksize;     /\* Block size for filesystem I/O *\/ */
-               /* blkcnt_t  st_blocks;      /\* Number of 512B blocks allocated *\/ */
-
-               /* /\* Since Linux 2.6, the kernel supports nanosecond */
-               /*    precision for the following timestamp fields. */
-               /*    For the details before Linux 2.6, see NOTES. *\/ */
-
-               /* struct timespec st_atim;  /\* Time of last access *\/ */
-               /* struct timespec st_mtim;  /\* Time of last modification *\/ */
-               /* struct timespec st_ctim;  /\* Time of last status change *\/ */
-
 char months[12][4] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dev"
 };
 
 int ls(char* filename) {
+    /* based on and stolen from Perl Power Tools */
     char linkname[LINESIZE];
     struct stat statbuf;
     if (-1 == lstat(filename, &statbuf)) {
@@ -134,16 +116,6 @@ int ls(char* filename) {
     return 1;
 }
 
-               /* int tm_sec;    /\* Seconds (0-60) *\/ */
-               /* int tm_min;    /\* Minutes (0-59) *\/ */
-               /* int tm_hour;   /\* Hours (0-23) *\/ */
-               /* int tm_mday;   /\* Day of the month (1-31) *\/ */
-               /* int tm_mon;    /\* Month (0-11) *\/ */
-               /* int tm_year;   /\* Year - 1900 *\/ */
-               /* int tm_wday;   /\* Day of the week (0-6, Sunday = 0) *\/ */
-               /* int tm_yday;   /\* Day in the year (0-365, 1 Jan = 0) *\/ */
-               /* int tm_isdst;  /\* Daylight saving time *\/ */
-
 char perms[8][4] = {
     "---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"
 };
@@ -153,6 +125,7 @@ char ftypes[] = {
 
 char modestr[11];
 char* format_mode(mode_t mode) {
+    /* based on and stolen from Perl Power Tools */
     modestr[10] = '\0';
     int setids = (mode & 07000) >> 9;
     modestr[0] = ftypes[(mode & 0170000) >> 12]; /* ftype */
