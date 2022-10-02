@@ -167,6 +167,7 @@ sub linkDupes {
             }
         }
     }
+    printf("%d total bytes saved\n", $totalBytesSaved);
 }
 sub shell_quote {
     # stolen from String::ShellQuote so I can copy to routers
