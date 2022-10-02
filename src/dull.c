@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 
 char months[12][4] = {
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dev"
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
 };
 
 int ls(char* filename) {
