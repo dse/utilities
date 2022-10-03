@@ -148,7 +148,7 @@ sub linkDupes {
             my @filenames = map { $filenames{$size}{$dev}{$_}->[0] } @ino;
 
             foreach my $filename (@filenames) {
-                warn("checksumming $filename ...\n") if -t 2 && $verbose;
+                warn("checksumming $filename ($size bytes) ...\n") if -t 2 && $verbose;
                 $sum{$filename} = sum($filename);
                 printf("%s  %s\n", $sum{$filename}, $filename) if $verbose >= 2;
             }
@@ -185,7 +185,7 @@ sub linkDupes {
             }
         }
     }
-    printf("%d total bytes saved\n", $totalBytesSaved);
+    print("$totalBytesSaved total bytes saved\n");
 }
 sub shell_quote {
     # stolen from String::ShellQuote so I can copy to routers
