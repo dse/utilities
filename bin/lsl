@@ -6,15 +6,19 @@ use locale;
 
 use Text::Tabs qw(expand);
 
-while (<>) {
-    s{\R\z}{};                  # safer chomp
-    my $prefix = '';
-    if (s{^([^\t ]*)[ ]*\t}{}) {     # du output
-        $prefix = $&;
-        print($prefix);
+if (scalar @ARGV) {
+    list($_) foreach @ARGV;
+} else {
+    while (<>) {
+        s{\R\z}{};                   # safer chomp
+        if (s{^([^\t ]*)[ ]*\t}{}) { # du output
+            print($&);
+        }
+        list($_);
     }
-    dull($_);
 }
+
+#------------------------------------------------------------------------------
 
 my $sixMonths;
 my @months;
@@ -22,13 +26,13 @@ BEGIN {
     $sixMonths = 60 * 60 * 24 * (365 / 2);
     @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
 }
-sub dull {
+sub list {
     my $error;
     my ($filename) = @_;
     my @stat = lstat($filename);
     if (!scalar @stat) {
-        warn(sprintf("%s: %s\n", $filename, "$!"));
-        next;
+        warn("$filename: $!\n");
+        return;
     }
     my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blocksize, $blocks) = @stat;
     my $isSymlink = (($mode & 0170000) >> 12) == 10;
@@ -55,10 +59,10 @@ sub dull {
     }
     print($filename);           # [10]
     if ($isSymlink) {
-        printf(' -> %s', $readlink);
+        print(" -> $readlink\n");
+    } else {
+        print("\n");
     }
-    print("\n");
-
 }
 
 my @perms;
