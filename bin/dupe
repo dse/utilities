@@ -17,6 +17,7 @@ our $run;
 our $help;
 our $man;
 
+our $porcelain;
 our $verbose;
 our $minSize = 2 ** 18;
 our $progress;
@@ -36,6 +37,7 @@ Getopt::Long::GetOptions(
     'help|?+'                   => \$help,
     'v|verbose+'                => \$verbose,
     'man'                       => \$man,
+    'porcelain'                 => \$porcelain,
 ) or pod2usage(-exitval => 2);
 pod2usage(-verbose => $help - 1, -exitval => 0) if $help;
 pod2usage(-verbose => 2, -exitval => 0) if $man;
@@ -56,7 +58,7 @@ if (!$dryRun && !$list && !$run && !$help && !$man) {
          [-s|--size|--minsize|--min-size]=<bytes>   \
          [-v|--verbose]                             \
          [<dir> ...]
-    dupe [-'?'|--help]
+    dupe -?|--help|--man
 
 =cut
 
@@ -119,10 +121,17 @@ sub listCandidates {
             foreach my $ino (sort { $b <=> $a } @ino) {
                 my @filenames = @{$filenames{$size}{$dev}{$ino}};
                 my $filename = $filenames[0];
-                #                 17         9        25
-                my $k1 = sprintf("size=%-12d dev=%-5d ino=%-21d - ", $size, $dev, $ino);
-                my $k2 = "\n" . (' ' x length($k1));
-                print($k1, join($k2, @filenames), "\n");
+                if ($porcelain) {
+                    my ($main, @others) = @filenames;
+                    printf("%d %d %d %s\n", $size, $dev, $ino, $main);
+                    foreach my $other (@others) {
+                        printf("- - - %s\n", $other);
+                    }
+                } else {
+                    my $k1 = sprintf("size=%-12d dev=%-5d ino=%-21d - ", $size, $dev, $ino);
+                    my $k2 = "\n" . (' ' x length($k1));
+                    print($k1, join($k2, @filenames), "\n");
+                }
             }
         }
     }
