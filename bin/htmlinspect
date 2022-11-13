@@ -194,7 +194,7 @@ foreach my $arg (@ARGV) {
             my ($dev,$ino,$mode,$nlink,$uid,$gid);
             (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
                 -f _ &&
-                /^.*\.html?\z/si
+                /^.*\.(?:html?|njk)\z/si
                 && push(@files, $File::Find::name);
         };
         File::Find::find({ wanted => $wanted }, $arg);
