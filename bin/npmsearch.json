@@ -1,0 +1,1136 @@
+[
+   {
+      "author" : {
+         "email" : "anton@kovalyov.net",
+         "name" : "Anton Kovalyov",
+         "url" : "http://anton.kovalyov.net/",
+         "username" : "antonkovalyov"
+      },
+      "date" : "2022-01-24T19:40:14.421Z",
+      "description" : "Static analysis tool for JavaScript",
+      "links" : {
+         "bugs" : "https://github.com/jshint/jshint/issues",
+         "homepage" : "http://jshint.com/",
+         "npm" : "https://www.npmjs.com/package/jshint",
+         "repository" : "https://github.com/jshint/jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "mike@mikepennisi.com",
+            "username" : "jugglinmike"
+         },
+         {
+            "email" : "anton@kovalyov.net",
+            "username" : "antonkovalyov"
+         },
+         {
+            "email" : "waldron.rick@gmail.com",
+            "username" : "rwaldron"
+         }
+      ],
+      "name" : "jshint",
+      "publisher" : {
+         "email" : "mike@mikepennisi.com",
+         "username" : "jugglinmike"
+      },
+      "scope" : "unscoped",
+      "version" : "2.13.4"
+   },
+   {
+      "author" : {
+         "email" : "sindresorhus@gmail.com",
+         "name" : "Sindre Sorhus",
+         "url" : "https://sindresorhus.com",
+         "username" : "sindresorhus"
+      },
+      "date" : "2022-05-12T07:34:07.503Z",
+      "description" : "Global identifiers from different JavaScript environments",
+      "keywords" : [
+         "globals",
+         "global",
+         "identifiers",
+         "variables",
+         "vars",
+         "jshint",
+         "eslint",
+         "environments"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/sindresorhus/globals/issues",
+         "homepage" : "https://github.com/sindresorhus/globals#readme",
+         "npm" : "https://www.npmjs.com/package/globals",
+         "repository" : "https://github.com/sindresorhus/globals"
+      },
+      "maintainers" : [
+         {
+            "email" : "ben@byk.im",
+            "username" : "byk"
+         },
+         {
+            "email" : "nicholas@nczconsulting.com",
+            "username" : "nzakas"
+         },
+         {
+            "email" : "schreck.mathias@gmail.com",
+            "username" : "lo1tuma"
+         },
+         {
+            "email" : "sindresorhus@gmail.com",
+            "username" : "sindresorhus"
+         }
+      ],
+      "name" : "globals",
+      "publisher" : {
+         "email" : "sindresorhus@gmail.com",
+         "username" : "sindresorhus"
+      },
+      "scope" : "unscoped",
+      "version" : "13.15.0"
+   },
+   {
+      "author" : {
+         "email" : "feross@feross.org",
+         "name" : "Feross Aboukhadijeh",
+         "url" : "https://feross.org",
+         "username" : "feross"
+      },
+      "date" : "2022-04-20T14:09:23.320Z",
+      "description" : "JavaScript Standard Style - ESLint Shareable Config",
+      "keywords" : [
+         "JavaScript Standard Style",
+         "check",
+         "checker",
+         "code",
+         "code checker",
+         "code linter",
+         "code standards",
+         "code style",
+         "enforce",
+         "eslint",
+         "eslintconfig",
+         "hint",
+         "jscs",
+         "jshint",
+         "lint",
+         "policy",
+         "quality",
+         "simple",
+         "standard",
+         "standard style",
+         "style",
+         "style checker",
+         "style linter",
+         "verify"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/standard/eslint-config-standard/issues",
+         "homepage" : "https://github.com/standard/eslint-config-standard",
+         "npm" : "https://www.npmjs.com/package/eslint-config-standard",
+         "repository" : "https://github.com/standard/eslint-config-standard"
+      },
+      "maintainers" : [
+         {
+            "email" : "john@hiesey.com",
+            "username" : "jhiesey"
+         },
+         {
+            "email" : "bcomnes@gmail.com",
+            "username" : "bret"
+         },
+         {
+            "email" : "feross@feross.org",
+            "username" : "feross"
+         },
+         {
+            "email" : "flettre@gmail.com",
+            "username" : "flet"
+         },
+         {
+            "email" : "linus@folkdatorn.se",
+            "username" : "linusu"
+         },
+         {
+            "email" : "mathiasbuus@gmail.com",
+            "username" : "mafintosh"
+         },
+         {
+            "email" : "jprichardson@gmail.com",
+            "username" : "jprichardson"
+         },
+         {
+            "email" : "w@tson.dk",
+            "username" : "watson"
+         },
+         {
+            "email" : "raynos2@gmail.com",
+            "username" : "raynos"
+         },
+         {
+            "email" : "toddbluhm@gmail.com",
+            "username" : "toddbluhm"
+         },
+         {
+            "email" : "pelle@kodfabrik.se",
+            "username" : "voxpelli"
+         }
+      ],
+      "name" : "eslint-config-standard",
+      "publisher" : {
+         "email" : "pelle@kodfabrik.se",
+         "username" : "voxpelli"
+      },
+      "scope" : "unscoped",
+      "version" : "17.0.0"
+   },
+   {
+      "author" : {
+         "email" : "feross@feross.org",
+         "name" : "Feross Aboukhadijeh",
+         "url" : "https://feross.org",
+         "username" : "feross"
+      },
+      "date" : "2022-04-20T15:03:16.189Z",
+      "description" : "JavaScript Standard Style",
+      "keywords" : [
+         "JavaScript Standard Style",
+         "check",
+         "checker",
+         "code",
+         "code checker",
+         "code linter",
+         "code standards",
+         "code style",
+         "enforce",
+         "eslint",
+         "hint",
+         "jscs",
+         "jshint",
+         "lint",
+         "policy",
+         "quality",
+         "simple",
+         "standard",
+         "standard style",
+         "style",
+         "style checker",
+         "style linter",
+         "verify"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/standard/standard/issues",
+         "homepage" : "https://standardjs.com",
+         "npm" : "https://www.npmjs.com/package/standard",
+         "repository" : "https://github.com/standard/standard"
+      },
+      "maintainers" : [
+         {
+            "email" : "john@hiesey.com",
+            "username" : "jhiesey"
+         },
+         {
+            "email" : "bcomnes@gmail.com",
+            "username" : "bret"
+         },
+         {
+            "email" : "feross@feross.org",
+            "username" : "feross"
+         },
+         {
+            "email" : "flettre@gmail.com",
+            "username" : "flet"
+         },
+         {
+            "email" : "linus@folkdatorn.se",
+            "username" : "linusu"
+         },
+         {
+            "email" : "mathiasbuus@gmail.com",
+            "username" : "mafintosh"
+         },
+         {
+            "email" : "jprichardson@gmail.com",
+            "username" : "jprichardson"
+         },
+         {
+            "email" : "w@tson.dk",
+            "username" : "watson"
+         },
+         {
+            "email" : "raynos2@gmail.com",
+            "username" : "raynos"
+         },
+         {
+            "email" : "toddbluhm@gmail.com",
+            "username" : "toddbluhm"
+         },
+         {
+            "email" : "pelle@kodfabrik.se",
+            "username" : "voxpelli"
+         },
+         {
+            "email" : "yoshuawuyts@gmail.com",
+            "username" : "yoshuawuyts"
+         },
+         {
+            "email" : "secoif@gmail.com",
+            "username" : "timoxley"
+         },
+         {
+            "email" : "max@maxogden.com",
+            "username" : "maxogden"
+         },
+         {
+            "email" : "npm@dcousens.com",
+            "username" : "dcousens"
+         },
+         {
+            "email" : "jb55@jb55.com",
+            "username" : "jb55"
+         }
+      ],
+      "name" : "standard",
+      "publisher" : {
+         "email" : "pelle@kodfabrik.se",
+         "username" : "voxpelli"
+      },
+      "scope" : "unscoped",
+      "version" : "17.0.0"
+   },
+   {
+      "author" : {
+         "name" : "Grunt Team",
+         "url" : "https://gruntjs.com/"
+      },
+      "date" : "2022-02-18T02:23:40.553Z",
+      "description" : "Validate files with JSHint",
+      "keywords" : [
+         "gruntplugin"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/gruntjs/grunt-contrib-jshint/issues",
+         "homepage" : "https://github.com/gruntjs/grunt-contrib-jshint#readme",
+         "npm" : "https://www.npmjs.com/package/grunt-contrib-jshint",
+         "repository" : "https://github.com/gruntjs/grunt-contrib-jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "cowboy@rj3.net",
+            "username" : "cowboy"
+         },
+         {
+            "email" : "roaster.karmic_0r@icloud.com",
+            "username" : "jmeas"
+         },
+         {
+            "email" : "tyler@sleekcode.net",
+            "username" : "tkellen"
+         },
+         {
+            "email" : "vlad@vladikoff.com",
+            "username" : "vladikoff"
+         },
+         {
+            "email" : "kyle@dontkry.com",
+            "username" : "shama"
+         },
+         {
+            "email" : "sindresorhus@gmail.com",
+            "username" : "sindresorhus"
+         }
+      ],
+      "name" : "grunt-contrib-jshint",
+      "publisher" : {
+         "email" : "vlad@vladikoff.com",
+         "username" : "vladikoff"
+      },
+      "scope" : "unscoped",
+      "version" : "3.2.0"
+   },
+   {
+      "author" : {
+         "email" : "feross@feross.org",
+         "name" : "Feross Aboukhadijeh",
+         "url" : "https://feross.org",
+         "username" : "feross"
+      },
+      "date" : "2021-06-14T21:28:18.195Z",
+      "description" : "All the goodness of `feross/standard` with semicolons sprinkled on top.",
+      "keywords" : [
+         "JavaScript Standard Style",
+         "bikeshed",
+         "check",
+         "checker",
+         "code",
+         "code checker",
+         "code linter",
+         "code standards",
+         "code style",
+         "enforce",
+         "eslint",
+         "hint",
+         "jscs",
+         "jshint",
+         "lint",
+         "policy",
+         "quality",
+         "semicolon",
+         "simple",
+         "standard",
+         "standard style",
+         "style",
+         "style checker",
+         "style linter",
+         "verify"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/standard/semistandard/issues",
+         "homepage" : "https://github.com/standard/semistandard",
+         "npm" : "https://www.npmjs.com/package/semistandard",
+         "repository" : "https://github.com/standard/semistandard"
+      },
+      "maintainers" : [
+         {
+            "email" : "john@hiesey.com",
+            "username" : "jhiesey"
+         },
+         {
+            "email" : "bcomnes@gmail.com",
+            "username" : "bret"
+         },
+         {
+            "email" : "feross@feross.org",
+            "username" : "feross"
+         },
+         {
+            "email" : "flettre@gmail.com",
+            "username" : "flet"
+         },
+         {
+            "email" : "linus@folkdatorn.se",
+            "username" : "linusu"
+         },
+         {
+            "email" : "mathiasbuus@gmail.com",
+            "username" : "mafintosh"
+         },
+         {
+            "email" : "jprichardson@gmail.com",
+            "username" : "jprichardson"
+         },
+         {
+            "email" : "w@tson.dk",
+            "username" : "watson"
+         },
+         {
+            "email" : "raynos2@gmail.com",
+            "username" : "raynos"
+         },
+         {
+            "email" : "toddbluhm@gmail.com",
+            "username" : "toddbluhm"
+         },
+         {
+            "email" : "pelle@kodfabrik.se",
+            "username" : "voxpelli"
+         }
+      ],
+      "name" : "semistandard",
+      "publisher" : {
+         "email" : "pelle@kodfabrik.se",
+         "username" : "voxpelli"
+      },
+      "scope" : "unscoped",
+      "version" : "16.0.1"
+   },
+   {
+      "date" : "2017-12-29T18:50:00.969Z",
+      "description" : "JSHint plugin for gulp",
+      "keywords" : [
+         "gulpplugin"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/spalger/gulp-jshint/issues",
+         "homepage" : "http://github.com/spalger/gulp-jshint",
+         "npm" : "https://www.npmjs.com/package/gulp-jshint",
+         "repository" : "https://github.com/spalger/gulp-jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "contact@wearefractal.com",
+            "username" : "fractal"
+         },
+         {
+            "email" : "email@spalger.com",
+            "username" : "spalger"
+         },
+         {
+            "email" : "ericbombhax@gmail.com",
+            "username" : "yocontra"
+         }
+      ],
+      "name" : "gulp-jshint",
+      "publisher" : {
+         "email" : "email@spalger.com",
+         "username" : "spalger"
+      },
+      "scope" : "unscoped",
+      "version" : "2.1.0"
+   },
+   {
+      "author" : {
+         "email" : "unibtc@gmail.com",
+         "name" : "John Sayo",
+         "username" : "unibtc"
+      },
+      "date" : "2017-07-26T13:18:38.875Z",
+      "description" : "eslint sharable config for semistandard",
+      "keywords" : [
+         "custom standard",
+         "style checker",
+         "code style",
+         "code checker",
+         "code linter",
+         "style linter",
+         "simple",
+         "policy",
+         "style",
+         "code",
+         "lint",
+         "eslint",
+         "eslintconfig",
+         "jshint",
+         "jscs",
+         "hint",
+         "enforce",
+         "check",
+         "verify",
+         "quality",
+         "checker",
+         "code standards",
+         "JavaScript Custom standard Style",
+         "customstandard style",
+         "eslintconfig"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/uniibu/eslint-config-customstandard/issues",
+         "homepage" : "https://github.com/uniibu/eslint-config-customstandard",
+         "npm" : "https://www.npmjs.com/package/eslint-config-customstandard",
+         "repository" : "https://github.com/uniibu/eslint-config-customstandard"
+      },
+      "maintainers" : [
+         {
+            "email" : "unibtc@gmail.com",
+            "username" : "unibtc"
+         }
+      ],
+      "name" : "eslint-config-customstandard",
+      "publisher" : {
+         "email" : "unibtc@gmail.com",
+         "username" : "unibtc"
+      },
+      "scope" : "unscoped",
+      "version" : "1.0.0"
+   },
+   {
+      "author" : {
+         "name" : "Karolis Narkevicius",
+         "url" : "http://twitter.com/KidkArolis"
+      },
+      "date" : "2022-02-06T12:43:14.861Z",
+      "description" : "An opinionated code linter \u00e2\u0080\u0093 a friendly companion to prettier",
+      "keywords" : [
+         "JavaScript Standard Style",
+         "bikeshed",
+         "check",
+         "checker",
+         "code",
+         "code checker",
+         "code linter",
+         "code standards",
+         "code style",
+         "enforce",
+         "eslint",
+         "hint",
+         "jscs",
+         "jshint",
+         "lint",
+         "policy",
+         "quality",
+         "simple",
+         "standard",
+         "standard style",
+         "style",
+         "style checker",
+         "style linter",
+         "verify",
+         "prettier",
+         "format",
+         "formatter"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/KidkArolis/healthier/issues",
+         "homepage" : "https://github.com/KidkArolis/healthier",
+         "npm" : "https://www.npmjs.com/package/healthier",
+         "repository" : "https://github.com/KidkArolis/healthier"
+      },
+      "maintainers" : [
+         {
+            "email" : "karolis.n@gmail.com",
+            "username" : "kidkarolis"
+         }
+      ],
+      "name" : "healthier",
+      "publisher" : {
+         "email" : "karolis.n@gmail.com",
+         "username" : "kidkarolis"
+      },
+      "scope" : "unscoped",
+      "version" : "5.0.1"
+   },
+   {
+      "author" : {
+         "name" : "Dimas Mu\u00c3\u00b1oz"
+      },
+      "date" : "2018-11-18T13:35:31.605Z",
+      "description" : "eslint sharable config for semistandard-4i",
+      "keywords" : [
+         "semistandard-4i",
+         "style checker",
+         "code style",
+         "code checker",
+         "code linter",
+         "style linter",
+         "simple",
+         "policy",
+         "style",
+         "code",
+         "lint",
+         "eslint",
+         "eslintconfig",
+         "jshint",
+         "jscs",
+         "hint",
+         "enforce",
+         "check",
+         "verify",
+         "quality",
+         "checker",
+         "code standards",
+         "JavaScript Semistandard 4I Style",
+         "semistandard-4i style",
+         "eslintconfig"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/Flet/eslint-config-semistandard/issues",
+         "homepage" : "https://github.com/DimasDMM/eslint-config-semistandard-4i",
+         "npm" : "https://www.npmjs.com/package/eslint-config-semistandard-4i",
+         "repository" : "https://github.com/DimasDMM/eslint-config-semistandard-4i"
+      },
+      "maintainers" : [
+         {
+            "email" : "dimas.95@hotmail.com",
+            "username" : "dimasdmm"
+         }
+      ],
+      "name" : "eslint-config-semistandard-4i",
+      "publisher" : {
+         "email" : "dimas.95@hotmail.com",
+         "username" : "dimasdmm"
+      },
+      "scope" : "unscoped",
+      "version" : "1.0.0"
+   },
+   {
+      "author" : {
+         "email" : "iam@alexindigo.com",
+         "name" : "Alex Indigo",
+         "username" : "alexindigo"
+      },
+      "date" : "2014-06-16T05:23:25.839Z",
+      "description" : "Buster-extension: jshint your files as part of test run.",
+      "links" : {
+         "bugs" : "https://github.com/alexindigo/buster-jshint/issues",
+         "homepage" : "https://github.com/alexindigo/buster-jshint",
+         "npm" : "https://www.npmjs.com/package/buster-jshint",
+         "repository" : "https://github.com/alexindigo/buster-jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "iam@alexindigo.com",
+            "username" : "alexindigo"
+         }
+      ],
+      "name" : "buster-jshint",
+      "publisher" : {
+         "email" : "iam@alexindigo.com",
+         "username" : "alexindigo"
+      },
+      "scope" : "unscoped",
+      "version" : "0.1.0"
+   },
+   {
+      "author" : {
+         "email" : "sindresorhus@gmail.com",
+         "name" : "Sindre Sorhus",
+         "url" : "sindresorhus.com",
+         "username" : "sindresorhus"
+      },
+      "date" : "2016-08-13T00:26:16.546Z",
+      "description" : "Stylish reporter for JSHint",
+      "keywords" : [
+         "jshint",
+         "reporter",
+         "formatter",
+         "format",
+         "lint",
+         "validate",
+         "stylish",
+         "elegant",
+         "pretty"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/sindresorhus/jshint-stylish/issues",
+         "homepage" : "https://github.com/sindresorhus/jshint-stylish#readme",
+         "npm" : "https://www.npmjs.com/package/jshint-stylish",
+         "repository" : "https://github.com/sindresorhus/jshint-stylish"
+      },
+      "maintainers" : [
+         {
+            "email" : "sindresorhus@gmail.com",
+            "username" : "sindresorhus"
+         }
+      ],
+      "name" : "jshint-stylish",
+      "publisher" : {
+         "email" : "sindresorhus@gmail.com",
+         "username" : "sindresorhus"
+      },
+      "scope" : "unscoped",
+      "version" : "2.2.1"
+   },
+   {
+      "author" : {
+         "email" : "trash@reinisch.io",
+         "name" : "Simon Reinisch"
+      },
+      "date" : "2020-05-23T16:19:11.002Z",
+      "description" : "ESlint config files for my personal projects on github@simonwep.",
+      "keywords" : [
+         "code",
+         "react",
+         "preact",
+         "nodejs",
+         "node",
+         "quality",
+         "style",
+         "linter",
+         "jscs",
+         "jshint",
+         "jslint",
+         "eslint",
+         "eslintconfig",
+         "validate",
+         "code style",
+         "strict",
+         "check",
+         "checker",
+         "verify",
+         "enforce",
+         "hint"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/Simonwep/eslint-config-simon/issues",
+         "homepage" : "https://github.com/Simonwep/eslint-config-simon#readme",
+         "npm" : "https://www.npmjs.com/package/eslint-config-simon",
+         "repository" : "https://github.com/Simonwep/eslint-config-simon"
+      },
+      "maintainers" : [
+         {
+            "email" : "simon@reinisch.io",
+            "username" : "simonwep"
+         }
+      ],
+      "name" : "eslint-config-simon",
+      "publisher" : {
+         "email" : "simon@reinisch.io",
+         "username" : "simonwep"
+      },
+      "scope" : "unscoped",
+      "version" : "2.1.0"
+   },
+   {
+      "author" : {
+         "email" : "bmac325@gmail.com",
+         "name" : "bmac",
+         "username" : "bmac"
+      },
+      "date" : "2020-10-04T13:19:10.348Z",
+      "description" : "grunt wrapper for coffee-jshint",
+      "keywords" : [
+         "coffee-script",
+         "coffeescript",
+         "gruntplugin",
+         "jshint"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/bmac/grunt-coffee-jshint/issues",
+         "homepage" : "https://github.com/bmac/grunt-coffee-jshint",
+         "npm" : "https://www.npmjs.com/package/grunt-coffee-jshint",
+         "repository" : "https://github.com/bmac/grunt-coffee-jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "bmac325@gmail.com",
+            "username" : "bmac"
+         },
+         {
+            "email" : "org.npmjs.718039.david@distelpluis.nl",
+            "username" : "cueedee"
+         },
+         {
+            "email" : "me@andrewaustin.com",
+            "username" : "andrewaustin"
+         }
+      ],
+      "name" : "grunt-coffee-jshint",
+      "publisher" : {
+         "email" : "org.npmjs.718039.david@distelpluis.nl",
+         "username" : "cueedee"
+      },
+      "scope" : "unscoped",
+      "version" : "2.0.1"
+   },
+   {
+      "author" : {
+         "email" : "feross@feross.org",
+         "name" : "Feross Aboukhadijeh",
+         "url" : "https://feross.org",
+         "username" : "feross"
+      },
+      "date" : "2022-04-20T14:15:16.118Z",
+      "description" : "JavaScript Standard Style JSX support - ESLint Shareable Config",
+      "keywords" : [
+         "JavaScript Standard Style",
+         "check",
+         "checker",
+         "code",
+         "code checker",
+         "code linter",
+         "code standards",
+         "code style",
+         "enforce",
+         "eslint",
+         "eslintconfig",
+         "hint",
+         "jscs",
+         "jshint",
+         "jsx",
+         "lint",
+         "policy",
+         "quality",
+         "simple",
+         "standard",
+         "standard style",
+         "style",
+         "style checker",
+         "style linter",
+         "verify"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/standard/eslint-config-standard-jsx/issues",
+         "homepage" : "https://github.com/standard/eslint-config-standard-jsx",
+         "npm" : "https://www.npmjs.com/package/eslint-config-standard-jsx",
+         "repository" : "https://github.com/standard/eslint-config-standard-jsx"
+      },
+      "maintainers" : [
+         {
+            "email" : "john@hiesey.com",
+            "username" : "jhiesey"
+         },
+         {
+            "email" : "bcomnes@gmail.com",
+            "username" : "bret"
+         },
+         {
+            "email" : "feross@feross.org",
+            "username" : "feross"
+         },
+         {
+            "email" : "flettre@gmail.com",
+            "username" : "flet"
+         },
+         {
+            "email" : "linus@folkdatorn.se",
+            "username" : "linusu"
+         },
+         {
+            "email" : "mathiasbuus@gmail.com",
+            "username" : "mafintosh"
+         },
+         {
+            "email" : "jprichardson@gmail.com",
+            "username" : "jprichardson"
+         },
+         {
+            "email" : "w@tson.dk",
+            "username" : "watson"
+         },
+         {
+            "email" : "raynos2@gmail.com",
+            "username" : "raynos"
+         },
+         {
+            "email" : "toddbluhm@gmail.com",
+            "username" : "toddbluhm"
+         },
+         {
+            "email" : "pelle@kodfabrik.se",
+            "username" : "voxpelli"
+         }
+      ],
+      "name" : "eslint-config-standard-jsx",
+      "publisher" : {
+         "email" : "pelle@kodfabrik.se",
+         "username" : "voxpelli"
+      },
+      "scope" : "unscoped",
+      "version" : "11.0.0"
+   },
+   {
+      "author" : {
+         "email" : "me@morganepatch.dev",
+         "name" : "Morgan Patch",
+         "url" : "https://morganepatch.dev",
+         "username" : "morganepatch"
+      },
+      "date" : "2020-09-13T22:29:50.568Z",
+      "description" : "JSHint and ESLint configurations for my projects.",
+      "keywords" : [
+         "style",
+         "javascript",
+         "js",
+         "lint",
+         "jshint",
+         "eslint",
+         "es6"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/MorganEPatch/javascript-style/issues",
+         "homepage" : "https://github.com/MorganEPatch/javascript-style",
+         "npm" : "https://www.npmjs.com/package/morganepatch-style",
+         "repository" : "https://github.com/MorganEPatch/javascript-style"
+      },
+      "maintainers" : [
+         {
+            "email" : "me@morganepatch.dev",
+            "username" : "morganepatch"
+         }
+      ],
+      "name" : "morganepatch-style",
+      "publisher" : {
+         "email" : "me@morganepatch.dev",
+         "username" : "morganepatch"
+      },
+      "scope" : "unscoped",
+      "version" : "1.0.1"
+   },
+   {
+      "author" : {
+         "email" : "g.cowan@amnzero.nl",
+         "name" : "Gregory Cowan"
+      },
+      "date" : "2016-01-21T12:54:29.938Z",
+      "description" : "JSHINT Node wrapper",
+      "keywords" : [
+         "buenos-lint",
+         "lint",
+         "hint",
+         "javascript",
+         "jshint",
+         "jslint",
+         "style"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/KrekkieD/buenos-jshint/issues",
+         "homepage" : "https://github.com/KrekkieD/buenos-jshint",
+         "npm" : "https://www.npmjs.com/package/buenos-jshint",
+         "repository" : "https://github.com/KrekkieD/buenos-jshint"
+      },
+      "maintainers" : [
+         {
+            "email" : "buenos@buenosnodejs.com",
+            "username" : "buenos"
+         }
+      ],
+      "name" : "buenos-jshint",
+      "publisher" : {
+         "email" : "buenos@buenosnodejs.com",
+         "username" : "buenos"
+      },
+      "scope" : "unscoped",
+      "version" : "1.2.0"
+   },
+   {
+      "author" : {
+         "name" : "Alex Schmitz",
+         "url" : "https://github.com/arschmitz/qunit-assert-classes/blob/master/AUTHORS.txt"
+      },
+      "date" : "2019-03-27T13:01:29.112Z",
+      "description" : "broccoli filter for standard formatting",
+      "keywords" : [
+         "eslint",
+         "lint",
+         "broccoli",
+         "validate",
+         "jshint",
+         "jslint",
+         "standard",
+         "standard format",
+         "code style",
+         "broccoli standard format",
+         "esprima",
+         "broccoli-plugin"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/arschmitz/broccoli-standard/issues",
+         "homepage" : "https://github.com/arschmitz/broccoli-standard",
+         "npm" : "https://www.npmjs.com/package/broccoli-standard",
+         "repository" : "https://github.com/arschmitz/broccoli-standard"
+      },
+      "maintainers" : [
+         {
+            "email" : "arschmitz@gmail.com",
+            "username" : "arschmitz"
+         }
+      ],
+      "name" : "broccoli-standard",
+      "publisher" : {
+         "email" : "arschmitz@gmail.com",
+         "username" : "arschmitz"
+      },
+      "scope" : "unscoped",
+      "version" : "1.1.1"
+   },
+   {
+      "author" : {
+         "name" : "Jade Michael Thornton"
+      },
+      "date" : "2019-04-26T16:27:36.471Z",
+      "description" : "Pragmatic style eslint sharable config",
+      "keywords" : [
+         "eslint",
+         "jshint",
+         "nodejs",
+         "style"
+      ],
+      "links" : {
+         "bugs" : "https://gitlab.com/thornjad/eslint-config-pragmatic/issues",
+         "homepage" : "https://gitlab.com/thornjad/eslint-config-pragmatic#readme",
+         "npm" : "https://www.npmjs.com/package/eslint-config-pragmatic",
+         "repository" : "https://gitlab.com/thornjad/eslint-config-pragmatic"
+      },
+      "maintainers" : [
+         {
+            "email" : "jade@jmthornton.net",
+            "username" : "thornjad"
+         }
+      ],
+      "name" : "eslint-config-pragmatic",
+      "publisher" : {
+         "email" : "jade@jmthornton.net",
+         "username" : "thornjad"
+      },
+      "scope" : "unscoped",
+      "version" : "0.9.2"
+   },
+   {
+      "author" : {
+         "name" : "Or Kazaz",
+         "url" : "https://github.com/kazazor"
+      },
+      "date" : "2020-06-05T13:31:21.010Z",
+      "description" : "You can run the pre-commit with any build tool (Gulp, Grunt etc..) and it will ignore all the **unstaged changes** that wasn't added to the git index (using the command ```git add```).",
+      "keywords" : [
+         "git",
+         "pre-commit",
+         "precommit",
+         "hook",
+         "hooks",
+         "lint",
+         "eslint",
+         "jshint",
+         "gulp",
+         "grunt",
+         "npm",
+         "yarn",
+         "yarn.lock",
+         "node",
+         "nodejs",
+         "js",
+         "javascript",
+         "ci",
+         "development"
+      ],
+      "links" : {
+         "bugs" : "https://github.com/kazazor/git-pre-commit/issues",
+         "homepage" : "https://github.com/kazazor/git-pre-commit#readme",
+         "npm" : "https://www.npmjs.com/package/git-pre-commit-2",
+         "repository" : "https://github.com/kazazor/git-pre-commit"
+      },
+      "maintainers" : [
+         {
+            "email" : "tbbcapp@gmail.com",
+            "username" : "felquis"
+         }
+      ],
+      "name" : "git-pre-commit-2",
+      "publisher" : {
+         "email" : "tbbcapp@gmail.com",
+         "username" : "felquis"
+      },
+      "scope" : "unscoped",
+      "version" : "3.0.0"
+   }
+]
+jshint                                                                2.13.4
+    Static analysis tool for JavaScript
+globals                                                              13.15.0
+    Global identifiers from different JavaScript environments
+eslint-config-standard                                                17.0.0
+    JavaScript Standard Style - ESLint Shareable Config
+standard                                                              17.0.0
+    JavaScript Standard Style
+grunt-contrib-jshint                                                   3.2.0
+    Validate files with JSHint
+semistandard                                                          16.0.1
+    All the goodness of `feross/standard` with semicolons sprinkled on top.
+gulp-jshint                                                            2.1.0
+    JSHint plugin for gulp
+eslint-config-customstandard                                           1.0.0
+    eslint sharable config for semistandard
+healthier                                                              5.0.1
+    An opinionated code linter – a friendly companion to prettier
+eslint-config-semistandard-4i                                          1.0.0
+    eslint sharable config for semistandard-4i
+buster-jshint                                                          0.1.0
+    Buster-extension: jshint your files as part of test run.
+jshint-stylish                                                         2.2.1
+    Stylish reporter for JSHint
+eslint-config-simon                                                    2.1.0
+    ESlint config files for my personal projects on github@simonwep.
+grunt-coffee-jshint                                                    2.0.1
+    grunt wrapper for coffee-jshint
+eslint-config-standard-jsx                                            11.0.0
+    JavaScript Standard Style JSX support - ESLint Shareable Config
+morganepatch-style                                                     1.0.1
+    JSHint and ESLint configurations for my projects.
+buenos-jshint                                                          1.2.0
+    JSHINT Node wrapper
+broccoli-standard                                                      1.1.1
+    broccoli filter for standard formatting
+eslint-config-pragmatic                                                0.9.2
+    Pragmatic style eslint sharable config
+git-pre-commit-2                                                       3.0.0
+    You can run the pre-commit with any build tool (Gulp, Grunt etc..) and
+    it will ignore all the **unstaged changes** that wasn't added to the
+    git index (using the command ```git add```).

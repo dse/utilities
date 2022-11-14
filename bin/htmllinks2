@@ -1,0 +1,98 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use HTML::TreeBuilder qw();
+use HTML::Tagset qw();
+use Data::Dumper qw(Dumper);
+
+our %linkElements;
+*linkElements = \%HTML::Tagset::linkElements;
+
+if (!scalar @ARGV) {
+    run(\*STDIN);
+} else {
+    foreach my $arg (@ARGV) {
+        run($arg);
+    }
+}
+
+sub run {
+    my ($source) = @_;
+    my $filename;
+
+    my $tree = HTML::TreeBuilder->new();
+    if ($source eq \*STDIN) {
+        $filename = '-';
+        $tree->parse_file($source);
+    } elsif ($source->isa('IO::Handle')) {
+        $filename = "$source";
+        $tree->parse_file($source);
+    } else {
+        $filename = $source;
+        $tree->parse_file($filename);
+    }
+
+    process($tree, $filename);
+
+    $tree->delete();
+}
+
+sub process {
+    my ($tree, $filename) = @_;
+    my $criterion = sub {
+        my ($element) = @_;
+        my $tagName = $element->tag();
+        my $array = $linkElements{$tagName};
+        return 0 if !defined $array;
+        foreach my $attr (@$array) {
+            return 1 if defined $element->attr($attr);
+        }
+        return 0;
+    };
+    my @elements = $tree->look_down($criterion);
+    foreach my $element (@elements) {
+        my $tagName = $element->tag();
+        my $array = $linkElements{$tagName};
+        next if !defined $array;
+
+        my @address = address($element);
+        my $address = join(" > ", @address);
+
+        foreach my $attr (@$array) {
+            my $value = $element->attr($attr);
+            next if !defined $value;
+            print(
+                join(
+                    "\t",
+                    $filename,
+                    $attr,
+                    $value,
+                    $address,
+                ),
+                "\n"
+            );
+        }
+    }
+}
+
+sub address {
+    my ($element) = @_;
+    my @ancestors = $element->lineage();
+    @ancestors = reverse @ancestors;
+    my @address;
+    foreach my $ancestor (@ancestors) {
+        my $tagName = $ancestor->tag();
+        my $id = $ancestor->id();
+        my $class = $ancestor->attr('class');
+        my @class = defined $class ? split(' ', $class) : ();
+
+        my $addr = $tagName;
+        $addr .= '#' . $id if defined $id;
+        foreach my $class (@class) {
+            $addr .= '.' . $class;
+        }
+        push(@address, $addr);
+    }
+    return @address;
+}

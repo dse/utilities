@@ -1,0 +1,24 @@
+NAME                      | DESCRIPTION          | AUTHOR          | DATE       | VERSION  | KEYWORDS
+jshint                    | Static analysis…     | =jugglinmike…   | 2022-01-24 | 2.13.4   |
+globals                   | Global identifiers…  | =byk =nzakas…   | 2022-05-12 | 13.15.0  | globals global identifiers variables vars jshint eslint environments
+eslint-config-standard    | JavaScript Standard… | =jhiesey =bret… | 2022-04-20 | 17.0.0   | JavaScript Standard Style check checker code code checker code linter code standards code style enforce eslint eslintconfig hint jscs jshint lint policy quality simple standard s
+standard                  | JavaScript Standard… | =jhiesey =bret… | 2022-04-20 | 17.0.0   | JavaScript Standard Style check checker code code checker code linter code standards code style enforce eslint hint jscs jshint lint policy quality simple standard standard style
+grunt-contrib-jshint      | Validate files with… | =cowboy =jmeas… | 2022-02-18 | 3.2.0    | gruntplugin
+semistandard              | All the goodness of… | =jhiesey =bret… | 2021-06-14 | 16.0.1   | JavaScript Standard Style bikeshed check checker code code checker code linter code standards code style enforce eslint hint jscs jshint lint policy quality semicolon simple stan
+gulp-jshint               | JSHint plugin for…   | =fractal…       | 2017-12-29 | 2.1.0    | gulpplugin
+eslint-config-customstand | eslint sharable…     | =unibtc         | 2017-07-26 | 1.0.0    | custom standard style checker code style code checker code linter style linter simple policy style code lint eslint eslintconfig jshint jscs hint enforce check verify quality che
+ard                       |                      |                 |            |          |
+healthier                 | An opinionated code… | =kidkarolis     | 2022-02-06 | 5.0.1    | JavaScript Standard Style bikeshed check checker code code checker code linter code standards code style enforce eslint hint jscs jshint lint policy quality simple standard stand
+eslint-config-semistandar | eslint sharable…     | =dimasdmm       | 2018-11-18 | 1.0.0    | semistandard-4i style checker code style code checker code linter style linter simple policy style code lint eslint eslintconfig jshint jscs hint enforce check verify quality che
+d-4i                      |                      |                 |            |          |
+buster-jshint             | Buster-extension:…   | =alexindigo     | 2014-06-16 | 0.1.0    |
+jshint-stylish            | Stylish reporter…    | =sindresorhus   | 2016-08-13 | 2.2.1    | jshint reporter formatter format lint validate stylish elegant pretty
+eslint-config-simon       | ESlint config files… | =simonwep       | 2020-05-23 | 2.1.0    | code react preact nodejs node quality style linter jscs jshint jslint eslint eslintconfig validate code style strict check checker verify enforce hint
+grunt-coffee-jshint       | grunt wrapper for…   | =bmac =cueedee… | 2020-10-04 | 2.0.1    | coffee-script coffeescript gruntplugin jshint
+eslint-config-standard-js | JavaScript Standard… | =jhiesey =bret… | 2022-04-20 | 11.0.0   | JavaScript Standard Style check checker code code checker code linter code standards code style enforce eslint eslintconfig hint jscs jshint jsx lint policy quality simple standa
+x                         |                      |                 |            |          |
+morganepatch-style        | JSHint and ESLint…   | =morganepatch   | 2020-09-13 | 1.0.1    | style javascript js lint jshint eslint es6
+buenos-jshint             | JSHINT Node wrapper  | =buenos         | 2016-01-21 | 1.2.0    | buenos-lint lint hint javascript jshint jslint style
+broccoli-standard         | broccoli filter for… | =arschmitz      | 2019-03-27 | 1.1.1    | eslint lint broccoli validate jshint jslint standard standard format code style broccoli standard format esprima broccoli-plugin
+eslint-config-pragmatic   | Pragmatic style…     | =thornjad       | 2019-04-26 | 0.9.2    | eslint jshint nodejs style
+git-pre-commit-2          | You can run the…     | =felquis        | 2020-06-05 | 3.0.0    | git pre-commit precommit hook hooks lint eslint jshint gulp grunt npm yarn yarn.lock node nodejs js javascript ci development

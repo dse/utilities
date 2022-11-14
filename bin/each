@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    local blue=$'\e'"[0;34m"
+    local green=$'\e'"[0;32m"
+    local reset=$'\e'"[0m"
+    local header=1
+    local trace=0
+    local fail=1
+
+    if [[ ! -t 1 ]] ; then
+        blue=''
+        green=''
+        reset=''
+    fi
+
+    getoptions "$@"
+    shift $((OPTIND - 1))
+
+    file="$1"
+    shift
+
+    declare -a items
+    readarray -t items <"$file"
+
+    local -a cmd
+    local arg
+    local item
+    local exit=0
+
+    for item in "${items[@]}" ; do
+        cmd=()
+        for arg ; do
+            case "${arg}" in
+                "{}")
+                    cmd+=("$item")
+                    ;;
+                *)
+                    cmd+=("$arg")
+                    ;;
+            esac
+        done
+
+        if (( header )) ; then
+            echo "${green}==> $item <==${reset}"
+        fi
+        if (( trace )) ; then
+            >&2 echo "+ ${blue}${cmd[@]@Q}${reset}"
+        fi
+        if (( fail )) ; then
+            "${cmd[@]}"
+        else
+            if ! "${cmd[@]}" ; then
+                exit=1
+            fi
+        fi
+    done
+
+    exit "${exit}"
+}
+
+getoptions () {
+    local option
+    while getopts 'NxF' option ; do
+        case "${option}" in
+            'N')
+                header=0
+                ;;
+            'F')
+                fail=0
+                ;;
+            'x')
+                trace=1
+                ;;
+            '?')
+                exit 1
+                ;;
+        esac
+    done
+}
+
+#------------------------------------------------------------------------------
+main "$@"

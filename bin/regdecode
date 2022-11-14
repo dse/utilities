@@ -1,0 +1,104 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+
+use Encode qw(encode decode);
+
+# parse Windows Registry exports
+
+our %hexDataTypes = (
+    0x00 => 'REG_NONE',
+    0x01 => 'REG_SZ',           # normally UTF-16LE
+    0x02 => 'REG_EXPAND_SZ',    # normally UTF-16LE
+    0x03 => 'REG_BINARY',       # includes variable byte UTF-8
+    0x04 => 'REG_DWORD_LITTLE_ENDIAN', # equiv. to REG_DWORD
+    0x05 => 'REG_DWORD_BIG_ENDIAN',
+    0x06 => 'REG_LINK',
+    0x07 => 'REG_MULTI_SZ',     # normally UTF-16LE
+    0x08 => 'REG_RESOURCE_LIST',
+    0x09 => 'REG_FULL_RESOURCE_DESCRIPTOR',
+    0x0a => 'REG_RESOURCE_REQUIREMENTS_LIST',
+    0x0b => 'REG_QWORD',
+   );
+
+# REG_BINARY is normally UTF-8
+
+local $/ = "";                  # slurp paragraphs
+while (<>) {
+    s{\\\R +}{}g;
+    s{(?<=\=)
+      (?<text>
+          (?<type>
+              hex
+              (?:
+                  \(
+                  (?<dataType>
+                      [[:xdigit:]]+
+                  )
+                  \)
+              )?
+          )
+          :
+          (?<hex>
+              [[:xdigit:]]{2}
+              (?:
+                  ,[[:xdigit:]]{2}
+              )*
+          )
+      )}
+     {decodeRegistryValue(%+)}gesmx;
+    print("$_");
+}
+
+sub decodeRegistryValue {
+    my %args = @_;
+    my ($text, $type, $hexDataType, $hex) = @args{qw(text type dataType hex)};
+    my $dataType = defined $hexDataType ? (hex($hexDataType) // -1) : -1;
+    my $dataTypeString = decodeHexDataType($dataType) // 'none';
+    my $rawString = rawString($hex);
+    return "[$dataTypeString]" . decode('utf-16LE', $rawString) if $dataTypeString eq 'REG_SZ';
+    return "[$dataTypeString]" . decode('utf-16LE', $rawString) if $dataTypeString eq 'REG_EXPAND_SZ';
+    return "[$dataTypeString]" . decode('utf-16LE', $rawString) if $dataTypeString eq 'REG_MULTI_SZ';
+    return $text;
+}
+
+sub rawString {
+    my ($hex) = @_;
+    $hex =~ s{,}{}g;
+    my $str = pack('H*', $hex);
+    return $str;
+}
+
+sub decodeHexDataType {
+    my ($dataType) = @_;
+    return if !defined $dataType;
+    return $hexDataTypes{$dataType};
+}
+
+sub decodeDecValues {
+    my (@dec) = @_;
+    my @chr = map { char($_) } @dec;
+    return sprintf('"%s"', join('', @chr));
+}
+
+sub char {
+    my ($dec) = @_;
+    return '\\"' if $dec == 34; # "
+    return "\\'" if $dec == 39; # '
+    return '\\\\' if $dec == 92; # \
+    return chr($dec) if ($dec >= 32 && $dec <= 127);
+    return chr($dec) if ($dec >= 160 && $dec <= 255); # assume ISO-Latin-1 (ISO-8859-1)
+    return sprintf("\\x%02x", $dec);
+}
+
+sub char2 {
+    my ($dec) = @_;
+    return '<lt>' if $dec == 60; # <
+    return '<gt>' if $dec == 62; # >
+    return '<quot>' if $dec == 34; # "
+    return '<apos>' if $dec == 39; # '
+    return chr($dec) if ($dec >= 32 && $dec <= 126); # space to tilde
+    return chr($dec) if ($dec >= 160 && $dec <= 255); # ISO-Latin-1 (ISO-8859-1) printables
+    return sprintf("<%02x>", $dec);
+}

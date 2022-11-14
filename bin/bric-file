@@ -1,0 +1,155 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use File::Basename qw(basename dirname);
+use MIME::Base64 qw(encode_base64);
+use Image::Size qw(imgsize);
+use File::MimeInfo::Magic qw(mimetype);
+use File::MimeInfo qw(extensions);
+use IO::Scalar qw();
+use POSIX qw(strftime);
+
+print(<<"END");
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<assets xmlns="http://bricolage.sourceforge.net/assets.xsd">
+END
+
+my $elementType = 'image';
+my $site = 'Cave Hill Heritage Foundation 2016';
+my $uri_prefix = '/images';
+my $category = '/events/cocktails-by-the-lake/2021/';
+my $primaryOutputChannel = 'Cave Hill Heritage Foundation 2016 Images';
+
+my $now = time();
+my $timestamp = strftime('%Y-%m-%dT%H:%M:%SZ', gmtime($now));
+warn($timestamp);
+
+# my $coverDate = '2016-03-04T21:04:00Z';
+# my $publishDate = '2016-05-12T14:58:00Z';
+# my $firstPublishDate = '2016-05-12T14:56:24Z';
+my $coverDate = $timestamp;
+my $publishDate = $timestamp;
+my $firstPublishDate = $timestamp;
+
+foreach my $filename (@ARGV) {
+    if (!-e $filename) {
+        warn("$filename: not found\n");
+        next;
+    }
+    my $size = -s $filename;
+    my $basename = basename($filename);
+    my $data = readBinary($filename);
+    if (!defined $data) {
+        warn("$filename: $!\n");
+        next;
+    }
+    my ($width, $height) = imgsize(\$data);
+    my $encodedData = encode_base64($data, '');
+
+    my $ioScalar = IO::Scalar->new(\$data);
+    my $mimeType = mimetype($ioScalar);
+    if (!defined $mimeType) {
+        warn("$filename: unable to determine MIME type\n");
+        next;
+    }
+    my $extension;
+    if ($mimeType eq 'image/jpeg') {
+        $extension = 'jpg';
+    } else {
+        $extension = extensions($mimeType); # does not include the dot
+    }
+    warn("$mimeType $extension\n");
+
+    my $uploadFilename = $basename;
+    my $filenameExtension;
+    if ($uploadFilename =~ s{\.([^\.\/\\]+)$}{}) {
+        $filenameExtension = $1; # does not include the dot
+    }
+    $uploadFilename =~ s{[^A-Za-z0-9]+}{-}g;
+    $uploadFilename = lc($uploadFilename);
+    if (defined $extension) {
+        $uploadFilename .= ".${extension}";
+    } elsif (defined $filenameExtension) {
+        $uploadFilename .= ".${filenameExtension}";
+    }
+
+    my $mediaName = basename($filename);
+    $mediaName =~ s{\.[^\.\/\\]+$}{};
+    my $mediaDescription = $mediaName;
+    my $mediaUri = "$uri_prefix$category$uploadFilename";
+
+    my $mediaPriority = 3;
+    my $mediaPublishStatus = 1;
+    my $mediaActive = 1;
+    my $mediaSource = 'Client';
+
+    my $mediaKeywords = '';
+    my $mediaContributors = '';
+
+    my $resolution  = '1/1';
+    my $compression = undef;
+    # my $colorType   = 'YCbCr';
+    # <field type="color_type" order="4">${colorType}</field>
+
+    print(<<"END");
+ <media element_type="${elementType}">
+  <site>${site}</site>
+  <name>${mediaName}</name>
+  <description>${mediaDescription}</description>
+  <uri>${mediaUri}</uri>
+  <priority>${mediaPriority}</priority>
+  <publish_status>${mediaPublishStatus}</publish_status>
+  <active>${mediaActive}</active>
+  <source>${mediaSource}</source>
+  <category>${category}</category>
+  <cover_date>${coverDate}</cover_date>
+  <publish_date>${publishDate}</publish_date>
+  <first_publish_date>${firstPublishDate}</first_publish_date>
+  <output_channels>
+   <output_channel primary="1">${primaryOutputChannel}</output_channel>
+  </output_channels>
+  <keywords>${mediaKeywords}</keywords>
+  <contributors>${mediaContributors}</contributors>
+  <elements>
+   <field type="resolution" order="0">${resolution}</field>
+   <field type="height" order="1">${height}</field>
+   <field type="compression" order="2" />
+   <field type="width" order="3">${width}</field>
+   <field type="color_type">n/a</field>
+  </elements>
+  <file>
+   <name>${uploadFilename}</name>
+   <size>${size}</size>
+   <media_type>${mimeType}</media_type>
+   <data>${encodedData}</data>
+  </file>
+ </media>
+END
+}
+
+print(<<"END");
+</assets>
+END
+
+sub readBinary {
+    my ($filename) = @_;
+    my $fh;
+    if (!open($fh, '<', $filename)) {
+        if (wantarray) {
+            return (undef, $!, "$!");
+        } else {
+            return;
+        }
+    }
+    binmode($fh);
+    local $/ = undef;
+    my $data = <$fh>;
+    close($fh);
+    if (wantarray) {
+        return ($data);
+    } else {
+        return $data;
+    }
+}

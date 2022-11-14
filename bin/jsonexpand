@@ -1,0 +1,57 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use locale;
+
+use JSON;
+
+my $json = JSON->new()->pretty(1)->ascii(1)->canonical(1);
+
+local $/ = undef;
+while (<>) {
+    my $obj = eval { $json->decode($_); };
+    if ($@) {
+        warn($@);
+        next;
+    }
+    $obj = jsonexpand($obj);
+    print($json->encode($obj));
+}
+
+sub jsonexpand {
+    my ($obj) = @_;
+    if (ref $obj eq 'ARRAY') {
+        for (my $i = 0; $i < scalar @$obj; $i += 1) {
+            $obj->[$i] = jsonexpand($obj->[$i]);
+        }
+        return $obj;
+    }
+    if (ref $obj eq 'HASH') {
+        my @keys = keys %$obj;
+        foreach my $key (@keys) {
+            $obj->{$key} = jsonexpand($obj->{$key});
+        }
+        return $obj;
+    }
+    if (defined $obj && ref $obj eq '') {
+        if ($obj =~ m{\A\[.*\]\z}) {
+            my $result = eval { $json->decode($obj); };
+            if ($@) {
+                warn($@);
+                warn($obj);
+                return $obj;
+            }
+            return jsonexpand($result);
+        }
+        if ($obj =~ m{\A\{.*\}\z}) {
+            my $result = eval { $json->decode($obj); };
+            if ($@) {
+                warn($@);
+                warn($obj);
+                return $obj;
+            }
+            return jsonexpand($result);
+        }
+    }
+    return $obj;
+}

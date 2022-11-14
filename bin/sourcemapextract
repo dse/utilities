@@ -1,0 +1,112 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use POSIX qw(floor);
+use List::Util qw(max);
+use JSON;
+use IO::File;
+use File::Spec;
+use File::Path qw(make_path);
+use File::Basename qw(dirname basename);
+use Cwd qw(abs_path);
+
+my $json = JSON->new()->pretty()->canonical();
+my $progname = basename($0);
+
+if ($progname eq 'sourcemapextract') {
+    $/ = undef;
+    while (<>) {
+        my $o = $json->decode($_);
+        my $mapdir = "${ARGV}.d";
+        my $sources = $o->{sources};
+        my $sourcesContent = $o->{sourcesContent};
+        my $levels = upLevels(@$sources);
+        my $basedir = join('/', map { letterName($_) } (0 .. ($levels - 1)));
+        $basedir = File::Spec->catdir($mapdir, $basedir);
+        make_path($basedir);
+        my $fileCount = 0;
+        for (my $i = 0; $i < scalar @$sources && $i < scalar @$sourcesContent; $i += 1) {
+            my $source = $sources->[$i];
+            my $content = $sourcesContent->[$i];
+            my $filename = File::Spec->catfile($basedir, $source);
+            $filename = resolve($filename);
+            make_path(dirname($filename));
+            IO::File->new($filename, 'w')->print($content);
+            $fileCount += 1;
+        }
+        warn(sprintf("Extracted %d file(s) into %s\n", $fileCount, $mapdir));
+    }
+}
+if ($progname eq 'sourcemaplist') {
+    $/ = undef;
+    while (<>) {
+        my $o = $json->decode($_);
+        my $sources = $o->{sources};
+        my $sourcesContent = $o->{sourcesContent};
+        my $levels = upLevels(@$sources);
+        my $basedir = join('/', map { letterName($_) } (0 .. ($levels - 1)));
+        $basedir = File::Spec->catdir($basedir);
+        print("$ARGV:\n");
+        for (my $i = 0; $i < scalar @$sources && $i < scalar @$sourcesContent; $i += 1) {
+            my $source = $sources->[$i];
+            my $length = length($sourcesContent->[$i]);
+            my $filename = File::Spec->catfile($basedir, $source);
+            $filename = resolve($filename);
+            printf("    %10d  %s\n", $length, $filename);
+        }
+    }
+}
+
+
+sub resolve {
+    my ($path) = @_;
+    my ($vol, $dir, $file) = File::Spec->splitpath($path);
+    my @dir = File::Spec->splitdir($dir);
+    @dir = newdirs(@dir);
+    $dir = File::Spec->catdir(@dir);
+    $path = File::Spec->catpath($vol, $dir, $file);
+    return $path;
+}
+
+sub newdirs {
+    my (@dir) = @_;
+    my @newdir;
+    my $up = 0;
+    foreach my $dir (@dir) {
+        if ($dir eq '.') {
+            next;
+        }
+        if ($dir eq '..') {
+            if (!scalar @newdir) {
+                $up += 1;
+            } else {
+                pop(@newdir);
+            }
+            next;
+        }
+        push(@newdir, $dir);
+    }
+    return @newdir;
+}
+
+sub upLevels {
+    my (@filenames) = @_;
+    my @up = (0);
+    foreach my $filename (@filenames) {
+        if ($filename =~ m{^((?:\.\./)+)}) {
+            push(@up, length($1) / 3);
+        }
+    }
+    return max @up;
+}
+
+sub letterName {
+    my ($n) = @_;
+    if ($n < 26) {              # 0 .. 25 => A .. Z
+        my $c1 = chr($n + 65);
+        return $c1;
+    }
+    $n -= 26;                   # 26 .. 701 => 0 .. 675
+    return letterName(floor($n / 26)) . letterName($n % 26);
+}
