@@ -18,6 +18,9 @@ Getopt::Long::GetOptions(
 our @patternInfo = map { { pattern => $_ } } @patterns;
 if (!scalar @patternInfo) {
     my $pattern = shift(@ARGV);
+    if (!defined $pattern) {
+        die("required pattern argument not found\n");
+    }
     push(@patternInfo, { pattern => $pattern });
 }
 
