@@ -6,6 +6,7 @@ use open qw(locale);
 use List::Util qw(max);
 use Text::Tabs qw(expand);
 use Getopt::Long qw();
+use Data::Dumper qw(Dumper);
 
 our @patterns;
 
@@ -30,7 +31,6 @@ while (<>) {
     }
     s{\R\z}{};                  # safer chomp
     s{^\s+}{};                  # trim beginning of string
-    next unless m{\S};          # non-whitespace
     push(@lines, expand($_));
 }
 printLines();
@@ -47,11 +47,11 @@ sub printLines {
         foreach my $patternInfo (@patternInfo) {
             my $pattern = $patternInfo->{pattern};
             my $pos = index($str, $pattern);
-            if ($pos < 0 || $pos > length($str) - 2) {
+            if ($pos < 0 || $pos > length($str) - 1) {
                 my $match = { str => $str };
                 push(@matches, $match);
                 push(@lineData, { text => $origLine, matches => \@matches });
-                last pattern;
+                next line;
             }
             my $substr = substr($str, 0, $pos);
             my $match = { str => substr($str, 0, $pos), pos => $pos, pattern => $pattern };
@@ -65,17 +65,19 @@ sub printLines {
         push(@lineData, { text => $origLine, matches => \@matches });
     }
 
-    my $matchIdx = 0;
   line2:
-    foreach my $matchIdx (0 .. $#patternInfo) {
-        my $patternInfo = $patternInfo[$matchIdx];
+    foreach my $patternIdx (0 .. $#patternInfo) {
+        my $patternInfo = $patternInfo[$patternIdx];
         my $pattern = $patternInfo->{pattern};
-        my @matches = grep { defined $_ } map {
-            $matchIdx <= $#{$_->{matches}} ? $_->{matches}->[$matchIdx] : undef
-        } @lineData;
 
-        # or not
-        @matches = grep { defined $_->{pos} } @matches;
+        # lines that had this pattern match
+        my @matches = grep { defined $_ } map {
+            my $matches = $_->{matches}; # each line's matches
+            my $hasMatch = $patternIdx <= $#$matches;
+            my $match = $hasMatch ? $matches->[$patternIdx] : undef;
+            my $matchesPattern = defined $match && defined $match->{pos};
+            $matchesPattern ? $match : undef;
+        } @lineData;
 
         if (!scalar @matches) {
             last line2;
@@ -104,8 +106,7 @@ sub printLines {
                    $match->{textColumns},
                    $match->{str},
                    $match->{patternColumns},
-                   $match->{pattern},
-                  );
+                   $match->{pattern});
         }
         print("\n");
     }
