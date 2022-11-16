@@ -1,0 +1,112 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+
+use List::Util qw(max);
+use Text::Tabs qw(expand);
+use Getopt::Long qw();
+
+our @patterns;
+
+Getopt::Long::Configure(qw(gnu_compat bundling no_getopt_compat no_ignore_case));
+Getopt::Long::GetOptions(
+    'e|pattern=s' => \@patterns,
+   ) or die("exiting");
+
+our @patternInfo = map { { pattern => $_ } } @patterns;
+if (!scalar @patternInfo) {
+    my $pattern = shift(@ARGV);
+    push(@patternInfo, { pattern => $pattern });
+}
+
+my @lines;
+my $oldARGV;
+while (<>) {
+    if (!defined $oldARGV || $oldARGV ne $ARGV) {
+        printLines();
+        @lines = ();
+        $oldARGV = $ARGV;
+    }
+    s{\R\z}{};                  # safer chomp
+    s{^\s+}{};                  # trim beginning of string
+    next unless m{\S};          # non-whitespace
+    push(@lines, expand($_));
+}
+printLines();
+
+sub printLines {
+    return unless scalar @lines;
+    my @lineData;
+  line:
+    foreach (@lines) {          # $_ local implicit
+        my $origLine = $_;
+        my @matches;
+        my $str = $_;
+      pattern:
+        foreach my $patternInfo (@patternInfo) {
+            my $pattern = $patternInfo->{pattern};
+            my $pos = index($str, $pattern);
+            if ($pos < 0 || $pos > length($str) - 2) {
+                my $match = { str => $str };
+                push(@matches, $match);
+                push(@lineData, { text => $origLine, matches => \@matches });
+                last pattern;
+            }
+            my $substr = substr($str, 0, $pos);
+            my $match = { str => substr($str, 0, $pos), pos => $pos, pattern => $pattern };
+            push(@matches, $match);
+            $str = substr($str, $pos + length($pattern));
+        }
+        if (length $str) {
+            my $match = { str => $str };
+            push(@matches, $match);
+        }
+        push(@lineData, { text => $origLine, matches => \@matches });
+    }
+
+    my $matchIdx = 0;
+  line2:
+    foreach my $matchIdx (0 .. $#patternInfo) {
+        my $patternInfo = $patternInfo[$matchIdx];
+        my $pattern = $patternInfo->{pattern};
+        my @matches = grep { defined $_ } map {
+            $matchIdx <= $#{$_->{matches}} ? $_->{matches}->[$matchIdx] : undef
+        } @lineData;
+
+        # or not
+        @matches = grep { defined $_->{pos} } @matches;
+
+        if (!scalar @matches) {
+            last line2;
+        }
+        my $textColumns    = max(grep { defined $_ } map { length($_->{str})     } @matches);
+        my $patternColumns = max(grep { defined $_ } map { length($_->{pattern}) } @matches);
+        foreach my $match (@matches) {
+            if (defined $match->{pos}) {
+                $match->{textColumns}    = $textColumns    if defined $textColumns;
+                $match->{patternColumns} = $patternColumns if defined $patternColumns;
+            }
+        }
+    }
+
+  line3:
+    foreach my $lineData (@lineData) {
+      match3:
+        foreach my $i (0 .. $#{$lineData->{matches}}) {
+            my $match = $lineData->{matches}->[$i];
+            if (!defined $match->{pos}) {
+                printf("%s\n", $match->{str});
+                next line3;
+            }
+            my $format = "%-*s %-*s ";
+            printf($format,
+                   $match->{textColumns},
+                   $match->{str},
+                   $match->{patternColumns},
+                   $match->{pattern},
+                  );
+        }
+        print("\n");
+    }
+}
