@@ -8,20 +8,42 @@ use Text::Tabs qw(expand);
 use Getopt::Long qw();
 use Data::Dumper qw(Dumper);
 
-our @patterns;
+our $flagsAllPatterns = {};
+our $flagsThisPattern = {};
+
+our @patternInfo;
+
+$Data::Dumper::Sortkeys = 1;
 
 Getopt::Long::Configure(qw(gnu_compat bundling no_getopt_compat no_ignore_case));
 Getopt::Long::GetOptions(
-    'e|pattern=s' => \@patterns,
+    # -l, --last-match, etc. turn the option on.
+    # -L, --no-last-match, etc. turn the option off
+    'l|last-match!'        => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{last}   = $_[1]; },
+    'b|before=s'           => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{before} = $_[1]; },
+    'r|right|align-right!' => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{right}  = $_[1]; },
+    'L'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{last}   = 0; },
+    'B'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{before} = 0; },
+    'R'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{right}  = 0; },
+    'e|pattern=s' => sub {
+        # specify --last/--before/--right after each pattern to affect only that pattern
+        # specify "                       before first pattern to affect all patterns
+        $flagsThisPattern = {};
+        push(@patternInfo, { pattern => $_[1], flags => $flagsThisPattern });
+    }
    ) or die("exiting");
 
-our @patternInfo = map { { pattern => $_ } } @patterns;
+foreach my $patternInfo (@patternInfo) {
+    %{$patternInfo->{flags}} = (%$flagsAllPatterns, %{$patternInfo->{flags}});
+}
+
 if (!scalar @patternInfo) {
     my $pattern = shift(@ARGV);
     if (!defined $pattern) {
         die("required pattern argument not found\n");
     }
-    push(@patternInfo, { pattern => $pattern });
+    push(@patternInfo, { pattern => $pattern, flags => $flagsAllPatterns });
+    $flagsThisPattern = {};
 }
 
 my @lines;
@@ -48,8 +70,23 @@ sub printLines {
         my $str = $_;
       pattern:
         foreach my $patternInfo (@patternInfo) {
+
+            my $stringToMatch = $str;
+            my %flags = %{$patternInfo->{flags}};
+
+            if ($flags{last} && defined $flags{before}) {
+                my $pos = index($str, $flags{before});
+                if ($pos > -1) {
+                    $stringToMatch = substr($stringToMatch, 0, $pos);
+                }
+            }
             my $pattern = $patternInfo->{pattern};
-            my $pos = index($str, $pattern);
+            my $pos;
+            if ($flags{last}) {
+                $pos = rindex($str, $pattern);
+            } else {
+                $pos = index($str, $pattern);
+            }
             if ($pos < 0 || $pos > length($str) - 1) {
                 my $match = { str => $str };
                 push(@matches, $match);
@@ -57,7 +94,7 @@ sub printLines {
                 next line;
             }
             my $substr = substr($str, 0, $pos);
-            my $match = { str => substr($str, 0, $pos), pos => $pos, pattern => $pattern };
+            my $match = { str => substr($str, 0, $pos), pos => $pos, pattern => $patternInfo };
             push(@matches, $match);
             $str = substr($str, $pos + length($pattern));
         }
@@ -85,8 +122,8 @@ sub printLines {
         if (!scalar @matches) {
             last line2;
         }
-        my $textColumns    = max(grep { defined $_ } map { length($_->{str})     } @matches);
-        my $patternColumns = max(grep { defined $_ } map { length($_->{pattern}) } @matches);
+        my $textColumns    = max(grep { defined $_ } map { length($_->{str})                } @matches);
+        my $patternColumns = max(grep { defined $_ } map { length($_->{pattern}->{pattern}) } @matches);
         foreach my $match (@matches) {
             if (defined $match->{pos}) {
                 $match->{textColumns}    = $textColumns    if defined $textColumns;
@@ -104,12 +141,13 @@ sub printLines {
                 printf("%s\n", $match->{str});
                 next line3;
             }
-            my $format = "%-*s %-*s ";
+            my %flags = %{$match->{pattern}->{flags}};
+            my $format = $flags{right} ? "%*s %-*s " : "%-*s %-*s ";
             printf($format,
                    $match->{textColumns},
                    $match->{str},
                    $match->{patternColumns},
-                   $match->{pattern});
+                   $match->{pattern}->{pattern});
         }
         print("\n");
     }
