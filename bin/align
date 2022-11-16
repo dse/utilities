@@ -22,9 +22,11 @@ Getopt::Long::GetOptions(
     'l|last-match!'        => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{last}   = $_[1]; },
     'b|before=s'           => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{before} = $_[1]; },
     'r|right|align-right!' => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{right}  = $_[1]; },
+    's|space!'             => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{space}  = $_[1]; },
     'L'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{last}   = 0; },
     'B'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{before} = 0; },
     'R'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{right}  = 0; },
+    'S'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{space}  = 0; },
     'e|pattern=s' => sub {
         # specify above flags after each pattern to affect only that pattern
         # specify above flags before first pattern to affect all patterns
@@ -142,12 +144,15 @@ sub printLines {
                 next line3;
             }
             my %flags = %{$match->{pattern}->{flags}};
-            my $format = $flags{right} ? "%*s %-*s " : "%-*s %-*s ";
+            my $format = $flags{right} ? "%*s%s%-*s%s" : "%-*s%s%-*s%s";
             printf($format,
                    $match->{textColumns},
                    $match->{str},
+                   ($flags{space} ? ' ' : ''),
                    $match->{patternColumns},
-                   $match->{pattern}->{pattern});
+                   $match->{pattern}->{pattern},
+                   ($flags{space} ? ' ' : ''),
+                  );
         }
         print("\n");
     }
