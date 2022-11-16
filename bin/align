@@ -26,12 +26,12 @@ Getopt::Long::GetOptions(
     'B'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{before} = 0; },
     'R'                    => sub { my $hash = scalar(@patternInfo) ? $flagsThisPattern : $flagsAllPatterns; $hash->{right}  = 0; },
     'e|pattern=s' => sub {
-        # specify --last/--before/--right after each pattern to affect only that pattern
-        # specify "                       before first pattern to affect all patterns
+        # specify above flags after each pattern to affect only that pattern
+        # specify above flags before first pattern to affect all patterns
         $flagsThisPattern = {};
         push(@patternInfo, { pattern => $_[1], flags => $flagsThisPattern });
     }
-   ) or die("exiting");
+) or die("exiting");
 
 foreach my $patternInfo (@patternInfo) {
     %{$patternInfo->{flags}} = (%$flagsAllPatterns, %{$patternInfo->{flags}});
