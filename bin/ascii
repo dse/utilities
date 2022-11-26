@@ -6,7 +6,6 @@ use File::Basename qw(basename);
 our $PROGNAME = basename($0);
 
 use Unicode::UCD qw(charinfo);
-use IO::Pager;
 use Data::Dumper;
 use POSIX qw(floor);
 
