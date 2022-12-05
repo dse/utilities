@@ -1,0 +1,62 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open 'locale';
+
+use Text::Tabs qw(expand);
+
+while (<>) {
+    s{\R\z}{};
+    $_ = expand($_);
+    if (m{^[ :;.,'"]+$}) {
+        print(blockify($_), "\n");
+    } elsif (m{^\s*$}) {
+        twoLineReset();
+    } else {
+        twoLine($_);
+    }
+}
+
+our $twoLine;
+
+sub twoLine {
+    my ($line) = @_;
+    if (!defined $twoLine) {
+        $line =~ s{\S}{'}g;
+        $line =~ s{\s}{ }g;
+        $twoLine = $line;
+    } else {
+        $line =~ s{\S}{.}g;
+        $line =~ s{\s}{ }g;
+        if (length($line) > length($twoLine)) {
+            $twoLine .= ' ' x (length($line) - length($twoLine));
+        } elsif (length($line) < length($twoLine)) {
+            $line .= ' ' x (length($twoLine) - length($line));
+        }
+        for (my $i = 0; $i < length($line); $i += 1) {
+            if (substr($line, $i, 1) eq '.') {
+                my $c = substr($twoLine, $i, 1);
+                $c = ($c eq "'") ? ':' : '.';
+                substr($twoLine, $i, 1) = $c;
+            }
+        }
+        print(blockify($twoLine), "\n");
+        $twoLine = undef;
+    }
+}
+
+sub twoLineReset {
+    my ($line) = @_;
+    if (defined $twoLine) {
+        print(blockify($twoLine), "\n");
+        $twoLine = undef;
+    }
+}
+
+sub blockify {
+    my ($str) = @_;
+    $str =~ s{['"]}{\N{UPPER HALF BLOCK}}g;
+    $str =~ s{[:;]}{\N{FULL BLOCK}}g;
+    $str =~ s{[.,]}{\N{LOWER HALF BLOCK}}g;
+    return $str;
+}
