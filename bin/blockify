@@ -21,6 +21,7 @@ while (<>) {
         twoLine($_);
     }
 }
+twoLineReset();
 
 our $twoLine;
 
