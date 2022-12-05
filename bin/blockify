@@ -5,11 +5,16 @@ use open 'locale';
 
 use Text::Tabs qw(expand);
 
+# Lines consisting entirely of SPC ' " : ; . , are two-line blocks.
+# Lines containing other non-whitespace characters are paired.
+
 while (<>) {
     s{\R\z}{};
     $_ = expand($_);
     if (m{^[ :;.,'"]+$}) {
+        twoLineReset();
         print(blockify($_), "\n");
+        twoLineReset();
     } elsif (m{^\s*$}) {
         twoLineReset();
     } else {
