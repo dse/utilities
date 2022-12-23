@@ -68,5 +68,57 @@ ESCS    \e[9m   \e[29m  strikethrough
         \e]0;<text>\e\\     change icon name and window title
         \e]1;<text>\e\\     change icon name
         \e]2;<text>\e\\     change window title
-        \e]50;<text>\e\\    set font
+        \e]50;<text>\e\\    set font        \e#{    \e#}    push or pop attributes
 EOF
+
+
+# reset, normal
+# bold, nobold
+# faint, dim, nobold, nofaint, nodim
+# italic, oblique, noitalic, nooblique, upright
+# underline, doubleunderline, nounderline
+# blink, noblink, steady
+# inverse, noinverse
+# invisible, hide, noinvisible, nohide, show
+# strike, strikethrough, nostrike, nostrikethrough
+
+# black
+# red
+# green
+# yellow
+# blue
+# magenta
+# cyan
+# white
+# defaultcolor
+
+# brightblack
+# brightred
+# brightgreen
+# brightyellow
+# brightblue
+# brightmagenta
+# brightcyan
+# brightwhite
+
+# onblack
+# onred
+# ongreen
+# onyellow
+# onblue
+# onmagenta
+# oncyan
+# onwhite
+# ondefaultcolor
+
+# onbrightblack
+# onbrightred
+# onbrightgreen
+# onbrightyellow
+# onbrightblue
+# onbrightmagenta
+# onbrightcyan
+# onbrightwhite
+
+# #ffffff
+# on#ffffff
