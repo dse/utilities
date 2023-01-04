@@ -11,7 +11,6 @@ use File::Path qw(make_path);
 use POSIX qw(round);
 use POSIX qw(strftime);
 use Date::Parse qw(str2time);
-use Term::ReadKey qw(GetTerminalSize);
 
 our $json = JSON->new()->pretty()->canonical()->ascii();
 
@@ -192,19 +191,5 @@ sub npmSearchJson {
 }
 
 sub getTerminalWidth {
-    # Term::ReadKey ain't installed by default; h/t
-    # https://stackoverflow.com/a/1782149
-    require 'sys/ioctl.ph';
-    if (!defined &TIOCGWINSZ) {
-        return;
-    }
-    if (!open(TTY, "+</dev/tty")) {
-        return;
-    }
-    my $winsize;
-    if (!ioctl(TTY, &TIOCGWINSZ, $winsize='')) {
-        return;
-    }
-    my ($row, $col, $xpixel, $ypixel) = unpack('S4', $winsize);
-    return $col;
+    return $ENV{COLUMNS} // 80;
 }
