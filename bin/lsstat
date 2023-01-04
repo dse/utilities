@@ -1,0 +1,94 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use locale;
+
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+use Data::Dumper qw(Dumper);
+
+our $verbose;
+our $lstat = $PROGNAME eq 'lslstat';
+our $stat  = $PROGNAME ne 'lslstat';
+our $help;
+our $man;
+our $hexDev;
+our $quotemeta;
+our $dumper;
+
+getOptions();
+
+if (scalar @ARGV) {
+    list($_) foreach @ARGV;
+} else {
+    while (<>) {
+        s{\R\z}{};                   # safer chomp
+        if (s{^([^\t ]*)[ ]*\t}{}) { # du output
+            print($&);
+        }
+        list($_);
+    }
+}
+
+#------------------------------------------------------------------------------
+
+sub dumper {
+    local $Data::Dumper::Indent = 0;
+    local $Data::Dumper::Purity = 1;
+    local $Data::Dumper::Useqq = 1;
+    local $Data::Dumper::Terse = 1;
+    local $Data::Dumper::Sortkeys = 1;
+    return Data::Dumper::Dumper(@_);
+}
+
+sub getOptions {
+    use Getopt::Long qw();
+    use Pod::Usage qw(pod2usage);
+    Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+    Getopt::Long::GetOptions(
+        'v|verbose+'                => \$verbose,
+        'l|lstat'                   => sub { $lstat = 1; $stat = 0; },
+        's|stat'                    => sub { $lstat = 0; $stat = 1; },
+        'x|hex-dev'                 => \$hexDev,
+        'help|?+'                   => \$help,
+        'man'                       => \$man,
+    ) or pod2usage(-exitval => 2);
+    pod2usage(-verbose => $help - 1, -exitval => 0) if $help;
+    pod2usage(-verbose => 2, -exitval => 0) if $man;
+}
+
+sub list {
+    my ($filename) = @_;
+    my @stat = ($PROGNAME eq 'lstatnums') ? lstat($filename) : stat($filename);
+    if (!scalar @stat) {
+        warn("$filename: $!\n");
+        return;
+    }
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @stat;
+    if ($hexDev) {
+        my $devHi = ($dev & 0xffff0000) >> 16;
+        my $devLo = ($dev & 0xffff);
+        $dev = sprintf('0x%04x,0x%04x', $devHi, $devLo);
+        $stat[0] = $dev;
+    }
+    if ($verbose) {
+        printf("dev=%s ino=%s mode=%s nlink=%s uid=%s gid=%s rdev=%s size=%s atime=%s mtime=%s ctime=%s blksize=%s blocks=%s filename=%s\n",
+               (@stat, $filename));
+    } else {
+        printf("%s %s\n", join(' ', map { $_ // '-' } @stat), $filename);
+    }
+}
+
+=head1 NAME
+
+=head1 SYNOPSIS
+
+    statnums|lstatnums [-v|--verbose] \
+                       [--stat] \
+                       [--lstat] \
+                       [--hex-dev] \
+                       [<filename> ...]
+    statnums|lstatnums -?|--help|--man
+
+=cut

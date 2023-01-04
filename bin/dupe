@@ -1,0 +1,362 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use locale;
+
+use File::Basename qw(basename);
+our $PROGNAME = basename($0);
+
+use File::Find qw();
+use Digest::SHA qw();
+use Data::Dumper qw(Dumper);
+use Scalar::Util qw(looks_like_number);
+
+our $dryRun;
+our $list;
+our $run;
+our $help;
+our $man;
+
+our $porcelain;
+our $verbose;
+our $minSize = 2 ** 18;
+our $progress;
+our $action = $PROGNAME;
+our $totalBytesSaved;
+
+use Getopt::Long qw();
+use Pod::Usage qw(pod2usage);
+Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+# In order for bundling to work, you must specify 'bundling' after
+# 'gnu_compat'.
+Getopt::Long::GetOptions(
+    'n|dryrun|dry-run'          => \$dryRun,
+    'r|run'                     => \$run,
+    'l|list'                    => \$list,
+    's|size|minsize|min-size=s' => \&setMinSize,
+    'help|?+'                   => \$help,
+    'v|verbose+'                => \$verbose,
+    'man'                       => \$man,
+    'porcelain'                 => \$porcelain,
+) or pod2usage(-exitval => 2);
+pod2usage(-verbose => $help - 1, -exitval => 0) if $help;
+pod2usage(-verbose => 2, -exitval => 0) if $man;
+
+if (!$dryRun && !$list && !$run && !$help && !$man) {
+    $list = 1;
+}
+
+=head1 NAME
+
+    dupe - free disk space by hard-linking duplicate files
+
+=head1 SYNOPSIS
+
+    dupe [-n|--dryrun|--dry-run]                    \
+         [-r|--run]                                 \
+         [-l|--list]                                \
+         [-s|--size|--minsize|--min-size]=<bytes>   \
+         [-v|--verbose]                             \
+         [<dir> ...]
+    dupe -?|--help|--man
+
+=cut
+
+our %filenames;
+our %dev;
+our %ino;
+our $fileCount;
+
+find(@ARGV);
+if ($list) {
+    listCandidates();
+}
+if ($run || $dryRun) {
+    linkDupes();
+}
+
+sub find {
+    warn("Finding files ...\n") if $verbose;
+    $progress = Progress->new();
+    $progress->{message}->[0] = '%s total file(s)';
+    $progress->{message}->[1] = '%s candidate file(s)';
+    my (@dir) = @_;
+    @dir = ('.') if (!scalar @dir);
+    File::Find::find(\&wanted, @dir);
+    $fileCount = $progress->{count}->[1];
+    $progress = undef;
+}
+sub wanted {
+    $progress->increment(0);
+    my @lstat = lstat($_);
+    return if (!scalar @lstat);
+    return if (!-f _);
+    my $filename = $File::Find::name;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+        $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+    return if $size < $minSize;
+    addFile($filename, @lstat);
+}
+sub sum {
+    my ($filename) = @_;
+    my $sha = Digest::SHA->new('1');
+    $sha->addfile($filename);
+    return $sha->hexdigest();
+}
+sub addFile {
+    $progress->increment(1);
+    my ($filename, @lstat) = @_;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+        $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+    push(@{$filenames{$size}{$dev}{$ino}}, $filename);
+    $dev{$filename} = $dev;
+    $ino{$filename} = $ino;
+}
+sub listCandidates {
+    warn("Listing candidate files to remove...\n") if $verbose;
+    foreach my $size (sort { $b <=> $a } keys %filenames) {
+        foreach my $dev (sort { $b <=> $a } keys %{$filenames{$size}}) {
+            my @ino = keys %{$filenames{$size}{$dev}};
+            next if scalar @ino < 2;
+            foreach my $ino (sort { $b <=> $a } @ino) {
+                my @filenames = @{$filenames{$size}{$dev}{$ino}};
+                my $filename = $filenames[0];
+                if ($porcelain) {
+                    my ($main, @others) = @filenames;
+                    printf("%d %d %d %s\n", $size, $dev, $ino, $main);
+                    foreach my $other (@others) {
+                        printf("- - - %s\n", $other);
+                    }
+                } else {
+                    my $k1 = sprintf("size=%-12d dev=%-5d ino=%-21d - ", $size, $dev, $ino);
+                    my $k2 = "\n" . (' ' x length($k1));
+                    print($k1, join($k2, @filenames), "\n");
+                }
+            }
+        }
+    }
+}
+sub linkDupes {
+    warn("Removing large duplicate files...\n") if $verbose;
+    foreach my $size (sort { $b <=> $a } keys %filenames) {
+        foreach my $dev (sort { $b <=> $a } keys %{$filenames{$size}}) {
+            my @ino = keys %{$filenames{$size}{$dev}};
+            next if scalar @ino < 2;
+            my %sum;
+
+            # List of filenames to checksum, all on different inodes.
+            my @filenames = map { $filenames{$size}{$dev}{$_}->[0] } @ino;
+
+            foreach my $filename (@filenames) {
+                warn("checksumming $filename ($size bytes) ...\n") if -t 2 && $verbose;
+                $sum{$filename} = sum($filename);
+                printf("%s  %s\n", $sum{$filename}, $filename) if $verbose >= 2;
+            }
+
+            # @filenames is now remaining filenames from the list each
+            # has one or more hardlinks, which we will hard-link to
+            # the $mainFilename.
+            my $mainFilename = shift(@filenames);
+
+            $totalBytesSaved += $size * scalar @filenames;
+            foreach my $filename (@filenames) {
+                my $ino = $ino{$filename};
+                my @linkFilenames = @{$filenames{$size}{$dev}{$ino}};
+                foreach my $linkFilename (@linkFilenames) {
+                    if ($dryRun || $verbose) {
+                        printf("rm %s &&\n", shell_quote($linkFilename));
+                    }
+                    if (!$dryRun) {
+                        if (!unlink($linkFilename)) {
+                            warn("dupe: unlink(%s): %s\n", dumper($linkFilename), "$!");
+                            next;
+                        }
+                    }
+                    if ($dryRun || $verbose) {
+                        printf("ln %s \\\n   %s\n", shell_quote($mainFilename), shell_quote($linkFilename));
+                    }
+                    if (!$dryRun) {
+                        if (!link($mainFilename, $linkFilename)) {
+                            warn("dupe: link(%s,\n           %s): %s\n", dumper($mainFilename), dumper($linkFilename), "$!");
+                            next;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    print("$totalBytesSaved total bytes saved\n");
+}
+sub shell_quote {
+    # stolen from String::ShellQuote so I can copy to routers
+    local $_ = shift();
+    return $_ unless m{[^\w!%+,\-./:=@^]};
+    s/'/'\\''/g;
+    s|((?:'\\''){2,})|q{'"} . (q{'} x (length($1) / 4)) . q{"'}|ge;
+    $_ = "'$_'";
+    s/^''//;
+    s/''$//;
+    return $_;
+}
+sub dumper {
+    local $Data::Dumper::Indent = 0;
+    local $Data::Dumper::Purity = 1;
+    local $Data::Dumper::Useqq = 1;
+    local $Data::Dumper::Terse = 1;
+    local $Data::Dumper::Sortkeys = 1;
+    return Data::Dumper::Dumper(@_);
+}
+sub setMinSize {
+    my ($name, $value) = @_;
+    if (looks_like_number($value)) {
+        $minSize = $value;
+        return;
+    }
+    die("invalid minimum file size: $value\n");
+}
+
+package Progress {
+    use Time::HiRes qw(gettimeofday);
+    sub new {
+        my ($class, %args) = @_;
+        my $self = bless({%args}, $class);
+        $self->{count} = [];
+        $self->{total} = [];
+        $self->{message} = [];
+        $self->{time} = gettimeofday();
+        return $self;
+    }
+    sub increment {
+        my ($self, $index) = @_;
+        $self->{count}->[$index] += 1;
+        my $time = gettimeofday();
+        if ($time - $self->{time} >= 0.1) {
+            $self->print();
+            $self->{time} = $time;
+        }
+    }
+    sub as_string {
+        my ($self) = @_;
+        my @result;
+        for (my $i = 0; $i < scalar @{$self->{count}} || $i < scalar @{$self->{total}}; $i += 1) {
+            my $count = $self->{count}->[$i] // 0;
+            my $total = $self->{total}->[$i];
+            my $message = $self->{message}->[$i] // '%s';
+            push(@result, sprintf($message, (defined $total ? "$count/$total" : "$count")));
+        }
+        return join("; ", @result);
+    }
+    sub print {
+        my ($self) = @_;
+        printf STDERR ("\r  %s  \r", $self->as_string()) if -t 2;
+    };
+    sub DESTROY {
+        my ($self) = @_;
+        $self->print();
+        print STDERR ("\n") if -t 2;
+    }
+};
+
+=head1 DESCRIPTION
+
+C<dupe> searches the specified directories (or the current directory)
+for large files of the same size, determines which ones are duplicates
+that are not hard-linked, and hard-links them in order to free disk
+space.
+
+You can specify directories across multiple filesystems.
+
+C<dupe> will recurse into other filesystems.
+
+C<dupe> is smart enough to not try to hard-link files across filesystems.
+
+C<dupe> cleans up duplicates in descending order of file size.
+
+=head1 DEFAULT ACTION
+
+C<dupe>'s default action is to look in the current directory for large
+files, then list them.
+
+The following options specify the action(s) C<dupe> will take:
+
+=over 4
+
+=item -n, --dry-run
+
+=item -r, --run
+
+=item --list
+
+=item --man
+
+=item --help
+
+=back
+
+If no directory arguments are specified, C<dupe> traverses the current
+working directory (".").
+
+=head1 OPTIONS
+
+=over 4
+
+=item -n, --dry-run (action)
+
+Get checksums on large files as needed, then print the actions C<dupe>
+would take, but not take any actions.
+
+=item -r, --run (action)
+
+Get checksums on large files as needed, then perform the actions to
+remove and then hard-link duplicate files.
+
+=item -l, --list (action)
+
+List large files of which C<dupe> would get checksums, then among
+which it would remove duplicates.
+
+=item -s, --size, --minsize, --min-size=<size>
+
+Specify the minimum file size, in bytes, of files on which to take
+action.  Default is 262,144 bytes (256 KiB).
+
+=item -?, --help (action)
+
+Print a brief help message listing C<dupe>'s possible arguments.
+
+Specify twice to describe each option and argument.
+
+=item --man (action)
+
+Print the full manual page.
+
+=item -v, --verbose
+
+Increase verbosity level.  Specifying multiple times further increases
+verbosity.
+
+=back
+
+If none of the options marked C<(action)> are specified, C<dupe>'s
+default is to list large, potentially duplicate files, equivalent to
+the C<--list> option.
+
+=head1 ARGUMENTS
+
+=over 4
+
+=item <dir> ...
+
+Directory names where dupe looks for files from which to hard-link
+duplicates.
+
+If no directory arguments are specified, C<dupe> traverses the current
+working directory (".").
+
+=back
+
+=head1 AUTHOR
+
+Darren Embry C<dse@webonastick.com>
+
+=cut

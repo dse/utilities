@@ -1,0 +1,88 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+our $PROGNAME = basename($0);
+
+use File::Basename qw(basename);
+use Getopt::Long;
+use File::Find qw(find);
+
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
+
+our %options = ();
+Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'n|dry-run' => \$options{dryRun},
+    'f|force'   => \$options{force},
+    'help'      => \$options{help},
+) or die("Type '${PROGNAME} --help' for help.\n");
+
+if ($options{help}) {
+    usage();
+    exit(0);
+}
+if (!$options{dryRun} && !$options{force}) {
+    die("${PROGNAME}: neither -n nor -f given; refusing to run\n");
+}
+if ($options{dryRun} && $options{force}) {
+    delete $options{force};
+}
+
+sub usage { print(<<"END"); }
+usage:
+    ${PROGNAME} -n|--dry-run [<dir> ...]
+    ${PROGNAME} -f|--force [<dir> ...]
+options:
+    --help      print this message
+END
+
+my @dirs = @ARGV;
+if (!scalar @dirs) {
+    @dirs = ('.');
+}
+
+clean(@dirs);
+
+sub clean {
+    my (@dirs) = @_;
+    find({ wanted => \&wanted }, @dirs);
+}
+
+sub wanted {
+    my @lstat = lstat($_);
+    return unless scalar @lstat;
+    my ($dev,$ino,$mode,$nlink,$uid,$gid) = @lstat;
+    if (-d _) {
+        return ($File::Find::prune = 1) if $_ eq 'node_modules';
+        return ($File::Find::prune = 1) if $_ eq '.git';
+        return ($File::Find::prune = 1) if $_ eq '.hg';
+        return ($File::Find::prune = 1) if $_ eq '.bzr';
+        return ($File::Find::prune = 1) if $_ eq '.svn';
+        return ($File::Find::prune = 1) if $_ eq 'SCCS';
+        return ($File::Find::prune = 1) if $_ eq 'RCS';
+        return ($File::Find::prune = 1) if $_ eq 'CVS';
+        return ($File::Find::prune = 1) if $_ eq 'MCVS';
+        return ($File::Find::prune = 1) if $_ eq '.sass-cache';
+    }
+    return unless -f _;
+    return cleanFile($_, $File::Find::name) if /~$/;
+    return cleanFile($_, $File::Find::name) if /:zone\.identifier$/i;
+    return cleanFile($_, $File::Find::name) if /[^.]\.bak(?:$|\.)/i;
+    return cleanFile($_, $File::Find::name) if /[^.]\.tmp(?:$|\.)/i;
+    return cleanFile($_, $File::Find::name) if /[^.]\.old(?:$|\.)/i;
+    return cleanFile($_, $File::Find::name) if /[^.]\.orig(?:$|\.)/i;
+}
+
+sub cleanFile {
+    my ($filename, $pathname) = @_;
+    if ($options{dryRun}) {
+        warn("Would remove $pathname\n");
+    } elsif ($options{force}) {
+        warn("Removing $pathname\n");
+        if (!unlink($filename)) {
+            warn("$pathname: $!\n");
+        }
+    }
+}
