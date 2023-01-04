@@ -6,20 +6,13 @@
 #
 use warnings;
 use strict;
+use open qw(locale);
 use v5.10.0;
 use utf8;
 
 #------------------------------------------------------------------------------
 use File::Basename qw(basename);
 our $PROGNAME = basename($0);
-
-#------------------------------------------------------------------------------
-use open IO => qw(:locale);
-use Encode::Locale;
-use Encode qw(decode);
-BEGIN {
-    @ARGV = map { decode('locale', $_, Encode::FB_CROAK) } @ARGV;
-}
 
 #------------------------------------------------------------------------------
 our $verbosity = 0;
