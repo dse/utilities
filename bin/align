@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use open qw(locale);
+use open qw(:locale);
 
 use List::Util qw(max);
 use Text::Tabs qw(expand);
