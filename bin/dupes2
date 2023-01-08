@@ -1,0 +1,79 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+use File::Find qw(find);
+use Digest::SHA qw();
+use Cwd qw(getcwd);
+
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
+
+die("not enough arguments\n") if scalar @ARGV < 2;
+my ($baseDir, @otherDirs) = @ARGV;
+
+my $wanted = sub {
+    my $filename = $File::Find::name;
+    return if $filename eq $baseDir;
+
+    my @lstat = lstat($_);
+    return unless scalar @lstat;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+    if (-d _) {
+        printf STDERR ("\r\e[K%s", $filename) if -t 2;
+        return;
+    }
+    return if !-f _;
+    return if -s _ < 1;
+
+    my $rel = $filename;
+    $rel =~ s{^\Q$baseDir\E/}{};
+    my @other = grep { -f $_ && -s _ == $size } map { "$_/$rel" } @otherDirs;
+    return unless scalar @other;
+
+    printf STDERR ("\r\e[Ksumming %s ...", $filename) if -t 2;
+    my $sum = sum($filename);
+    printf STDERR ("\r\e[K") if -t 2;
+    print("$sum $rel\n");
+    foreach my $other (@other) {
+        next if !-f $other;
+        my $otherSum = sum($other);
+        if ($sum eq $otherSum) {
+            printf STDERR ("\e[K    rm $other\n") if -t 2;
+            unlink($other);
+        }
+    }
+};
+print("$baseDir\n");
+find({ wanted => $wanted, no_chdir => 1 }, $baseDir);
+
+sub sum {
+    my ($filename) = @_;
+    my $sha = Digest::SHA->new('1');
+    $sha->addfile($filename);
+    return $sha->hexdigest();
+}
+
+=head1 NAME
+
+    dupes2 - cross-filesystem duplicate file removal tool
+
+=head1 SYNOPSIS
+
+    dupes2 <basedir> <otherdir> [<otherdir2> ...]
+
+=head1 DESCRIPTION
+
+dupes2 is intended to free up disk space in the other directory trees
+specified above.
+
+dupes2 searches for files in the <basedir> directory tree, then looks
+for files in the same locations in the other directory trees that
+contain the same contents (have the same SHA1 checksum), and removes
+those files from the other directory trees.
+
+=hea1 AUTHOR
+
+dse@webonastick.com
+
+=cut
