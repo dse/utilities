@@ -5,9 +5,15 @@ use open qw(locale);
 use File::Find qw(find);
 use Digest::SHA qw();
 use Cwd qw(getcwd);
+use Scalar::Util qw(looks_like_number);
 
 STDOUT->autoflush(1);
 STDERR->autoflush(1);
+
+my $minSize = 1048576;
+if (scalar @ARGV && looks_like_number($ARGV[0])) {
+    $minSize = shift(@ARGV);
+}
 
 die("not enough arguments\n") if scalar @ARGV < 2;
 my ($baseDir, @otherDirs) = @ARGV;
@@ -24,7 +30,7 @@ my $wanted = sub {
         return;
     }
     return if !-f _;
-    return if -s _ < 1;
+    return if -s _ < $minSize;
 
     my $rel = $filename;
     $rel =~ s{^\Q$baseDir\E/}{};
