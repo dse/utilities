@@ -1,0 +1,135 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+use File::Find qw();
+use Digest::SHA qw();
+use Cwd qw(getcwd);
+use Scalar::Util qw(looks_like_number);
+use File::Spec::Functions qw(abs2rel);
+use Generator::Object;
+
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
+
+my $minSize = 1048576;
+if (scalar @ARGV && looks_like_number($ARGV[0])) {
+    $minSize = shift(@ARGV);
+}
+
+die("not enough arguments\n") if scalar @ARGV < 2;
+my (@dirs) = @ARGV;
+
+while (scalar @dirs >= 2) {
+    my $dir = shift(@dirs);
+    print("dupes $dir @dirs\n");
+    dupes($dir, @dirs);
+}
+
+our %done;
+
+sub dupes {
+    my ($dir, @otherDirs) = @_;
+    my $wanted = sub {
+        my @lstat = lstat($_);
+        return unless scalar @lstat;
+        return if -d _ || !-f _ || -s _ < $minSize;
+        my $rel = abs2rel($_, $dir);
+        return if $done{$rel};
+        my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+        my @otherFiles = map { "$_/$rel" } @otherDirs;
+        @otherFiles = grep { -f $_ && -s $_ == $size } @otherFiles;
+        return unless scalar @otherFiles;
+        my @files = ($_, @otherFiles);
+        my @gen = map { { filename => $_, gen => fileContentsGenerator($_) } } @files;
+        my $gen = sameGroupGenerator(@gen);
+        while (1) {
+            my $next = $gen->next();
+            if (defined $next) {
+                my @filenames = map { $_->{filename} } @$next;
+                my ($first, @other) = @filenames;
+                foreach my $other (@other) {
+                    if (unlink($other)) {
+                        warn("removed $other\n");
+                    } else {
+                        warn("failed to remove $other: $!\n");
+                    }
+                }
+            }
+            last if $gen->exhausted();
+        }
+    };
+    File::Find::find({ wanted => $wanted, no_chdir => 1 }, $dir);
+}
+
+sub sum {
+    my ($filename) = @_;
+    my $sha = Digest::SHA->new('1');
+    $sha->addfile($filename);
+    return $sha->hexdigest();
+}
+
+sub sameGroupGenerator {
+    my @obj = @_;
+    my @group = ([@obj]);
+    my $sub = sub {
+        while (1) {
+            my @newgroup;
+            foreach my $group (@group) {
+                my @done;
+                my %group;
+                foreach my $obj (@$group) {
+                    my $gen = $obj->{gen};
+                    my $next = $gen->next();
+                    if ($gen->exhausted()) {
+                        if (defined $gen->retval()) {
+                            warn($gen->retval());
+                        } else {
+                            push(@done, $obj);
+                        }
+                    } else {
+                        push(@{$group{$next}}, $obj) if defined $next;
+                    }
+                }
+                if (scalar @done >= 2) {
+                    if ($_->wantarray) {
+                        $_->yield(@done);
+                    } else {
+                        $_->yield(\@done);
+                    }
+                }
+                foreach my $key (keys %group) {
+                    my $group = $group{$key};
+                    if (scalar @$group >= 2) {
+                        push(@newgroup, $group);
+                    }
+                }
+            }
+            if (!scalar @newgroup) {
+                return;
+            }
+            @group = @newgroup;
+        }
+    };
+    return Generator::Object->new($sub);
+}
+
+sub fileContentsGenerator {
+    my ($filename) = @_;
+    my $sub = sub {
+        my $fh;
+        open($fh, '<:raw', $filename);
+        while (1) {
+            my $data;
+            my $result = sysread($fh, $data, 4096);
+            if (!defined $result) {
+                return "$filename: $!\n";
+            }
+            if ($result == 0) {
+                return;
+            }
+            $_->yield($data);
+        }
+    };
+    return Generator::Object->new($sub);
+}
