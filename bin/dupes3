@@ -2,12 +2,23 @@
 use warnings;
 use strict;
 use open qw(locale);
+use feature qw(state);
+
 use File::Find qw();
 use Digest::SHA qw();
-use Cwd qw(getcwd);
 use Scalar::Util qw(looks_like_number);
 use File::Spec::Functions qw(abs2rel);
 use Generator::Object;
+use Getopt::Long;
+
+our $verbose = 0;
+our $dryRun = 0;
+
+Getopt::Long::Configure(qw(gnu_compat bundling no_ignore_case));
+Getopt::Long::GetOptions(
+    "v|verbose+" => \$verbose,
+    "n|dry-run" => \$dryRun,
+) or die("unknown option\n");
 
 STDOUT->autoflush(1);
 STDERR->autoflush(1);
@@ -22,17 +33,24 @@ my (@dirs) = @ARGV;
 
 while (scalar @dirs >= 2) {
     my $dir = shift(@dirs);
-    print("dupes $dir @dirs\n");
+    if ($verbose) {
+        warn("INFO: dupes $dir @dirs\n");
+    }
     dupes($dir, @dirs);
 }
 
 our %done;
+our %count;
 
 sub dupes {
     my ($dir, @otherDirs) = @_;
     my $wanted = sub {
         my @lstat = lstat($_);
         return unless scalar @lstat;
+        if ($verbose && -t 2) {
+            my $count = ($count{$File::Find::dir} += 1);
+            progress("%s %d", $File::Find::dir, $count);
+        }
         return if -d _ || !-f _ || -s _ < $minSize;
         my $rel = abs2rel($_, $dir);
         return if $done{$rel};
@@ -48,11 +66,21 @@ sub dupes {
             if (defined $next) {
                 my @filenames = map { $_->{filename} } @$next;
                 my ($first, @other) = @filenames;
-                foreach my $other (@other) {
-                    if (unlink($other)) {
-                        warn("removed $other\n");
-                    } else {
-                        warn("failed to remove $other: $!\n");
+                next if !scalar @other;
+                if ($dryRun) {
+                    progress();
+                    foreach my $other (@other) {
+                        warn(sprintf("DRY RUN: rm $other (%d bytes)\n", $size));
+                    }
+                } else {
+                    foreach my $other (@other) {
+                        if (!unlink($other)) {
+                            progress();
+                            warn("WARN: rm $other: $!\n");
+                        } elsif ($verbose) {
+                            progress();
+                            warn(sprintf("INFO: removed $other (%d bytes)\n", $size));
+                        }
                     }
                 }
             }
@@ -60,6 +88,23 @@ sub dupes {
         }
     };
     File::Find::find({ wanted => $wanted, no_chdir => 1 }, $dir);
+    progress();
+}
+
+sub progress {
+    state $empty = 1;
+    return if !-t 2;
+    return unless $verbose;
+    my ($format, @params) = @_;
+    if (!defined $format) {
+        return if $empty;
+        print STDERR ("\r\e[K");
+        $empty = 1;
+    } else {
+        printf STDERR ("\r$format", @params);
+        print STDERR ("\e[K");
+        $empty = 0;
+    }
 }
 
 sub sum {
