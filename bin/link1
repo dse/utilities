@@ -12,7 +12,11 @@ foreach my $dir (@ARGV) {
              my ($dev, $ino, $mode, $nlink) = @lstat;
              return unless -f _;
              return if $nlink < 2;
-             unlink($File::Find::name) or warn("$File::Find::name: $!\n");
+             if (unlink($File::Find::name)) {
+                 warn("removed $File::Find::name\n");
+             } else {
+                 warn("$File::Find::name: $!\n");
+             }
          },
     }, $dir);
 }
