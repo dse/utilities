@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+PROGNAME="$(basename "$0")"
+
+main () {
+    # options
+    local gitdiff=0
+    local dryrun=0
+    local force=0
+    local -a diffopts=()
+
+    local OPTION
+    while getopts 'U:aI:Bbwgnf-:' OPTION ; do
+        longopt OPTION
+        longoptarg OPTION --ignore-matching-lines $#
+        longoptarg OPTION --unified               $#
+        longoptarg OPTION --color                 $#
+        case "${OPTION}" in
+            --help)
+                usage; exit 0;;
+
+            # options understood by both gnu diff and git diff
+            a|--text)
+                diffopts+=(-a);;
+            I|--ignore-matching-lines)
+                diffopts+=(-I "${OPTARG}");;
+            B|--ignore-blank-lines)
+                diffopts+=(-B);;
+            b|--ignore-space-change)
+                diffopts+=(-b);;
+            w|--ignore-all-space)
+                diffopts+=(-w);;
+            minimal)
+                diffopts+=(--minimal);;
+            color)
+                diffopts+=(--color="${OPTARG}");;
+
+            g|--git-diff)
+                gitdiff=1;;
+            n|--dry-run)
+                dryrun=1;;
+            f|--force)
+                force=1;;
+            ??*)
+                >&2 echo "${PROGNAME}: illegal option -- ${OPTION#--}"; forhelp; exit 1;;
+            *)
+                forhelp; exit 1;;
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if (( $# < 2 )) ; then
+        >&2 echo "${PROGNAME}: not enough arguments"
+        forhelp
+        exit 1
+    fi
+
+    if (( dryrun && force )) ; then
+        >&2 echo "${PROGNAME}: --dry-run and --force do not make sense together"
+        exit 1
+    elif (( !dryrun && !force )) ; then
+        >&2 echo "${PROGNAME}: must specify --dry-run or --force"
+        exit 1
+    fi
+
+    local filename="$1"; shift
+    local -a command=()
+    local -a arguments=()
+    case "$1" in
+        s/*)
+            command=(sed -E)
+            arguments=("$@")
+            ;;
+        *)
+            command=("$1"); shift
+            arguments=("$@")
+            ;;
+    esac
+
+    if (( dryrun )) ; then
+        local temp="$(mktemp)"
+        "${command[@]}" "${arguments[@]}" <"${filename}" >"${temp}"
+        local exit
+        if diff "${filename}" "${temp}" ; then exit=1 ; else exit=0 ; fi
+        rm "${temp}"
+        exit "${exit}"
+    elif (( force )) ; then
+        "${cmd}" "$@" <"${filename}" | sponge "${filename}"
+    fi
+}
+
+diff () {
+    if (( gitdiff )) ; then
+        command git diff --no-index "${diffopts[@]}" "$@"
+    else
+        command diff -u "${diffopts[@]}" "$@"
+    fi
+}
+
+forhelp () {
+    >&2 echo "Type '${PROGNAME} --help' for help."
+}
+
+usage () { cat <<EOF; }
+usage:
+    ${PROGNAME} -n|--dry-run [<options>] <filename> <command> [<argument> ...]
+    ${PROGNAME} -f|--force [<options>] <filename> <command> [<argument> ...]
+    ${PROGNAME} --help
+options:
+    -g, --use-git-diff
+diff and git-diff options recognized:
+    -a, --text
+    -I, --ignore-matching-lines
+    -B, --ignore-blank-lines
+    -b, --ignore-space-change
+    -w, --ignore-all-space
+        --minimal
+        --color=<when> (argument required: always, never, or auto)
+EOF
+
+longopt () {
+    local name="$1"; shift
+    local -n value="$name"
+    if [[ "$value" != "-" ]] ; then
+        return 0
+    fi
+    case "${OPTARG}" in
+        '')
+            value=?
+            unset OPTARG
+            break
+            ;;
+        *=*)
+            value="--${OPTARG%%=*}"
+            OPTARG="${OPTARG#*=}"
+            ;;
+        *)
+            value="--${OPTARG}"
+            unset OPTARG
+            ;;
+    esac
+}
+
+longoptarg () {
+    local name="$1"; shift
+    local checkfor="$1"; shift
+    local argcount="$1"; shift
+    local -n value="$name"
+    if [[ -v OPTARG ]] ; then
+        return 0
+    fi
+    if [[ "${checkfor}" != "${value}" ]] ; then
+        return 0
+    fi
+    if (( OPTIND > $# )) ; then
+        >&2 echo "${PROGNAME}: option requires an argument -- ${value#--}"
+        value=?
+        unset OPTARG
+        return
+    fi
+    name="--${OPTARG}"
+    OPTARG="${!OPTIND}"
+    OPTIND=$((OPTIND + 1))
+}
+
+###############################################################################
+main "$@"
