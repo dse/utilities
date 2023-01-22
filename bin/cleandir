@@ -1,19 +1,12 @@
-#!/usr/bin/env perl
-use warnings;
-use strict;
-use open qw(:locale);
-use File::Find;
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
 
-foreach my $dir (@ARGV) {
-    find({
-        wanted => sub {
-            my @lstat = lstat($_);
-            return unless scalar @lstat;
-            my ($dev, $ino, $mode, $nlink) = @lstat;
-            return unless -d _;
-            return if $nlink > 2;
-            rmdir($_) or warn("$File::Find::name: $!\n");
-        },
-        bydepth => 1,
-    }, $dir);
-}
+# default to current directory
+if (( $# < 1 )) ; then
+    set -- .
+fi
+
+find "$@" -depth -type d -exec rmdir {} + 2>/dev/null
