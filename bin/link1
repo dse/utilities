@@ -1,0 +1,22 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+use File::Find;
+
+foreach my $dir (@ARGV) {
+    find({
+        wanted => sub {
+             my @lstat = lstat($_);
+             return unless scalar @lstat;
+             my ($dev, $ino, $mode, $nlink) = @lstat;
+             return unless -f _;
+             return if $nlink < 2;
+             if (unlink($File::Find::name)) {
+                 warn("removed $File::Find::name\n");
+             } else {
+                 warn("$File::Find::name: $!\n");
+             }
+         },
+    }, $dir);
+}

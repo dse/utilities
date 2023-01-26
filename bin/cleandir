@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+# default to current directory
+if (( $# < 1 )) ; then
+    set -- .
+fi
+
+find "$@" -depth -type d -exec rmdir {} + 2>/dev/null

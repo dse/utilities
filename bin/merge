@@ -1,0 +1,118 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(locale);
+use feature qw(state);
+use Getopt::Long;
+use File::Find qw(find);
+use File::Spec::Functions qw(abs2rel rel2abs);
+use Time::HiRes qw(gettimeofday);
+our $dry_run = 0;
+our $verbose = 0;
+our $force = 0;
+Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+Getopt::Long::GetOptions(
+    'n|dry-run' => \$dry_run,
+    'f|force' => \$force,
+    'v|verbose+' => \$verbose,
+);
+if (!$dry_run && !$force) {
+    die("specify --dry-run or --force\n");
+}
+if ($dry_run && $force) {
+    die("do not specify both --dry-run and --force\n");
+}
+my ($target, @sources) = @ARGV;
+merge($target, @sources);
+sub merge {
+    my ($target, @sources) = @_;
+    foreach my $source (@sources) {
+        merge_one($target, $source);
+    }
+}
+sub merge_one {
+    my ($target, $source) = @_;
+    my $dir_count = 0;
+    my $file_count = 0;
+    my $mv_dir_count = 0;
+    my $mv_file_count = 0;
+    my $wanted = sub {
+        tty(sprintf("\r  %d/%d d %d/%d f %s %s\e[K\r", $mv_dir_count, $dir_count, $mv_file_count, $file_count, twirly(), $_)) if progress();
+        my @lstat = lstat($_);
+        return unless @lstat;
+        if (-d _) {
+            $dir_count++;
+        } else {
+            $file_count++;
+        }
+        my $src = $_;
+        my $relsrc = abs2rel($_, $source);
+        my $tgt = rel2abs($relsrc, $target);
+        if (!-e $tgt) {
+            if ($dry_run) {
+                tty("\r\e[K");
+                warn("DRY RUN: $src: rename to $tgt\n");
+            } else {
+                if (!rename($src, $tgt)) {
+                    tty("\r\e[K");
+                    warn("ERROR: $src: $!\n");
+                    $File::Find::prune = 1;
+                    return;
+                }
+            }
+            if (-d $src) {
+                $mv_dir_count++;
+            } else {
+                $mv_file_count++;
+            }
+            $File::Find::prune = 1;
+            return;
+        }
+        if (-d $src && -d $tgt) {
+            if ($dry_run) {
+                tty("\r\e[K");
+                warn("DRY RUN: $src: merging directories into $tgt");
+            }
+            return;
+        }
+        if ($dry_run) {
+            tty("\r\e[K");
+            warn("DRY RUN: $src: not moving to $tgt\n");
+        }
+        $File::Find::prune = 1;
+        return;
+    };
+    my $options = {
+        wanted => $wanted,
+        no_chdir => 1,
+    };
+    find($options, $source);
+}
+sub tty {
+    state $fh;
+    state $tried;
+    if (!$tried) {
+        $tried = 1;
+        if (!open($fh, '>', '/dev/tty')) {
+            $fh = undef;
+        }
+        $fh->autoflush(1);
+    }
+    return unless defined $fh;
+    my ($fmt, @args) = @_;
+    my $msg = sprintf($fmt, @args);
+    print $fh $msg;
+}
+sub progress {
+    state $last_time;
+    my $now = gettimeofday();
+    if ((!defined $last_time) || $now >= $last_time + 0.1) {
+        $last_time = $now;
+        return 1;
+    }
+    return 0;
+}
+sub twirly {
+    state $count = 0;
+    return substr("|/-\\", $count++ % 4, 1);
+}
