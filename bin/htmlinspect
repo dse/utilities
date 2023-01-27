@@ -69,7 +69,6 @@ BEGIN {
     updateTagsets();
 }
 
-
 our $opt_show_attributes;
 our $opt_show_first_child;
 our $opt_show_last_child;
@@ -99,7 +98,7 @@ BEGIN {
 
 # gnu_compat disables ":s" options if a value is not supplied.
 
-Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
+Getopt::Long::Configure("gnu_compat", "bundling", "no_ignore_case");
 Getopt::Long::GetOptions(
     "s|search=s"                   => \@opt_search,
     "x|exclude=s"                  => \@opt_exclude,
@@ -191,13 +190,6 @@ END
 
 ###############################################################################
 
-sub ffff { gggg(); }
-sub gggg { hhhh(); }
-sub hhhh { iiii(); }
-if ($opt_carp_test) {
-    ffff();
-}
-
 # replace directories with lists of files
 my @files;
 foreach my $arg (@ARGV) {
@@ -239,11 +231,11 @@ sub done {
     if (!defined $tree || !defined $inspector) {
         return;
     }
-
+    $inspector->exclude($tree, @opt_exclude);
     if ($opt_files_with_matches) {
         if (scalar @opt_search) {
             foreach my $search (@opt_search) {
-                if ($inspector->has($tree, $search, @opt_exclude)) {
+                if ($inspector->has($tree, $search)) {
                     print "$ARGV\n";
                     last;
                 }
@@ -251,7 +243,7 @@ sub done {
         }
     } elsif (scalar @opt_search) {
         foreach my $search (@opt_search) {
-            my @results = $inspector->search($tree, $search, @opt_exclude);
+            my @results = $inspector->search($tree, $search);
             foreach my $result (@results) {
                 $inspector->inspect($result, $ARGV);
             }
@@ -525,17 +517,33 @@ package My::HTML::Inspector {
         return $result;
     }
 
+    sub exclude {
+        my ($self, $tree, @exclude_selector) = @_;
+        $self->{exclude_address} = {};
+        $self->{exclude_node} = [];
+        foreach my $selector (@exclude_selector) {
+            my $xpath = selector_to_xpath($selector, './');
+            my @exclude_nodes = $tree->findnodes($xpath);
+            foreach my $node (@exclude_nodes) {
+                $self->{exclude_address}->{$node->address()} = 1;
+                push(@{$self->{exclude_node}}, $node);
+            }
+        }
+    }
+
     sub search {
         my ($self, $tree, $search) = @_;
         my $xpath = selector_to_xpath($search, './');
         my @results = $tree->findnodes($xpath);
+        @results = grep {
+            !$self->{exclude_address}->{$_->address()} &&
+                !$_->is_inside(@{$self->{exclude_node}})
+        } @results;
         return @results;
     }
 
     sub has {
         my ($self, $tree, $search) = @_;
-        my $xpath = selector_to_xpath($search, './');
-        my @results = $tree->findnodes($xpath);
-        return scalar @results;
+        return scalar $self->search($tree, $search);
     }
 };
