@@ -76,14 +76,14 @@ while (<>) {
     print("$_\n");
 }
 
-our %ASCII;
+our %ASCII_NORMALIZE;
 our %BLOCKIFY;
 our %BLOCKIFY_NARROW;
 our %UNBLOCKIFY;
 our %UNBLOCKIFY_NARROW;
 BEGIN {
     # for normalizing regular text before blockifying
-    %ASCII = (
+    %ASCII_NORMALIZE = (
         "'" => "'",
         '"' => "'",
         ";" => ":",
@@ -131,15 +131,15 @@ BEGIN {
 
 sub blockify {
     my ($str) = @_;
-    $str =~ s{.}{$ASCII{$&} // ':'}ge;
-    $str =~ s{.}{$BLOCKIFY{$&}}ge;
+    $str =~ s{[.,:;'"\x{2500}-\x{25ff}]}{$ASCII_NORMALIZE{$&} // ':'}ge;
+    $str =~ s{[.,:;'"\x{2500}-\x{25ff}]}{$BLOCKIFY{$&}}ge;
     return $str;
 }
 sub blockifyNarrow {
     my ($str) = @_;
-    $str =~ s{.}{$ASCII{$&} // ':'}ge;
     $str .= ' ' if length($str) % 2 == 1;
-    $str =~ s{..}{$BLOCKIFY_NARROW{$&}}ge;
+    $str =~ s{[.,:;'"\x{2500}-\x{25ff}]}{$ASCII_NORMALIZE{$&} // ':'}ge;
+    $str =~ s{..}{$BLOCKIFY_NARROW{$&} // ' '}ge;
     return $str;
 }
 sub unblockify {

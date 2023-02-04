@@ -12,58 +12,10 @@ use Getopt::Long;
 use File::Find qw();
 use Data::Dumper;
 
-local $Data::Dumper::Indent   = 1;
-local $Data::Dumper::Terse    = 1;
-local $Data::Dumper::Deepcopy = 1;
-local $Data::Dumper::Sortkeys = 1;
-local $Data::Dumper::Useqq    = 1;
 
 STDOUT->autoflush(1);
 STDERR->autoflush(1);
 
-sub updateTagsets {
-    @HTML::Tagset::p_closure_barriers           = @HTML::Valid::Tagset::p_closure_barriers;
-    %HTML::Tagset::emptyElement                 = %HTML::Valid::Tagset::emptyElement;
-    %HTML::Tagset::optionalEndTag               = %HTML::Valid::Tagset::optionalEndTag;
-    %HTML::Tagset::linkElements                 = %HTML::Valid::Tagset::linkElements;
-    %HTML::Tagset::boolean_attr                 = %HTML::Valid::Tagset::boolean_attr;
-    %HTML::Tagset::isPhraseMarkup               = %HTML::Valid::Tagset::isPhraseMarkup;
-    %HTML::Tagset::is_Possible_Strict_P_Content = %HTML::Valid::Tagset::is_Possible_Strict_P_Content;
-    %HTML::Tagset::isHeadElement                = %HTML::Valid::Tagset::isHeadElement;
-    %HTML::Tagset::isList                       = %HTML::Valid::Tagset::isList;
-    %HTML::Tagset::isTableElement               = %HTML::Valid::Tagset::isTableElement;
-    %HTML::Tagset::isFormElement                = %HTML::Valid::Tagset::isFormElement;
-    %HTML::Tagset::isHeadOrBodyElement          = %HTML::Valid::Tagset::isHeadOrBodyElement;
-    %HTML::Tagset::isKnown                      = %HTML::Valid::Tagset::isKnown;
-    %HTML::Tagset::canTighten                   = %HTML::Valid::Tagset::canTighten;
-    %HTML::Tagset::isCDATA_Parent               = %HTML::Valid::Tagset::isCDATA_Parent;
-
-    foreach my $key (keys %HTML::Valid::Tagset::isBodyElement) {
-        if ($key ne 'html' && $key ne 'body' && $HTML::Valid::Tagset::isBodyElement{$key}) {
-            $HTML::Tagset::isBodyElement{$key} = $HTML::Valid::Tagset::isBodyElement{$key};
-        }
-    }
-}
-
-sub checkTagsets {
-    foreach my $hashName (qw(isKnown
-                             isHeadElement
-                             isBodyElement
-                             isHeadOrBodyElement
-                             isTableElement
-                             is_Possible_Strict_P_Content
-                             isList
-                             isFormElement
-                             isPhraseMarkup
-                             canTighten)) {
-        printf("%-32s", $hashName);
-        foreach my $tagName (qw(html body div article main section aside)) {
-            no strict 'refs';
-            printf("  %s %s", $tagName, ${"HTML::Tagset::$hashName"}{$tagName} ? 'Y' : 'N');
-        }
-        print "\n";
-    }
-}
 
 BEGIN {
     updateTagsets();
@@ -84,6 +36,7 @@ our $opt_list_files_only;
 our $opt_files_with_matches;
 our $opt_verbose = 0;
 our $opt_as_html = 0;
+our $opt_as_html_tags = 0;
 our $opt_max_ancestors = 0;
 
 BEGIN {
@@ -130,7 +83,8 @@ Getopt::Long::GetOptions(
         }
         $opt_tree = 1;
     },
-    'H|as-html' => \$opt_as_html,
+    'T|as-html-tags' => \$opt_as_html_tags,
+    'H|as-html'      => \$opt_as_html,
     "blank" => sub { $opt_theme = "blank"; $opt_tree = 1; },
     "ascii" => sub { $opt_theme = "ascii"; $opt_tree = 1; },
     "light" => sub { $opt_theme = "light"; $opt_tree = 1; },
@@ -282,6 +236,7 @@ while (<>) {
         $inspector->fancy($opt_fancy)                           if defined $opt_fancy;
         $inspector->recurse($opt_recurse)                       if defined $opt_recurse;
         $inspector->as_html($opt_as_html)                       if defined $opt_as_html;
+        $inspector->as_html_tags($opt_as_html_tags)             if defined $opt_as_html_tags;
         $inspector->files_with_matches($opt_files_with_matches) if defined $opt_files_with_matches;
     }
     $tree->parse($_);
@@ -315,6 +270,7 @@ package My::HTML::Inspector {
                        theme
                        fancy
                        as_html
+                       as_html_tags
                        files_with_matches);
 
     use HTML::Entities qw(encode_entities);
@@ -375,7 +331,13 @@ package My::HTML::Inspector {
         my @parents = @$parents;
         my $parents_string = join("", map { "$_ > " } @$parents);
 
-        if ($self->fancy) {
+        if ($self->as_html) {
+            if (!$filename_printed{$filename}) {
+                print "$filename:\n";
+                $filename_printed{$filename} = 1;
+            }
+
+        } elsif ($self->fancy) {
             if (!$filename_printed{$filename}) {
                 print "$filename:\n";
                 $filename_printed{$filename} = 1;
@@ -425,7 +387,7 @@ package My::HTML::Inspector {
 
         print($element_string, "\n");
 
-        if ($self->recurse && !$self->as_html) {
+        if ($self->recurse && !$self->as_html_tags && !$self->as_html) {
             my @children = grep { ref $_ } $element->content_list();
             my $index = 0;
             my $nchildren = scalar @children;
@@ -477,7 +439,13 @@ package My::HTML::Inspector {
     sub element_string {
         my ($self, $element) = @_;
 
-        return $self->element_string_html($element) if $self->as_html;
+        if ($self->as_html) {
+            my $html = $element->as_HTML;
+            $html =~ s{^}{    }gm;
+            return $html;
+        }
+
+        return $self->element_string_html($element) if $self->as_html_tags;
 
         my $tagname = $element->tag;
 
@@ -517,6 +485,9 @@ package My::HTML::Inspector {
         return $result;
     }
 
+    # Delete nodes matching the specified selectors() from
+    # the document.  This excludes them and their ancestors
+    # from searches.
     sub exclude {
         my ($self, $tree, @exclude_selector) = @_;
         $self->{exclude_address} = {};
@@ -525,8 +496,7 @@ package My::HTML::Inspector {
             my $xpath = selector_to_xpath($selector, './');
             my @exclude_nodes = $tree->findnodes($xpath);
             foreach my $node (@exclude_nodes) {
-                $self->{exclude_address}->{$node->address()} = 1;
-                push(@{$self->{exclude_node}}, $node);
+                $node->delete();
             }
         }
     }
@@ -535,10 +505,6 @@ package My::HTML::Inspector {
         my ($self, $tree, $search) = @_;
         my $xpath = selector_to_xpath($search, './');
         my @results = $tree->findnodes($xpath);
-        @results = grep {
-            !$self->{exclude_address}->{$_->address()} &&
-                !$_->is_inside(@{$self->{exclude_node}})
-        } @results;
         return @results;
     }
 
