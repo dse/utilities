@@ -30,6 +30,10 @@ Getopt::Long::GetOptions(
     "d|date" => \$optDate,
     "j|json" => \$optJson,
     "s|sort=s" => \$optSort,
+    "D|use-date" => sub {
+        $optDate = 1;
+        $optSort = 'date';
+    },
     "a|all" => sub {
         $optUrls = 1;
         $optDate = 1;
