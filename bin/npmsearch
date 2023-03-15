@@ -60,7 +60,7 @@ our $FG_GREEN       = $color ? "\x1b[32;22m" : ''; # 22 = normal (neither bold n
 our $FG_RESET       = $color ? "\x1b[39;22m" : '';
 our $RESET          = $color ? "\x1b[0m"     : '';
 
-my $data = cachedNpmSearchJson(@ARGV);
+my $data = npmSearchJson(@ARGV);
 
 if (defined $optSort) {
     if ($optSort eq 'name') {
@@ -72,6 +72,7 @@ if (defined $optSort) {
 
 if ($optJson) {
     print($json->encode($data));
+    exit(0);
 }
 
 if (-t 1) {
@@ -148,41 +149,6 @@ sub highlightString {
         $result .= (' ' x ($w - length($s)));
     }
     return $result;
-}
-
-our $cache;
-our $cacheDir;
-BEGIN {
-    $cacheDir = "$ENV{HOME}/.cache/npmsearch/cache";
-    $cache = {};
-}
-
-sub cachedNpmSearchJson {
-    my (@args) = @_;
-    my $key = join(' ', @args);
-    if (exists $cache->{$key}) {
-        return $cache->{$key};
-    }
-    my $filename = sprintf('%s/%s', $cacheDir, uri_escape($key));
-    if (-f $filename && round((-M $filename) * 86400) < 60) {
-        my $fh;
-        if (open($fh, '<', $filename)) {
-            local $/ = undef;
-            my $jsonData = <$fh>;
-            close($fh);
-            my $data = $json->decode($jsonData);
-            $cache->{$key} = $data;
-            return $data;
-        }
-    }
-    my $data = npmSearchJson(@args);
-    $cache->{$key} = $data;
-    make_path(dirname($filename));
-    my $fh;
-    if (open($fh, '>', $filename)) {
-        print $fh $json->encode($data);
-    }
-    return $data;
 }
 
 sub npmSearchJson {
