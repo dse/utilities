@@ -11,6 +11,7 @@ use File::Path qw(make_path);
 use POSIX qw(round);
 use POSIX qw(strftime);
 use Date::Parse qw(str2time);
+use Term::ReadKey qw(GetTerminalSize);
 
 our $json = JSON->new()->pretty()->canonical()->ascii();
 
@@ -195,5 +196,6 @@ sub npmSearchJson {
 }
 
 sub getTerminalWidth {
-    return $ENV{COLUMNS} // 80;
+    my ($width) = GetTerminalSize();
+    return $width // 80;
 }
