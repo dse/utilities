@@ -1,14 +1,32 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use open qw(locale);
-
-#------------------------------------------------------------------------------
 use HTML::Entities qw(encode_entities);
 
-print("<ul>\n");
+# pagelist [<url> ...] [<file> ...]
 
-while (<>) {
+# pagelist                              # [1] will read from stdin # will use <>
+# pagelist <file> ...                   # [2] will not             # will use <>
+# pagelist <url> ...                    # [3] will not
+# pagelist <url> ... <file> ...         # [4] will not             # will use <>
+
+my @urls = grep {  /:\/\// } @ARGV;
+@ARGV    = grep { !/:\/\// } @ARGV;
+
+print("<ul>\n");
+if (scalar @urls) {
+    foreach (@urls) {
+        page_list_item();
+    }
+}
+if (scalar @ARGV || !scalar @urls) { # i.e., not case [3]
+    while (<>) {
+        page_list_item();
+    }
+}
+print("</ul>\n");
+
+sub page_list_item {
     s{\R\z}{};
     s{^\s+}{};
     s{\s+$}{};
@@ -16,5 +34,3 @@ while (<>) {
            encode_entities($_),
            encode_entities($_));
 }
-
-print("</ul>\n");
