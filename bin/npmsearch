@@ -48,6 +48,13 @@ usage:
 options:
     -h, --help
     -u, --urls
+    -a, --maintainers
+    -o, --oneline, --one-line
+    -d, --date
+    -j, --json
+    -s, --sort=name|date
+    -D, --use-date (turn on dates and sort by date)
+    -a, --all => urls, date, maintainers
 EOF
 
 our $color = -t 1;
