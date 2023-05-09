@@ -1,0 +1,111 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long;
+use Data::Dumper qw(Dumper);
+use Text::Wrap;
+use POSIX qw(round);
+use DBI;
+use JSON;
+STDERR->autoflush(1);
+
+our $host = '127.0.0.1';
+our $password;
+our $port = 3306;
+our $database;
+our $user;
+our @order_by;
+Getopt::Long::Configure(qw(gnu_getopt no_ignore_case));
+Getopt::Long::GetOptions(
+    'p|password=s' => \$password,
+    'h|host=s'     => \$host,
+    'P|port=i'     => \$port,
+    'D|database=s' => \$database,
+    'u|user=s'     => \$user,
+    'o|order-by=s' => \@order_by,
+) or die(":-(");
+if (!scalar @order_by) {
+    @order_by = ('id asc');
+}
+my $dsn = sprintf('DBI:mysql:database=%s;host=%s;port=%d', $database, $host, $port);
+my $dbh = DBI->connect($dsn, $user, $password, {
+    RaiseError => 1,
+    mysql_enable_utf8mb4 => 1,
+});
+my $json = JSON->new()->pretty(1)->canonical(1)->ascii(1)->space_before(0);
+foreach my $table_name (@ARGV) {
+    my $sql = "select * from ${table_name}";
+    my $order_by = join(', ', @order_by);
+    if ($order_by eq 'id asc') {
+        my ($id_info) = column_info($table_name, 'id');
+        if (!defined $id_info) {
+            warn("no id column\n");
+            $order_by = '-';    # do nothing
+        }
+    }
+    if ($order_by eq '-') {
+        # do nothing
+    } elsif ($order_by =~ m{\S}) {
+        $sql .= " order by " . join(', ', @order_by);
+    }
+    warn("Preparing: $sql\n");
+    my $sth = $dbh->prepare($sql);
+    warn("Executing\n");
+    $sth->execute();
+    warn("Getting records\n");
+    print("[");
+    my $count = 0;
+    while (my $row = $sth->fetchrow_hashref()) {
+        foreach my $key (keys %$row) {
+            if (!defined $row->{$key}) {
+                next;
+            }
+            # warn(wrap('', '    ', sprintf("%s => %s\n", $key, splithex(unpack('H*', $row->{$key})))));
+            # warn(wrap('', '    ',
+            #           sprintf("%s => %s\n",
+            #                   $key,
+            #                   join(' ',
+            #                        map { $_ < 256 ? sprintf('%02x', $_) :
+            #                              $_ < 65536 ? sprintf('%04x', $_) : sprintf('%06x', $_) }
+            #                        map { ord($_) }
+            #                        split('', $row->{$key})))));
+        }
+        print($count ? ",\n" : "\n");
+        my $json_text = $json->encode($row);
+        $json_text =~ s{^}{   }mg;
+        $json_text =~ s{\s+\z}{};
+        print($json_text);
+        $count += 1;
+        if ($count % 23 == 0) {
+            if (-t 2) {
+                printf STDERR ("  %d records\r", $count);
+            }
+        }
+    }
+    print("\n") if $count;
+    print("]\n");
+    if (-t 2) {
+        printf STDERR ("  %d records total\n", $count);
+    }
+}
+sub table_info {
+    my ($table_name) = @_;
+    my $sth = $dbh->table_info(undef, undef, $table_name, 'TABLE');
+    my $table_info = $sth->fetchall_arrayref({});
+    return @$table_info if wantarray;
+    return $table_info;
+}
+sub column_info {
+    my ($table_name, $column_name) = @_;
+    my $sth = $dbh->column_info(undef, undef, $table_name, $column_name);
+    my $column_info = $sth->fetchall_arrayref({});
+    return @$column_info if wantarray;
+    return $column_info;
+}
+sub splithex {
+    my ($hex) = @_;
+    for (my $i = round((length($hex) - 1) / 2) * 2; $i > 0; $i -= 2) {
+        substr($hex, $i, 0) = ' ';
+    }
+    return $hex;
+}
