@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# I wrote this for the following reasons:
+# - start again if stream terminated early (likely network error)
+# - also makes commands in crontab take up fewer characters
+# - also converts to a container, via container program
+# usage:
+#   record <dir> <url> 3600
+#   record <dir> <url> 60m
+#   record <dir> <url> 1h
+set -o errexit
+set -o pipefail
+set -o nounset
+
+if (( $# < 3 )) ; then
+    echo "record <dir> <url> <duration>" >&2
+    echo "    <dir> is subdirectory name of record-a-show archive"
+    echo "    <url> is streaming URL"
+    echo "    <duration> is length of recording in seconds"
+    exit 1
+fi
+
+STREAMDIR="$1"
+STREAMURL="$2"
+DURATION="$3"
+
+#------------------------------------------------------------------------------
+FFMPEG="/usr/bin/ffmpeg"
+SLEEP=5
+
+#------------------------------------------------------------------------------
+[[ "${STREAMDIR}" != /* ]] && STREAMDIR="${HOME}/record-a-show/${STREAMDIR}"
+
+#------------------------------------------------------------------------------
+NOW="$(date +%s)"               # 1645902696 (seconds)
+DATE="$(date +'%Y-%m-%d')"      # 2022-02-26
+END=$(( NOW + DURATION ))       # 1645910136 (seconds)
+INITSLEEP="${SLEEP}"
+
+#------------------------------------------------------------------------------
+declare -a CMD
+declare -a FILENAMES
+mkdir -p "${STREAMDIR}"
+cd "${STREAMDIR}"
+
+while (( NOW < END )) ; do
+    FFMPEG_DURATION=$(( END - NOW + 5 )) # 7445
+    TIME="$(date +'%H%M%S')"             # 165800
+    FILENAME="${DATE}-${TIME}.nut"       # .../2022-02-26-165800.nut
+    FILENAMES+=("${FILENAME}")
+    CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
+    >&2 echo "+ ${CMD[@]@Q}"
+    if "${CMD[@]}" ; then STATUS=$? ; else STATUS=$? ; fi
+    if (( STATUS )) ; then >&2 echo "! ${FFMPEG} failed, exiting with ${STATUS}" ; else : ; fi
+    LAST="${NOW}"
+    NOW="$(date +%s)"
+    >&2 echo "current time $NOW"
+    if (( NOW - LAST < 5 )) ; then # don't restart too fast
+        >&2 echo "sleeping ${SLEEP}; next sleep if restarting too fast = 30"
+        sleep "${SLEEP}"; SLEEP=30
+        LAST="${NOW}"
+        NOW="$(date +%s)"
+    elif (( SLEEP > INITSLEEP )) ; then # resume normalcy
+        >&2 echo "resume normal sleep 5 next time"
+        SLEEP="${INITSLEEP}"
+    fi
+done
