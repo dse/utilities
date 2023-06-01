@@ -1,12 +1,4 @@
 #!/usr/bin/env bash
-# I wrote this for the following reasons:
-# - start again if stream terminated early (likely network error)
-# - also makes commands in crontab take up fewer characters
-# - also converts to a container, via container program
-# usage:
-#   record <dir> <url> 3600
-#   record <dir> <url> 60m
-#   record <dir> <url> 1h
 set -o errexit
 set -o pipefail
 set -o nounset
@@ -16,6 +8,9 @@ if (( $# < 3 )) ; then
     echo "    <dir> is subdirectory name of record-a-show archive"
     echo "    <url> is streaming URL"
     echo "    <duration> is length of recording in seconds"
+    echo "        See time duration specification in ffmpeg-utils(1) for values"
+    echo "        examples: 30s = 30000ms = 30000000us"
+    echo "                  90 minutes = 5400s = 1:30:00 = 90:00"
     exit 1
 fi
 
