@@ -45,15 +45,16 @@ cd "${STREAMDIR}"
 while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW + 5 )) # 7445
     TIME="$(date +'%H%M%S')"             # 165800
-    FILENAME="${DATE}-${TIME}.nut"       # .../2022-02-26-165800.nut
+    FILENAME="${DATE}-${TIME}.mp4"       # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
     FILENAMES+=("${FILENAME}")
     CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
     >&2 echo "+ ${CMD[@]@Q}"
-    if "${CMD[@]}" ; then STATUS=$? ; else STATUS=$? ; fi
-    if (( STATUS )) ; then >&2 echo "! ${FFMPEG} failed, exiting with ${STATUS}" ; else : ; fi
+    if "${CMD[@]}" ; then
+        break
+    fi
+    echo "${FFMPEG} failed, exiting with code $?"
     LAST="${NOW}"
     NOW="$(date +%s)"
-    >&2 echo "current time $NOW"
     if (( NOW - LAST < 5 )) ; then # don't restart too fast
         >&2 echo "sleeping ${SLEEP}; next sleep if restarting too fast = 30"
         sleep "${SLEEP}"; SLEEP=30
