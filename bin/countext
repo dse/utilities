@@ -97,3 +97,14 @@ sub extname {
     }
     return substr($path, $start_dot, $end - $start_dot);
 }
+sub extname_2 {
+    my $path = shift;
+    my $win = shift;
+    my $win_drive;
+    if ($win && $path =~ s{^[A-Za-z]:}{}) {
+        $win_drive = $&;
+    }
+    $path =~ s{[\\\/]+$}{};     # rm anything after last component
+    $path =~ s{^.*[\\\/]+}{};   # rm anything before last component
+    return '' if $path eq '';   # no components?
+}
