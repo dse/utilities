@@ -1,0 +1,143 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use File::Basename qw(fileparse);
+use Scalar::Util qw(refaddr);
+our $old_ARGV;
+while (<>) {
+    if (!defined $old_ARGV || $old_ARGV ne $ARGV) { # next file
+        finish();
+        set_input_filename($ARGV);
+        $old_ARGV = $ARGV;
+    }
+    if (/^\s*--\s*\z/) {
+        queue_flush();
+        start_queueing();
+    } elsif (/^\s*-- Table structure for table `(.*)`\s*\z/) {
+        start_writing_table_structure($1);
+        stop_queueing();
+        queue_flush();
+    } elsif (/^\s*-- Dumping data for table `(.*)`\s*\z/) {
+        start_writing_data_dump($1);
+        stop_queueing();
+        queue_flush();
+    } elsif (/^\s*-- Dumping events for database `(.*)`\s*\z/) {
+        start_writing_event_dump($1);
+        stop_queueing();
+        queue_flush();
+    } elsif (/^\s*-- Dumping routines for database `(.*)`\s*\z/) {
+        start_writing_routine_dump($1);
+        stop_queueing();
+        queue_flush();
+    }
+    write_line($_);
+}
+finish();
+
+our $line_count;
+our $queueing;
+our @queue;
+our $fh;
+our $output_filename;
+our $input_filename;
+our ($basename, $dirname, $suffix);
+BEGIN {
+    $fh = \*STDOUT;
+    $line_count = 0;
+}
+
+sub start_queueing {
+    $queueing = 1;
+}
+sub stop_queueing {
+    $queueing = 0;
+}
+sub start_writing_table_structure {
+    my ($table_name) = @_;
+    start_writing_to(gen_filename(sprintf('structure-%s', $table_name)));
+    queue_flush();  # we are doing this AFTER changing filehandle on purpose
+}
+sub start_writing_data_dump {
+    my ($table_name) = @_;
+    start_writing_to(gen_filename(sprintf('data-%s', $table_name)));
+    queue_flush();
+}
+sub start_writing_event_dump {
+    my ($database_name) = @_;
+    start_writing_to(gen_filename(sprintf('event-dump-%s', $database_name)));
+    queue_flush();
+}
+sub start_writing_routine_dump {
+    my ($database_name) = @_;
+    start_writing_to(gen_filename(sprintf('routine-dump-%s', $database_name)));
+    queue_flush();
+}
+sub gen_filename {
+    my ($suffix_1) = @_;
+    $suffix_1 //= '';
+    return ($dirname // '') . ($basename // '') . '__' . ($suffix_1 // '') . ($suffix // '');
+}
+sub queue_flush {
+    while (scalar @queue) {
+        my $line = shift(@queue);
+        if (defined $fh) {
+            $fh->print($line);
+            $line_count += 1;
+        }
+    }
+}
+sub write_line {
+    my ($line) = @_;
+    if ($queueing) {
+        push(@queue, $line);
+    } elsif (defined $fh) {
+        $fh->print($line);
+        $line_count += 1;
+    }
+}
+sub set_input_filename {
+    my ($filename) = @_;
+    if (!defined $filename || $filename eq '-') {
+        undef $input_filename;
+        undef $basename;
+        undef $dirname;
+        undef $suffix;
+    } else {
+        $input_filename = $filename;
+        ($basename, $dirname, $suffix) = fileparse($filename, qr/\.[^.]*/);
+    }
+}
+sub start_writing_to {
+    my ($filename) = @_;
+    klose();
+    if (defined $filename) {
+        if (!open($fh, '>', $filename)) {
+            undef $output_filename;
+            return;
+        }
+        $output_filename = $filename;
+        return;
+    }
+    $fh = \*STDOUT;
+    undef $output_filename;
+}
+sub finish {
+    queue_flush();
+    stop_queueing();
+    klose();
+    $line_count = 0;
+    $fh = \*STDOUT;
+    $output_filename = undef;
+    set_input_filename(undef);
+}
+sub klose {
+    if (defined $output_filename) {
+        warn("Wrote $line_count lines to $output_filename\n");
+        $output_filename = undef;
+    }
+    if (defined $fh) {
+        if (refaddr($fh) ne refaddr(\*STDOUT)) {
+            close($fh);
+        }
+    }
+}
