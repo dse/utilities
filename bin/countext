@@ -5,7 +5,7 @@ my %count;
 my %size;
 STDERR->autoflush(1);
 while (<>) {
-    print STDERR ("  $.\r");
+    print STDERR ("  $.\r") if $. % 523 == 0;
     s{\R\z}{};
     my $filename = $_;
     my $ext = extname($filename) // '-';
