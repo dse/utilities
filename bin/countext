@@ -5,7 +5,7 @@ my %count;
 my %size;
 STDERR->autoflush(1);
 while (<>) {
-    print STDERR ("$.\r");
+    print STDERR ("  $.\r");
     s{\R\z}{};
     my $filename = $_;
     my $ext = extname($filename) // '-';
@@ -15,6 +15,7 @@ while (<>) {
         $size{$ext} += $size;
     }
 }
+print STDERR ("\r\e[K");
 foreach my $ext (sort keys %count) {
     my $avg = $size{$ext} / $count{$ext};
     printf("%10d  %10d  %10d  %s\n",
