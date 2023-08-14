@@ -1,110 +1,36 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use feature qw(state);
+use File::Basename qw(basename dirname fileparse);
+STDERR->autoflush(1) if -t 2;
+
+our $VERSION = "0.000000";
+$VERSION = eval $VERSION;
+
 my %count;
 my %size;
-STDERR->autoflush(1);
+my %blocks;
+
 while (<>) {
-    print STDERR ("$.\r");
+    print STDERR ("$.\r") if -t 2 && $. % 23 == 0;
     s{\R\z}{};
     my $filename = $_;
-    my $ext = extname($filename) // '-';
-    my $size = -s $filename;
-    if (defined $size) {
-        $count{$ext} += 1;
-        $size{$ext} += $size;
-    }
+    # my $ext = extname($filename) // '-';
+    my $ext = (fileparse($filename, qr/\.[^.]*/))[2];
+    my ($size, $blocks) = (stat($filename))[7, 12];
+    $count{$ext} += 1;
+    $size{$ext} += $size if defined $size;
+    $blocks{$ext} += $blocks if defined $blocks;
 }
+print STDERR ("\e[K") if -t 2;
+
 foreach my $ext (sort keys %count) {
     my $avg = $size{$ext} / $count{$ext};
-    printf("%10d  %10d  %10d  %s\n",
-           $count{$ext},
-           $size{$ext},
-           $avg,
+    printf("%7d %15d %11d %11d %s\n",
+           $count{$ext} // -1,
+           $size{$ext} // -1,
+           $blocks{$ext} // -1,
+           $avg // -1,
            $ext);
-}
-sub is_win_device_root {
-    my $char = shift;
-    my $code = ord($char);
-    return ($code >= 65 && $code <= 90) || ($code >= 97 && $code <= 122);
-}
-sub is_path_separator {
-    my $char = shift;
-    return $char eq '/' || $char eq '\\';
-}
-sub is_posix_path_separator {
-    my $char = shift;
-    return $char eq '/';
-}
-sub is_win_path_separator {
-    my $char = shift;
-    return $char eq '/' || $char eq '\\';
-}
-sub extname {
-    my ($path, $win) = @_;
-    my $start = 0; # start of pathname, or portion of pathname after drive letter 'c:'
-    my $start_dot;              # defined means we've reached last '.' in string
-    my $start_part = 0;         # start of last path component
-    my $end;                    # end of last path component
-    my $matched_slash = 1;      # 0 if before trailing slashes
-    my $pre_dot_state = 0;      # state of chars. before first . and after any path separator
-    if ($win) {
-        if (length($path) >= 2 && substr($path, 1, 1) eq ':' && is_win_device_root(substr($path, 0, 1))) {
-            $start = $start_part = 2;
-        }
-    }
-    for (my $i = length($path) - 1; $i >= $start; $i -= 1) {
-        my $char = substr($path, $i, 1);
-        if (is_path_separator($char)) { # is a slash
-            if (!$matched_slash) {
-                # is not a trailing slash; stop processing; next
-                # character starts last path component; we're done.
-                $start_part = $i + 1;
-                last;
-            }
-            # is a trailing slash
-            next;
-        }
-        if (!defined $end) {
-            $matched_slash = 0;
-            $end = $i + 1;
-        }
-        if ($char eq '.') {
-            if (!defined $start_dot) {
-                $start_dot = $i; # indicate at least one dot
-            } else {
-                # zero pre_dot_state implies there are fewer than two dots
-                $pre_dot_state = 1; # indicate at least two dots
-            }
-        }
-        elsif (!defined $start_dot) {
-            # the fact that we got to this point implies
-            #     we have at least one 'a' that there are no '.' after
-            $pre_dot_state = -1;
-            # zero pre_dot_state implies we never got to this point
-            #     which means there are no 'a' characters that there are no '.' after
-            #     which means any and all 'a' characters have a '.' after it
-            #     which means if there are any 'a' characters then the string ends with a '.'
-        }
-    }
-    if (!defined $start_dot ||
-        !defined $end ||
-        $pre_dot_state == 0 ||
-        ($pre_dot_state == 1 &&
-         $start_dot == $end - 1 &&
-         $start_dot == $start_part + 1)) {
-        return '';
-    }
-    return substr($path, $start_dot, $end - $start_dot);
-}
-sub extname_2 {
-    my $path = shift;
-    my $win = shift;
-    my $win_drive;
-    if ($win && $path =~ s{^[A-Za-z]:}{}) {
-        $win_drive = $&;
-    }
-    $path =~ s{[\\\/]+$}{};     # rm anything after last component
-    $path =~ s{^.*[\\\/]+}{};   # rm anything before last component
-    return '' if $path eq '';   # no components?
 }
