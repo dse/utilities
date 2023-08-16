@@ -1,8 +1,9 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use File::Basename qw(fileparse);
+use File::Basename qw(fileparse dirname);
 use Scalar::Util qw(refaddr);
+use File::Path qw(make_path);
 our $old_ARGV;
 while (<>) {
     if (!defined $old_ARGV || $old_ARGV ne $ARGV) { # next file
@@ -21,11 +22,11 @@ while (<>) {
         start_writing_data_dump($1);
         stop_queueing();
         queue_flush();
-    } elsif (/^\s*-- Dumping events for database `(.*)`\s*\z/) {
+    } elsif (/^\s*-- Dumping events for database '(.*)'\s*\z/) {
         start_writing_event_dump($1);
         stop_queueing();
         queue_flush();
-    } elsif (/^\s*-- Dumping routines for database `(.*)`\s*\z/) {
+    } elsif (/^\s*-- Dumping routines for database '(.*)'\s*\z/) {
         start_writing_routine_dump($1);
         stop_queueing();
         queue_flush();
@@ -38,6 +39,7 @@ our $line_count;
 our $queueing;
 our @queue;
 our $fh;
+our $output_directory;
 our $output_filename;
 our $input_filename;
 our ($basename, $dirname, $suffix);
@@ -54,28 +56,31 @@ sub stop_queueing {
 }
 sub start_writing_table_structure {
     my ($table_name) = @_;
-    start_writing_to(gen_filename(sprintf('structure-%s', $table_name)));
+    start_writing_to(gen_filename(sprintf('table-structure/%s', $table_name)));
     queue_flush();  # we are doing this AFTER changing filehandle on purpose
 }
 sub start_writing_data_dump {
     my ($table_name) = @_;
-    start_writing_to(gen_filename(sprintf('data-%s', $table_name)));
+    start_writing_to(gen_filename(sprintf('table-data/%s', $table_name)));
     queue_flush();
 }
 sub start_writing_event_dump {
     my ($database_name) = @_;
-    start_writing_to(gen_filename(sprintf('event-dump-%s', $database_name)));
+    start_writing_to(gen_filename(sprintf('event-dump/%s', $database_name)));
     queue_flush();
 }
 sub start_writing_routine_dump {
     my ($database_name) = @_;
-    start_writing_to(gen_filename(sprintf('routine-dump-%s', $database_name)));
+    start_writing_to(gen_filename(sprintf('routine-dump/%s', $database_name)));
     queue_flush();
 }
 sub gen_filename {
-    my ($suffix_1) = @_;
-    $suffix_1 //= '';
-    return ($dirname // '') . ($basename // '') . '__' . ($suffix_1 // '') . ($suffix // '');
+    my ($base) = @_;
+    $base //= '';
+    if (defined $output_directory) {
+        return $output_directory . '/' . ($base // '') . ($suffix // '');
+    }
+    return ($dirname // '') . ($basename // '') . '__' . ($base // '') . ($suffix // '');
 }
 sub queue_flush {
     while (scalar @queue) {
@@ -102,15 +107,19 @@ sub set_input_filename {
         undef $basename;
         undef $dirname;
         undef $suffix;
+        undef $output_directory;
     } else {
         $input_filename = $filename;
         ($basename, $dirname, $suffix) = fileparse($filename, qr/\.[^.]*/);
+        $output_directory = $dirname . $basename;
     }
 }
 sub start_writing_to {
     my ($filename) = @_;
     klose();
+    $line_count = 0;
     if (defined $filename) {
+        make_path(dirname($filename));
         if (!open($fh, '>', $filename)) {
             undef $output_filename;
             return;
