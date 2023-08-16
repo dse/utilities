@@ -7,6 +7,7 @@ use Getopt::Long;
 use POSIX qw(floor);
 use Time::HiRes qw(gettimeofday);
 our $PROGNAME = basename($0);
+STDERR->autoflush(1) if -t 2;
 
 our $VERSION = "0.000000";
 $VERSION = eval $VERSION;
@@ -43,13 +44,13 @@ while (<>) {
     $_ = dirname($_);
     my $counted = $basename ? basename($_) : $_;
     $count{$counted} += 1;
-    $size_count{$counted} += $size if $count_size;
-    $blocks_count{$counted} += $blocks if $count_blocks;
+    $size_count{$counted} += $size if $count_size && defined $size;
+    $blocks_count{$counted} += $blocks if $count_blocks && defined $blocks;
     while (1) {
         my $counted = $basename ? basename($_) : $_;
         $count_all{$counted} += 1;
-        $size_count_all{$counted} += $size if $count_size;
-        $blocks_count_all{$counted} += $blocks if $count_blocks;
+        $size_count_all{$counted} += $size if $count_size && defined $size;
+        $blocks_count_all{$counted} += $blocks if $count_blocks && defined $blocks;
         my $next = dirname($_);
         last if $next eq $_;
         $_ = $next;
