@@ -4,32 +4,47 @@ MAIN () {
     if (( $# < 1 )) ; then
         list-fonts
         list-control-files
-    elif [[ "$1" = "show" ]] ; then
-        show-fonts
-    elif [[ "$1" = "list" ]] ; then
-        list-fonts
-    elif [[ "$1" = "control-files" ]] ; then
-        show-control-files
+    else
+        cmd="$1"; shift
+        if [[ "$cmd" = "show" ]] || [[ "$cmd" = "show-fonts" ]] ; then
+            show-fonts "$@"
+        elif [[ "$cmd" = "list" ]] || [[ "$cmd" = "list-fonts" ]] ; then
+            list-fonts
+        elif [[ "$cmd" = "control-files" ]] ; then
+            show-control-files
+        fi
     fi
 }
 
 list-fonts () {
     echo '# figlet fonts'
-    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./#figlet -f #;s#\.(flc|flf)$##;'
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./#figlet -f #;s#\.(flf)$##;'
+    echo
+    echo '# toilet fonts'
+    ( cd /usr/share/figlet && find . -type f \( -name '*.tlf' \) ) | sed -E 's#^\./#toilet -f #;s#\.(tlf)$##;'
     echo
 }
 
 show-fonts () {
-    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./##;s#\.(flc|flf)$##;' | while read font ; do
+    string="Hello, world!"
+    if (( $# )) ; then
+        string="$1"
+    fi
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flf' \) ) | sed -E 's#^\./##;s#\.(flf)$##;' | while read font ; do
         echo "# '$font' figlet font"
-        figlet -f "$font" "Hello, world!"
+        figlet -f "$font" "${string}"
+        echo
+    done
+    ( cd /usr/share/figlet && find . -type f \( -name '*.tlf' \) ) | sed -E 's#^\./##;s#\.(tlf)$##;' | while read font ; do
+        echo "# '$font' toilet font"
+        toilet -f "$font" "${string}"
         echo
     done
 }
 
 list-control-files () {
     echo '# figlet control files'
-    ( cd /usr/share/figlet && find . -type f \( -name '*.flc' \) ) | sed -E 's#^\./#figlet -C #;s#\.(flc|flf)$##;'
+    ( cd /usr/share/figlet && find . -type f \( -name '*.flc' \) ) | sed -E 's#^\./#figlet -C #;s#\.(flc)$##;'
     echo
 }
 
