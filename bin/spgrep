@@ -97,7 +97,7 @@ package My::SplitGrep {
                     }
                 }
             }
-            push(@{$self->{nonMatchingLines}}, $. . "\t" . $_);
+            push(@{$self->{nonMatchingLines}}, $_);
         }
         if ($self->{group}) {
             foreach my $pattern (@{$self->{patterns}}) {
