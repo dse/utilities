@@ -9,6 +9,11 @@ use Scalar::Util qw(looks_like_number);
 #     {{ expr = | fmt }}
 #     {{ expr = text }}
 #     {{ expr = text | fmt }}
+# possible alternatives to |
+# would be things not expected to appear in the expression
+#     ;;
+#     #
+#     |||
 while (<>) {
     s{(?<start>\{\{)
       (?<sp1>\s*)
