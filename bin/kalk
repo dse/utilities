@@ -46,15 +46,18 @@ while (<>) {
 }
 sub replace {
     my ($match, %group) = @_;
-    my $eval = evaluate($group{expr}, $group{fmt});
+    my ($start, $sp1, $expr, $sp2, $eq, $sp3, $repl, $sp4, $pipe_fmt, $pipe, $sp5, $fmt, $sp6, $end)
+      = @group{qw(start sp1 expr sp2 eq sp3 repl sp4 pipe_fmt pipe sp5 fmt sp6 end)};
+    my $eval = evaluate($expr, $fmt);
     if ($@) {
         warn($@);
         return $match;
     }
-    if (defined $group{eq}) {
-        return $group{start} . $group{sp1} . $group{expr} . $group{sp2} . $group{eq} . $group{sp3} . $eval . ($group{sp4} // $group{sp3}) . ($group{pipe_fmt} // '') . $group{end};
+    if (defined $eq) {
+        return $start . $sp1 . $expr . $sp2 . $eq . $sp3 . $eval . ($sp4 // $sp3) . ($pipe_fmt // '') . $end;
+        #      {               2 + 2          =            whatever                    |       %d       }
     }
-    return $group{start} . $group{sp1} . $eval . $group{sp2} . $group{end};
+    return $start . $sp1 . $eval . $sp2 . $end;
 }
 sub evaluate {
     my ($expr, $fmt) = @_;
