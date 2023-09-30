@@ -30,7 +30,7 @@ while (<>) {
           (?:
               (?<repl>\S.*?)
               (?<sp4>\s*)
-          )?
+          )?? (?# non-greedy in case char after '=' is '|' )
       )?
       (?<pipe_fmt>
           (?<pipe>\|)
