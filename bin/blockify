@@ -15,8 +15,28 @@ my $blockifying = basename($0) eq 'blockify';
 Getopt::Long::Configure(qw(gnu_compat bundling no_ignore_case));
 Getopt::Long::GetOptions(
     'n|narrow' => \$narrow,
-    'h|half'   => \$half,
+    'h|half|half-height'   => \$half,
+    'help|?' => sub { usage(); exit(0); },
 ) or die(":-(\n");
+
+sub usage {
+    my $progname = basename($0);
+    if ($progname eq 'blockify') {
+        usage_blockify();
+    } elsif ($progname eq 'unblockify') {
+        usage_unblockify();
+    } else {
+        die("don't know how to run as $progname");
+    }
+}
+
+sub usage_blockify { print(<<"END"); }
+usage: blockify [-n, --narrow] [-h, --half-height] [<filename> ...]
+END
+
+sub usage_unblockify { print(<<"END"); }
+usage: unblockify [-n, --narrow] [-h, --half-height] [<filename> ...]
+END
 
 my $topHalf;
 my $bottomHalf;
