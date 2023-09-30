@@ -14,6 +14,13 @@ use Math::Trig qw(:great_circle);
 #     {{ expr = | fmt }}
 #     {{ expr = text }}
 #     {{ expr = text | fmt }}
+# possible alternatives to |
+# would be things not expected to appear in the expression
+#     {{ expr = text ;; fmt }}
+#     {{ expr = text # fmt }}
+#     {{ expr = text ||| fmt }}
+#     {{ expr = text %%fmt }}
+#     {{ expr = text % %fmt }}
 while (<>) {
     s{(?<start>\{\{)
       (?<sp1>\s*)
