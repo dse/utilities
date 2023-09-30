@@ -8,7 +8,8 @@ use Math::Trig qw(:pi);
 use Math::Trig qw(:radial);
 use Math::Trig qw(:great_circle);
 our $last_result = 0;
-sub _ {
+sub _ () {
+    # prototype required for things like "_ + 5" to work
     return $last_result;
 }
 # supported:
@@ -69,15 +70,6 @@ sub replace {
 sub evaluate {
     my ($expr, $fmt) = @_;
     return $expr if looks_like_number($expr) && !defined $fmt;
-    $expr =~ s{\N{MULTIPLICATION SIGN}}{*}g;
-    $expr =~ s{\N{DIVISION SIGN}}{/}g;
-    $expr =~ s{\N{MINUS SIGN}}{-}g;
-    $expr =~ s{\N{NOT SIGN}}{!}g;
-    $expr =~ s{\N{INFINITY}}{('inf' + 1)}g;
-    $expr =~ s{\N{LOGICAL OR}}{||}g;
-    $expr =~ s{\N{LOGICAL AND}}{&&}g;
-    $expr =~ s{\N{LESS-THAN OR EQUAL TO}}{<=}g;
-    $expr =~ s{\N{GREATER-THAN OR EQUAL TO}}{>=}g;
     my $result = eval($expr);
     if (defined $result) {
         $last_result = $result;
