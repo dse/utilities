@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Scalar::Util qw(looks_like_number);
+use POSIX qw(:math_h);
+use POSIX qw(:math_h_c99);
+use Math::Trig qw(:pi);
+use Math::Trig qw(:radial);
+use Math::Trig qw(:great_circle);
+use List::Util qw(max sum uniq);
+use Term::ReadLine;
+use Text::Wrap;
+our $last_result = 0;
+sub _ () {
+    # prototype required for things like "_ + 5" to work
+    return $last_result;
+}
+if (!scalar @ARGV) {
+    my $term = Term::ReadLine->new('kalki');
+    my $prompt = 'kalki>';
+    while (defined($_ = $term->readline($prompt))) {
+        if (/^\s*(help|\?)\s*$/i) {
+            print(wrap('', '', join(', ', imports())), "\n");
+            next;
+        }
+        my $result = evaluate($_);
+        if ($@) {
+            warn($@);
+            next;
+        }
+        print("$result\n");
+    }
+}
+sub evaluate {
+    my ($expr, $fmt) = @_;
+    my $result = eval($expr);
+    if (defined $result) {
+        $last_result = $result;
+    }
+    return $result;
+}
+sub imports {
+    my @list = (@{$POSIX::EXPORT_TAGS{math_h}},
+                @{$POSIX::EXPORT_TAGS{math_h_c99}},
+                @{$Math::Trig::EXPORT_TAGS{pi}},
+                @{$Math::Trig::EXPORT_TAGS{radial}},
+                @{$Math::Trig::EXPORT_TAGS{great_circle}});
+    return uniq sort { $a cmp $b } @list;
+}
