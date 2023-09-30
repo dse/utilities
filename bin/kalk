@@ -8,18 +8,22 @@ while (<>) {
       (?<expr>\S.*?)
       (?<sp2>\s*)
       (?<end>\}\})}
-     { replace(%+) }gex;
+     { replace($&, %+) }gex;
     print;
 }
 sub replace {
-    my %A = @_;
+    my ($M, %A) = @_;
     $A{sp1} //= '';
     $A{sp2} //= '';
-    return $A{start} . $A{sp1} . evaluate($A{expr}) . $A{sp2} . $A{end};
+    my $eval = evaluate($A{expr});
+    if ($@) {
+        warn($@);
+        return $M;
+    }
+    return $A{start} . $A{sp1} . $eval . $A{sp2} . $A{end};
 }
 sub evaluate {
     my $expr = shift;
     return $expr if looks_like_number($expr);
     return eval($expr);
 }
-__DATA__
