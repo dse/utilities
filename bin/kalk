@@ -21,6 +21,10 @@ use Math::Trig qw(:great_circle);
 #     {{ expr = text ||| fmt }}
 #     {{ expr = text %%fmt }}
 #     {{ expr = text % %fmt }}
+# todo:
+#     interactive line-by-line?
+#     filenames on CLI?
+#     exprs on CLI?
 while (<>) {
     s{(?<start>\{\{)
       (?<sp1>\s*)
