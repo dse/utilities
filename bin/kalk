@@ -13,25 +13,25 @@ sub _ () {
     return $last_result;
 }
 # supported:
-#     {{ expr }}
-#     {{ expr | fmt }}
-#     {{ expr = }}
-#     {{ expr = | fmt }}
-#     {{ expr = text }}
-#     {{ expr = text | fmt }}
+#     { expr }
+#     { expr | fmt }
+#     { expr = }
+#     { expr = | fmt }
+#     { expr = text }
+#     { expr = text | fmt }
 # possible alternatives to |
 # would be things not expected to appear in the expression
-#     {{ expr = text ;; fmt }}
-#     {{ expr = text # fmt }}
-#     {{ expr = text ||| fmt }}
-#     {{ expr = text %%fmt }}
-#     {{ expr = text % %fmt }}
+#     { expr = text ;; fmt }
+#     { expr = text # fmt }
+#     { expr = text ||| fmt }
+#     { expr = text %%fmt }
+#     { expr = text % %fmt }
 # todo:
 #     interactive line-by-line?
 #     filenames on CLI?
 #     exprs on CLI?
 while (<>) {
-    s{(?<start>\{\{)
+    s{(?<start>\{)
       (?<sp1>\s*)
       (?<expr>\S.*?)
       (?<sp2>\s*)
@@ -51,21 +51,21 @@ while (<>) {
               (?<sp6>\s*)
           )?
       )?
-      (?<end>\}\})}
+      (?<end>\})}
      { replace($&, %+) }gex;
     print;
 }
 sub replace {
-    my ($M, %A) = @_;
-    my $eval = evaluate($A{expr}, $A{fmt});
+    my ($match, %group) = @_;
+    my $eval = evaluate($group{expr}, $group{fmt});
     if ($@) {
         warn($@);
-        return $M;
+        return $match;
     }
-    if (defined $A{eq}) {
-        return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . ($A{sp4} // $A{sp3}) . ($A{pipe_fmt} // '') . $A{end};
+    if (defined $group{eq}) {
+        return $group{start} . $group{sp1} . $group{expr} . $group{sp2} . $group{eq} . $group{sp3} . $eval . ($group{sp4} // $group{sp3}) . ($group{pipe_fmt} // '') . $group{end};
     }
-    return $A{start} . $A{sp1} . $eval . $A{sp2} . $A{end};
+    return $group{start} . $group{sp1} . $eval . $group{sp2} . $group{end};
 }
 sub evaluate {
     my ($expr, $fmt) = @_;
