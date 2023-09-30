@@ -7,6 +7,10 @@ use POSIX qw(:math_h_c99);
 use Math::Trig qw(:pi);
 use Math::Trig qw(:radial);
 use Math::Trig qw(:great_circle);
+our $last_result = 0;
+sub _ {
+    return $last_result;
+}
 # supported:
 #     {{ expr }}
 #     {{ expr | fmt }}
@@ -75,7 +79,9 @@ sub evaluate {
     $expr =~ s{\N{LESS-THAN OR EQUAL TO}}{<=}g;
     $expr =~ s{\N{GREATER-THAN OR EQUAL TO}}{>=}g;
     my $result = eval($expr);
+    if (defined $result) {
+        $last_result = $result;
+    }
     $result = sprintf($fmt, $result) if defined $result && defined $fmt;
     return $result;
 }
-__DATA__
