@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+while (<>) {
+    s{(?<start>\{\{)
+      (?<sp1>\s*)
+      (?<expr>\S.*?)
+      (?<sp2>\s*)
+      (?<end>\}\})}
+     { $+{start} . $+{sp1} . eval($+{expr}) . $+{sp2} . $+{end} }gex;
+    print;
+}
+__DATA__
