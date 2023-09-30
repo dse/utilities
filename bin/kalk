@@ -15,7 +15,7 @@ while (<>) {
               (?<sp4>\s*)
           )?
       )?
-      (?:
+      (?<pipe_fmt>
           (?<pipe>\|)
           (?<sp5>\s*)
           (?:
@@ -35,7 +35,7 @@ sub replace {
         return $M;
     }
     if (defined $A{eq}) {
-        return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . ($A{sp4} // $A{sp3}) . $A{end};
+        return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . ($A{sp4} // $A{sp3}) . ($A{pipe_fmt} // '') . $A{end};
     }
     return $A{start} . $A{sp1} . $eval . $A{sp2} . $A{end};
 }
@@ -44,3 +44,4 @@ sub evaluate {
     return $expr if looks_like_number($expr);
     return eval($expr);
 }
+__DATA__
