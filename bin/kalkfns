@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(:math_h :math_h_c99);
+use Math::Trig qw();
+use Text::Wrap qw(wrap);
+
+my @math_h     = sort @{$POSIX::EXPORT_TAGS{math_h}};
+my @math_h_c99 = sort @{$POSIX::EXPORT_TAGS{math_h_c99}};
+my %math_h     = map { ($_ => 1) } @math_h;
+my %math_h_c99 = map { ($_ => 1) } @math_h_c99;
+my @math_h_c99_only = sort grep { !$math_h{$_} } @math_h_c99;
+my @math_h_only = sort grep { !$math_h_c99{$_} } @math_h;
+
+if (scalar @math_h) {
+    print("use POSIX qw(:math_h) provides:\n");
+    print(wrap('    ', '    ', join(', ', @math_h)), "\n");
+}
+if (scalar @math_h_c99_only) {
+    print("use POSIX qw(:math_h_c99) also provides:\n");
+    print(wrap('    ', '    ', join(', ', @math_h_c99_only)), "\n");
+}
+if (scalar @math_h_only) {
+    print("use POSIX qw(:math_h_c99) does NOT provide:\n");
+    print(wrap('    ', '    ', join(', ', @math_h_only)), "\n");
+}
+
+my @trig_export_tags = sort keys %Math::Trig::EXPORT_TAGS;
+
+foreach my $tag (@trig_export_tags) {
+    printf("use Math::Trig qw(:%s) provides:\n", $tag);
+    my @fns = sort @{$Math::Trig::EXPORT_TAGS{$tag}};
+    print(wrap('    ', '    ', join(', ', @fns)), "\n");
+}
