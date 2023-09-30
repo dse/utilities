@@ -1,0 +1,55 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long;
+our $reverse = 0;
+our $fancy = 0;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions('f|fancy' => \$fancy,
+                         'r|reverse' => \$reverse) or die("option failure");
+if (scalar @ARGV) {
+    foreach my $filename (@ARGV) {
+        byte2bin_file($filename);
+    }
+} else {
+    byte2bin_fh(\*STDIN);
+}
+sub byte2bin_file {
+    my ($filename) = @_;
+    my $fh;
+    open($fh, '<', $filename) or die("$filename: $!");
+    binmode($fh) or die("$filename: $!");
+    byte2bin_fh($fh);
+}
+sub byte2bin_fh {
+    my ($fh) = @_;
+    while (1) {
+        my $data;
+        my $bytes = sysread($fh, $data, 4096);
+        if (!defined $bytes) {
+            die("sysread: $!");
+        }
+        if (!$bytes) {
+            last;
+        }
+        my $unpack = $reverse ? 'b*' : 'B*';
+        for (my $i = 0; $i < length($data); $i += 1) {
+            my $byte = substr($data, $i, 1);
+            if ($fancy) {
+                my $fwd = unpack('B*', $byte);
+                my $rev = unpack('b*', $byte);
+                my $fwd2 = $fwd;
+                my $rev2 = $rev;
+                $fwd =~ s{.}{$& ? '#' : ' '}ge;
+                $rev =~ s{.}{$& ? '#' : ' '}ge;
+                $fwd2 =~ s{.}{$& ? ' ' : '#'}ge;
+                $rev2 =~ s{.}{$& ? ' ' : '#'}ge;
+                print("|$fwd|$rev|$fwd2|$rev2|\n");
+            } else {
+                my $bits = unpack($unpack, $byte);
+                $bits =~ s{.}{$& ? '#' : ' '}ge;
+                print("$bits\n");
+            }
+        }
+    }
+}
