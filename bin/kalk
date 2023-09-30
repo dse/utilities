@@ -35,10 +35,7 @@ sub replace {
         return $M;
     }
     if (defined $A{eq}) {
-        if (defined $A{repl}) {
-            return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . $A{sp4} . $A{end};
-        }
-        return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . $A{sp3} . $A{end};
+        return $A{start} . $A{sp1} . $A{expr} . $A{sp2} . $A{eq} . $A{sp3} . $eval . ($A{sp4} // $A{sp3}) . $A{end};
     }
     return $A{start} . $A{sp1} . $eval . $A{sp2} . $A{end};
 }
