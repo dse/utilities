@@ -2,6 +2,13 @@
 use warnings;
 use strict;
 use Scalar::Util qw(looks_like_number);
+# supported:
+#     {{ expr }}
+#     {{ expr | fmt }}
+#     {{ expr = }}
+#     {{ expr = | fmt }}
+#     {{ expr = text }}
+#     {{ expr = text | fmt }}
 while (<>) {
     s{(?<start>\{\{)
       (?<sp1>\s*)
