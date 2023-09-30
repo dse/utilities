@@ -8,8 +8,14 @@ while (<>) {
       (?<expr>\S.*?)
       (?<sp2>\s*)
       (?<end>\}\})}
-     { $+{start} . $+{sp1} . evaluate($+{expr}) . $+{sp2} . $+{end} }gex;
+     { replace(%+) }gex;
     print;
+}
+sub replace {
+    my %A = @_;
+    $A{sp1} //= '';
+    $A{sp2} //= '';
+    return $A{start} . $A{sp1} . evaluate($A{expr}) . $A{sp2} . $A{end};
 }
 sub evaluate {
     my $expr = shift;
