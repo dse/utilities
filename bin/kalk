@@ -1,13 +1,19 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Scalar::Util qw(looks_like_number);
 while (<>) {
     s{(?<start>\{\{)
       (?<sp1>\s*)
       (?<expr>\S.*?)
       (?<sp2>\s*)
       (?<end>\}\})}
-     { $+{start} . $+{sp1} . eval($+{expr}) . $+{sp2} . $+{end} }gex;
+     { $+{start} . $+{sp1} . evaluate($+{expr}) . $+{sp2} . $+{end} }gex;
     print;
+}
+sub evaluate {
+    my $expr = shift;
+    return $expr if looks_like_number($expr);
+    return eval($expr);
 }
 __DATA__
