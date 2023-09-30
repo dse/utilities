@@ -45,10 +45,10 @@ sub evaluate {
     return $result;
 }
 sub imports {
-    my %keys = map { $_ => 1 } (@{$POSIX::EXPORT_TAGS{math_h}},
-                                @{$POSIX::EXPORT_TAGS{math_h_c99}},
-                                @{$Math::Trig::EXPORT_TAGS{pi}},
-                                @{$Math::Trig::EXPORT_TAGS{radial}},
-                                @{$Math::Trig::EXPORT_TAGS{great_circle}});
-    return sort keys %keys;
+    my %imports = map { $_ => 1 } (@{$POSIX::EXPORT_TAGS{math_h}},
+                                   @{$POSIX::EXPORT_TAGS{math_h_c99}},
+                                   @{$Math::Trig::EXPORT_TAGS{pi}},
+                                   @{$Math::Trig::EXPORT_TAGS{radial}},
+                                   @{$Math::Trig::EXPORT_TAGS{great_circle}});
+    return sort keys %imports;
 }
