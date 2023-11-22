@@ -16,7 +16,6 @@ TOTAL_DURATION="$3"
 
 #------------------------------------------------------------------------------
 FFMPEG="/usr/bin/ffmpeg"
-SLEEP=5
 
 #------------------------------------------------------------------------------
 mkdir -p "${RECORD_A_SHOW_HOME}"
@@ -25,7 +24,6 @@ STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 #------------------------------------------------------------------------------
 NOW="$(date +%s)"               # 1645902696 (seconds)
 END=$(( NOW + TOTAL_DURATION ))       # 1645910136 (seconds)
-INITSLEEP="${SLEEP}"
 
 #------------------------------------------------------------------------------
 declare -a CMD
@@ -54,15 +52,6 @@ while (( NOW < END )) ; do
         break
     fi
     echo "${FFMPEG} failed, exiting with code $?"
-    LAST="${NOW}"
     NOW="$(date +%s)"
-    if (( NOW - LAST < 5 )) ; then # don't restart too fast
-        >&2 echo "sleeping ${SLEEP}; next sleep if restarting too fast = 30"
-        sleep "${SLEEP}"; SLEEP=30
-        LAST="${NOW}"
-        NOW="$(date +%s)"
-    elif (( SLEEP > INITSLEEP )) ; then # resume normalcy
-        >&2 echo "resume normal sleep 5 next time"
-        SLEEP="${INITSLEEP}"
-    fi
+    sleep 5
 done
