@@ -39,7 +39,16 @@ while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW )) # 7440
     TIMESTAMP="$(date +'%Y-%m-%d-%H%M%S')" # 165800
     FILENAME="${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
-    CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
+    CMD=(
+        "${FFMPEG}"
+        -reconnect 1
+        -reconnect_at_eof 1
+        -reconnect_streamed 1
+        -reconnect_on_network_error 1
+        -reconnect_on_http_error 4xx,5xx
+        -y -loglevel warning
+        -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}"
+    )
     >&2 echo "+ ${CMD[@]@Q}"
     if "${CMD[@]}" ; then
         break
