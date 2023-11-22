@@ -24,7 +24,6 @@ STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 
 #------------------------------------------------------------------------------
 NOW="$(date +%s)"               # 1645902696 (seconds)
-DATESTAMP="$(date +'%Y-%m-%d')"      # 2022-02-26
 END=$(( NOW + TOTAL_DURATION ))       # 1645910136 (seconds)
 INITSLEEP="${SLEEP}"
 
@@ -38,8 +37,8 @@ EXT="$(ffprobe "${STREAMURL}" |& sed -nE '/^\s*Stream .* Audio: (\S+),.*$/{s//\1
 
 while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW )) # 7440
-    TIMESTAMP="$(date +'%H%M%S')"    # 165800
-    FILENAME="${DATESTAMP}-${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
+    TIMESTAMP="$(date +'%Y-%m-%d-%H%M%S')" # 165800
+    FILENAME="${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
     CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
     >&2 echo "+ ${CMD[@]@Q}"
     if "${CMD[@]}" ; then
