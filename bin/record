@@ -52,7 +52,7 @@ mkdir -p "${STREAMDIR}"
 cd "${STREAMDIR}"
 
 while (( NOW < END )) ; do
-    FFMPEG_DURATION=$(( END - NOW + 5 )) # 7445
+    FFMPEG_DURATION=$(( END - NOW )) # 7440
     TIME="$(date +'%H%M%S')"             # 165800
     FILENAME="${DATE}-${TIME}.mp4"       # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
     FILENAMES+=("${FILENAME}")
