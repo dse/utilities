@@ -24,7 +24,7 @@ STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 
 #------------------------------------------------------------------------------
 NOW="$(date +%s)"               # 1645902696 (seconds)
-DATE="$(date +'%Y-%m-%d')"      # 2022-02-26
+DATESTAMP="$(date +'%Y-%m-%d')"      # 2022-02-26
 END=$(( NOW + DURATION ))       # 1645910136 (seconds)
 INITSLEEP="${SLEEP}"
 
@@ -36,8 +36,8 @@ cd "${STREAMDIR}"
 
 while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW )) # 7440
-    TIME="$(date +'%H%M%S')"             # 165800
-    FILENAME="${DATE}-${TIME}.mp4"       # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
+    TIMESTAMP="$(date +'%H%M%S')"    # 165800
+    FILENAME="${DATESTAMP}-${TIMESTAMP}.mp4" # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
     FILENAMES+=("${FILENAME}")
     CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
     >&2 echo "+ ${CMD[@]@Q}"
