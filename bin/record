@@ -15,9 +15,6 @@ STREAMURL="$2"
 TOTAL_DURATION="$3"
 
 #------------------------------------------------------------------------------
-FFMPEG="/usr/bin/ffmpeg"
-
-#------------------------------------------------------------------------------
 mkdir -p "${RECORD_A_SHOW_HOME}"
 STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 
@@ -38,7 +35,7 @@ while (( NOW < END )) ; do
     TIMESTAMP="$(date +'%Y-%m-%d-%H%M%S')" # 165800
     FILENAME="${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
     CMD=(
-        "${FFMPEG}"
+        /usr/bin/ffmpeg
         -reconnect 1
         -reconnect_at_eof 1
         -reconnect_streamed 1
