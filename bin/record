@@ -8,6 +8,8 @@ if (( $# < 3 )) ; then
     exit 1
 fi
 
+: ${RECORD_A_SHOW_HOME:="${HOME}/record-a-show"}
+
 STREAMDIR="$1"
 STREAMURL="$2"
 DURATION="$3"
@@ -17,7 +19,8 @@ FFMPEG="/usr/bin/ffmpeg"
 SLEEP=5
 
 #------------------------------------------------------------------------------
-[[ "${STREAMDIR}" != /* ]] && STREAMDIR="${HOME}/record-a-show/${STREAMDIR}"
+mkdir -p "${RECORD_A_SHOW_HOME}"
+STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 
 #------------------------------------------------------------------------------
 NOW="$(date +%s)"               # 1645902696 (seconds)
