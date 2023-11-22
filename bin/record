@@ -33,10 +33,13 @@ declare -a CMD
 mkdir -p "${STREAMDIR}"
 cd "${STREAMDIR}"
 
+EXT="$(ffprobe "${STREAMURL}" | sed -nE '/^\s*Stream .* Audio: (\S+),.*$/{s//\1/p;q;}')"
+: ${EXT:=mp4}          # default. MP4 IS A CONTAINER; CODEC IS COPIED.
+
 while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW )) # 7440
     TIMESTAMP="$(date +'%H%M%S')"    # 165800
-    FILENAME="${DATESTAMP}-${TIMESTAMP}.mp4" # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
+    FILENAME="${DATESTAMP}-${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
     CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
     >&2 echo "+ ${CMD[@]@Q}"
     if "${CMD[@]}" ; then
