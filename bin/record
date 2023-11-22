@@ -33,7 +33,7 @@ declare -a CMD
 mkdir -p "${STREAMDIR}"
 cd "${STREAMDIR}"
 
-EXT="$(ffprobe "${STREAMURL}" | sed -nE '/^\s*Stream .* Audio: (\S+),.*$/{s//\1/p;q;}')"
+EXT="$(ffprobe "${STREAMURL}" |& sed -nE '/^\s*Stream .* Audio: (\S+),.*$/{s//\1/p;q;}')"
 : ${EXT:=mp4}          # default. MP4 IS A CONTAINER; CODEC IS COPIED.
 
 while (( NOW < END )) ; do
