@@ -3,28 +3,8 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-usage () { cat <<EOF; }
-usage:
-    record <dir> <url> <duration>
-arguments:
-    <dir> is subdirectory name of record-a-show archive
-    <url> is streaming URL
-    <duration> is length of recording in seconds
-        See time duration specification in ffmpeg-utils(1) for values
-        examples: 30s = 30000ms = 30000000us
-                  90 minutes = 5400s = 1:30:00 = 90:00
-EOF
-}
-
-if (( $# )) ; then
-    case "$1" in
-        help|--help|-\?|-h)
-            usage; exit 0;;
-    esac
-fi
 if (( $# < 3 )) ; then
     echo "record: not enough arguments" >&2
-    echo "record: type '$0 --help' for help"
     exit 1
 fi
 
