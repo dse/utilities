@@ -34,6 +34,7 @@ while (( NOW < END )) ; do
     FFMPEG_DURATION=$(( END - NOW )) # 7440
     TIMESTAMP="$(date +'%Y-%m-%d-%H%M%S')" # 165800
     FILENAME="${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
+    set -o xtrace
     CMD=(
         /usr/bin/ffmpeg
         -reconnect 1
@@ -44,10 +45,10 @@ while (( NOW < END )) ; do
         -y -loglevel warning
         -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}"
     )
-    >&2 echo "+ ${CMD[@]@Q}"
     if "${CMD[@]}" ; then
         break
     fi
+    set +o xtrace
     echo "${FFMPEG} failed, exiting with code $?"
     NOW="$(date +%s)"
     sleep 5
