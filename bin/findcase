@@ -27,5 +27,5 @@ sub wanted {
     return unless scalar @stat; # did stat fail?
     return if -l _;             # don't traverse symlinks
     # my ($dev, $ino, $mode, $nlink, $uid, $gid) = @stat;
-    push(@{$counts{$File::Find::dir}{lc $_}}, $File::Find::name);
+    push(@{$counts{$File::Find::dir}{lc $_}}, $_);
 }
