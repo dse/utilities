@@ -12,7 +12,7 @@ foreach my $pathname (@ARGV) {
     find(\&wanted, $pathname);
 }
 foreach my $dir (sort keys %counts) {
-    my @lc_filenames = grep { $counts{$dir}{$_} > 1 } keys %{$counts{$dir}};
+    my @lc_filenames = grep { scalar @{$counts{$dir}{$_}} > 1 } keys %{$counts{$dir}};
     foreach my $lc_filename (@lc_filenames) {
         my @filename = @{$counts{$dir}{$lc_filename}};
         printf("%d\n", scalar(@filename));
