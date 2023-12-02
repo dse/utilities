@@ -17,7 +17,7 @@ foreach my $dir (sort keys %counts) {
         my @filename = @{$counts{$dir}{$lc_filename}};
         printf("%d\n", scalar(@filename));
         foreach my $filename (@filename) {
-            printf("    %s%s\n", $dir, $filename);
+            printf("    %s/%s\n", $dir, $filename);
         }
     }
 }
