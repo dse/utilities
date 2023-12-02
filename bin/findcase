@@ -17,7 +17,7 @@ foreach my $dir (sort keys %counts) {
         my @filename = @{$counts{$dir}{$lc_filename}};
         printf("%d\n", scalar(@filename));
         foreach my $filename (@filename) {
-            printf("%s%s\n", $dir, $filename);
+            printf("    %s%s\n", $dir, $filename);
         }
     }
 }
@@ -27,5 +27,5 @@ sub wanted {
     return unless scalar @stat; # did stat fail?
     return if -l _;             # don't traverse symlinks
     # my ($dev, $ino, $mode, $nlink, $uid, $gid) = @stat;
-    push(@{$counts{$File::Find::dir}{lc $File::Find::name}}, $File::Find::name);
+    push(@{$counts{$File::Find::dir}{lc $_}}, $File::Find::name);
 }
