@@ -9,7 +9,7 @@ if (!scalar @ARGV) {
     @ARGV = ('.');
 }
 foreach my $pathname (@ARGV) {
-    find($pathname, \&wanted);
+    find(\&wanted, $pathname);
 }
 foreach my $dir (sort keys %counts) {
     my @lc_filenames = grep { $counts{$dir}{$_} > 1 } keys %{$counts{$dir}};
