@@ -14,7 +14,7 @@ my $blockifying = basename($0) eq 'blockify';
 
 Getopt::Long::Configure(qw(gnu_compat bundling no_ignore_case));
 Getopt::Long::GetOptions(
-    'n|narrow' => \$narrow,
+    'n|narrow|half-width' => \$narrow,
     'h|half|half-height'   => \$half,
     'help|?' => sub { usage(); exit(0); },
 ) or die(":-(\n");
