@@ -1,0 +1,38 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use File::Basename qw(basename dirname);
+
+my %dupes;
+
+while (<>) {
+    s{\R\z}{};                  # safer chomp in case of CRLF
+    my ($dirname, $basename) = (dirname($_), basename($_));
+    push(@{$dupes{lc $dirname}{lc $basename}}, $_);
+}
+
+foreach my $dirname (keys %dupes) {
+    my $sub = $dupes{$dirname};
+    foreach my $basename (grep { scalar @{$sub->{$_}} > 1 } sort keys %$sub) {
+        printf("%d\n", scalar @{$sub->{$basename}});
+        my %types;
+        foreach my $pathname (@{$sub->{$basename}}) {
+            my (@lstat) = lstat($pathname);
+            next unless scalar @lstat;
+            my $type =
+              -f _ ? "F" :      # regular file
+              -d _ ? "D" :      # directory
+              -l _ ? "L" :      # symbolic link
+              -p _ ? "P" :      # named pipe (FIFO)
+              -S _ ? "S" :      # socket
+              -b _ ? "B" :      # block special
+              -c _ ? "C" :      # character special
+              "???";
+            printf("    %-1.1s   %s\n", $type, $pathname);
+            $types{$type} += 1;
+        }
+        if (scalar keys %types > 1) {
+            printf("    %s\n", "INCONSISTENT FILE TYPES");
+        }
+    }
+}
