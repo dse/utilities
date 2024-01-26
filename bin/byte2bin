@@ -2,10 +2,13 @@
 use warnings;
 use strict;
 use Getopt::Long;
+use POSIX qw(floor);
 our $reverse = 0;
 our $fancy = 0;
+our $bytes_per = 1;
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions('f|fancy' => \$fancy,
+                         'w|word' => sub { $bytes_per = 2; },
                          'r|reverse' => \$reverse) or die("option failure");
 if (scalar @ARGV) {
     foreach my $filename (@ARGV) {
@@ -33,8 +36,8 @@ sub byte2bin_fh {
             last;
         }
         my $unpack = $reverse ? 'b*' : 'B*';
-        for (my $i = 0; $i < length($data); $i += 1) {
-            my $byte = substr($data, $i, 1);
+        for (my $i = 0; $i < floor(length($data) / $bytes_per); $i += 1) {
+            my $byte = substr($data, $i * $bytes_per, $bytes_per);
             if ($fancy) {
                 my $fwd = unpack('B*', $byte);
                 my $rev = unpack('b*', $byte);
