@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+declare -a exclude=(
+    # directories
+    --exclude=".git"
+    --exclude="node_modules"
+    --exclude="_cacache"
+    --exclude=".node-gyp"
+    --exclude="vendor"
+    --exclude=".cache"
+
+    # temp/backup files
+    --exclude="*~"
+    --exclude="#*#"
+    --exclude="*.tmp"
+    --exclude="*.bak"
+    --exclude="*.orig"
+    --exclude="*.old"
+    --exclude="*.tmp.*"
+    --exclude="*.bak.*"
+    --exclude="*.orig.*"
+    --exclude="*.old.*"
+
+    # bloat
+    --exclude="*.min"
+    --exclude="*.min.*"
+    --exclude="package-lock.json"
+    --exclude="composer.lock"
+    --exclude="yarn.lock"
+)
+
+declare -a rsync_options=(
+    -avC --delete-excluded
+)
+
+declare -a git_diff_options=(
+    --no-prefix
+    --diff-filter=MT
+)
+
+path1="$(realpath "$1")"
+path2="$(realpath "$2")"
+shift 2
+
+tmpdir="/tmp/.gdiff-$(whoami)"
+
+tmp1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
+tmp2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+
+mkdir -p "${tmp1}"
+mkdir -p "${tmp2}"
+rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmp1}"
+rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}"
+
+git diff --no-index "${git_diff_options[@]}" "$@" "${tmp1}" "${tmp2}"
