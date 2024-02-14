@@ -42,6 +42,16 @@ declare -a git_diff_options=(
     --diff-filter=MT
 )
 
+if (( $# < 2 )) ; then
+    echo "gdiff: not enough arguments" >&2
+    exit 1
+fi
+
+if [[ "$1" = -* ]] ; then
+    echo "gdiff: git-diff options must come AFTER the both paths" >&2
+    exit 1
+fi
+
 path1="$(realpath "$1")"
 path2="$(realpath "$2")"
 shift 2
