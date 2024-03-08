@@ -80,3 +80,72 @@ sub usage {
     printf STDERR ("usage: %s [-n] [file ...]\n", $0);
     exit(1);
 }
+
+=head1 NAME
+
+com - compile anything
+
+=head1 SYNOPSIS
+
+com [-n] [I<file> ...]
+
+=head1 DESCRIPTION
+
+C<com> searches through each file named on the command line for the
+string C</*%> and takes the rest of the line to be a Unix shell
+command, which it runs after substituting the filename for any C<%>
+characters, and the stem (the filename minus its extension) for any
+C<#>'s.
+
+For example, if the file C<junk.c> contains the comment
+
+    /*% cc -o # % -lm -lmalloc
+     */
+
+then C<com junk.c> will run C<cc -o junk junk.c -lm -lmalloc>.
+
+C<com> stashes its argument list in a file called C<.comfile>, so
+after running it oncce, typing C<com> with no arguments will
+recompile.  To include a literal C<%> or C<#> in the command, write
+C<%%> or C<##>.
+
+=head1 NOTES
+
+C<com> is intended for compiling source files with a filename
+extension, e.g., C<junk.c>.  In order to reduce unexpected behavior,
+this implementation handles filenames without an extension a little
+more gracefully than the original.
+
+=over 4
+
+=item *
+
+If a file's basename (last pathname component) starts with a C<.> and
+contains no other C<.>'s, it will not be taken to have an extension.
+
+An example of this is C<.bashrc>.  Previous behavior would take the
+entire filename as the extension; C<#> would be replaced with the
+empty string.
+
+=item *
+
+If a filename specifies one or more leading directories, and one of
+those directory names contains a C<.>, but its basename does not, it
+will not be taken to have an extension.
+
+An example is C</home/dse/git.d/Makefile>.  Previous behavior would
+take C<.d/Makefile> as the extension; C<#> would be replaced with
+C</home/dse/git>.
+
+=back
+
+=head1 FILES
+
+C<.comfile> -- rememberance of things past.
+
+=head1 AUTHOR
+
+L<Originally written|http://www.iq0.com/duffgram/com.html> by Tom
+Duff.
+
+Ported to Perl by L<Darren Embry|mailto:dsembry@gmail.com>.
