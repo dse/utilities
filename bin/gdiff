@@ -31,6 +31,10 @@ declare -a exclude=(
     --exclude="package-lock.json"
     --exclude="composer.lock"
     --exclude="yarn.lock"
+    # --exclude="*.map"
+    # --exclude="*.map.*"
+    # --exclude="*.bundle"
+    # --exclude="*.bundle.*"
 )
 
 declare -a rsync_options=(
@@ -39,7 +43,9 @@ declare -a rsync_options=(
 
 declare -a git_diff_options=(
     --no-prefix
-    --diff-filter=MT
+    --ignore-blank-lines
+    --word-diff
+    # --diff-filter=MT
 )
 
 if (( $# < 2 )) ; then
@@ -66,4 +72,11 @@ mkdir -p "${tmp2}"
 rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmp1}"
 rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}"
 
-git diff --no-index "${git_diff_options[@]}" "$@" "${tmp1}" "${tmp2}"
+declare -a cmd=(
+    git diff --no-index
+    "${git_diff_options[@]}" "$@" "${tmp1}" "${tmp2}"
+)
+
+echo "+ ${cmd[@]@Q}"
+
+"${cmd[@]}"
