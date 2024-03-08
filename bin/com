@@ -6,7 +6,8 @@ use IO::File;
 our $dry_run;
 our $maxstat = 0;
 Getopt::Long::Configure('gnu_getopt');
-Getopt::Long::GetOptions('n|dry-run' => \$dry_run) or usage();
+Getopt::Long::GetOptions('n|dry-run' => \$dry_run,
+                         'help|?' => sub { usage(); exit(0); }) or usage();
 if (!scalar @ARGV) {
     my $fh = IO::File->new('.comfile', 'r');
     if (!$fh) { usage(); }
