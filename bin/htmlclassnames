@@ -2,36 +2,68 @@
 use warnings;
 use strict;
 use Sort::Naturally;
+use Getopt::Long;
+
+our $opt_main;
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions('main' => \$opt_main) or die(":-(\n");
+
 our %classes;
 local $/ = undef;
 my $file_count = 0;
 my $byte_count = 0;
 while (<>) {
-   $byte_count += length($_);
-   $file_count += 1;
-   my $parser = My::HTML::Parser->new();
-   $parser->parse($_);
-   $parser->eof();
+    $byte_count += length($_);
+    $file_count += 1;
+    my $parser = My::HTML::Parser->new();
+    $parser->{main} = 1 if $opt_main;
+    $parser->parse($_);
+    $parser->eof();
 }
 package My::HTML::Parser {
-   use base "HTML::Parser";
-   sub new {
-      my ($class, @args) = @_;
-      my $self = $class->SUPER::new(
-         @args,
-         api_version => 3,
-         start_h => [
-            \&start, 'self, attr',
-         ],
-      );
-      $self->{classes} //= {};
-      return $self;
-   }
-   sub start {
-      my ($self, $attr) = @_;
-      my $class = $attr->{class};
-      return if !defined $class;
-      my @class = grep { /\S/ } split(/\s+/, $class);
-      printf("%s\n", $_) foreach @class;
-   }
+    use base "HTML::Parser";
+    sub new {
+        my ($class, @args) = @_;
+        my $self = $class->SUPER::new(
+            @args,
+            api_version => 3,
+            start_h => [
+                \&start, 'self, tagname, attr',
+            ],
+            end_h => [
+                \&end, 'self, tagname',
+            ],
+        );
+        $self->{classes} //= {};
+        $self->{parsing} = 0;
+        return $self;
+    }
+    sub start {
+        my ($self, $tagname, $attr) = @_;
+        if ($self->{main}) {
+            if ($tagname eq 'main') {
+                $self->{parsing} = 1;
+                return;
+            }
+            if (!$self->{parsing}) {
+                return;
+            }
+        }
+        my $class = $attr->{class};
+        return if !defined $class;
+        my @class = grep { /\S/ } split(/\s+/, $class);
+        printf("%s\n", $_) foreach @class;
+    }
+    sub end {
+        my ($self, $tagname) = @_;
+        if ($self->{main}) {
+            if ($tagname eq 'main') {
+                $self->{parsing} = 0;
+                return;
+            }
+            if (!$self->{parsing}) {
+                return;
+            }
+        }
+    }
 }

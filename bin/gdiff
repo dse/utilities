@@ -4,6 +4,18 @@ set -o pipefail
 set -o nounset
 shopt -s lastpipe
 
+declare -a rsync_options=(
+    -avC --delete-excluded
+)
+
+declare -a git_diff_options=(
+    --no-prefix
+    --ignore-blank-lines
+    --word-diff
+    # --diff-filter=MT
+)
+
+# these are supplied to RSYNC.
 declare -a exclude=(
     # directories
     --exclude=".git"
@@ -31,22 +43,49 @@ declare -a exclude=(
     --exclude="package-lock.json"
     --exclude="composer.lock"
     --exclude="yarn.lock"
-    # --exclude="*.map"
-    # --exclude="*.map.*"
+    --exclude="*.map"
+    --exclude="*.map.*"
     # --exclude="*.bundle"
     # --exclude="*.bundle.*"
 )
 
-declare -a rsync_options=(
-    -avC --delete-excluded
-)
+while getopts 'U:-:h' OPTION ; do
+    if [[ "${OPTION}" = "-" ]] ; then
+        case "${OPTARG}" in
+            '')
+                break
+                ;;
+            *=*)
+                OPTARG="${OPTION#*=}"
+                OPTION="${OPTION%%=*}"
+                ;;
+            *)
+                OPTION="${OPTARG}"
+                unset OPTARG
+                ;;
+        esac
+    fi
+    case "${OPTION}" in
+        help)
+            usage
+            exit 0
+            ;;
+        word-diff)
+            git_diff_options+=(--word-diff)
+            ;;
+        ignore-blank-lines)
+            git_diff_options+=(--ignore-blank-lines)
+            ;;
+        U)
+            git_diff_options+=(-U "${OPTARG}")
+            ;;
+        unified)
+            OPTIND+=1
 
-declare -a git_diff_options=(
-    --no-prefix
-    --ignore-blank-lines
-    --word-diff
-    # --diff-filter=MT
-)
+
+    esac
+done
+shift $((OPTIND - 1))
 
 if (( $# < 2 )) ; then
     echo "gdiff: not enough arguments" >&2
@@ -75,6 +114,7 @@ rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}"
 declare -a cmd=(
     git diff --no-index
     "${git_diff_options[@]}" "$@" "${tmp1}" "${tmp2}"
+    ":(exclude)*.map"
 )
 
 echo "+ ${cmd[@]@Q}"
