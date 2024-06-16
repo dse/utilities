@@ -15,7 +15,7 @@ sub _ () {
 }
 if (!scalar @ARGV && -t 0 && -t 1) {
     my $term = Term::ReadLine->new('kalki');
-    my $prompt = 'kalki>';
+    my $prompt = 'kalki> ';
     while (defined($_ = $term->readline($prompt))) {
         evaluate_print();
     }
