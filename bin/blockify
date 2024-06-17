@@ -8,14 +8,16 @@ use Text::Tabs qw(expand);
 use Getopt::Long qw();
 use List::Util qw(max);
 
-my $half = 0;
+my $halfHeight = 0;
 my $narrow = 0;
 my $blockifying = basename($0) eq 'blockify';
 
 Getopt::Long::Configure(qw(gnu_compat bundling no_ignore_case));
 Getopt::Long::GetOptions(
-    'n|narrow' => \$narrow,
-    'h|half|half-height'   => \$half,
+    'n|narrow|half-width' => \$narrow,
+    'h|short|half-height' => \$halfHeight,
+    'H|half' => sub { $halfHeight = $narrow = 1; },
+    'full' => sub { $halfHeight = $narrow = 0; },
     'help|?' => sub { usage(); exit(0); },
 ) or die(":-(\n");
 
@@ -45,7 +47,7 @@ while (<>) {
     s{\R\z}{};                  # safer chomp, works with \r\n and \n
     $_ = expand($_);
     if ($blockifying) {
-        if ($half) {
+        if ($halfHeight) {
             if ($. % 2 == 1) {
                 $topHalf = $_;
                 if (eof(\*ARGV)) {
@@ -83,7 +85,7 @@ while (<>) {
         } else {
             $_ = unblockify($_);
         }
-        if ($half) {
+        if ($halfHeight) {
             my $top    = $_;
             my $bottom = $_;
             $top =~ s{[:']}{:}g;
