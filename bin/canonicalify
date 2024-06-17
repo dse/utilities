@@ -14,16 +14,28 @@ Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions('u|url' => \$print_urls) or die(":-(");
 while (<>) {
     s{(?:
+          (?# a URL or domain inside < ... >.  <blah> is not acceptable. #)
           (?<prefix>\<\s*)
           (?<url>(?:https?://${RX_DOMAIN}|${RX_DOMAIN_2})(?:[/?#][^>]*?)?)
           (?<suffix>\s*\>)
       |
+          (?# a URL or domain inside ]< ... > where the <> are parentheses. #)
+          (?# [foo]< blah > is acceptable. #)
           (?<prefix>\]\(\s*)
           (?<url>(?:https?://)?${RX_DOMAIN}(?:[/?#][^>]*?)?)
           (?<suffix>\s*\))
       |
+          (?# a URL or domain #)
+          (?#    immediately preceded by space or BOL #)
+          (?#    or any punctuation other than period #)
           (?<prefix>^|\s|[^A-Za-z0-9\.])
           (?<url>(?:https?://${RX_DOMAIN}|${RX_DOMAIN_2})(?:[/?#]\S*?)?)
+          (?# and: #)
+          (?#    immediately followed by EOL or space #)
+          (?#    or a period not immediately followed by alnum #)
+          (?#    or other end of sentence punctuation #)
+          (?#    or end quote punctuation #)
+          (?#    or end bracket punctuation #)
           (?<suffix>$|\s|\.(?![A-Za-z0-9])|'|"|’|”|\?|!|\)|\]|\})
       )
      }
