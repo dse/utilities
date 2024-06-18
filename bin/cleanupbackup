@@ -15,9 +15,9 @@ main () {
     for dir in "${reversed[@]}" ; do
         echo "=== ${dir} ==="
         set -o xtrace
-        /usr/bin/find "${dir}" -type l -exec rm {} + | pv -l
-        /usr/bin/find "${dir}" -type f -links +1 -exec rm {} + | pv -l
-        /usr/bin/find "${dir}" -depth -type d -exec rmdir {} + | pv -l
+        { /usr/bin/find "${dir}" -type l -exec rm {} +           || true ; } | pv -l
+        { /usr/bin/find "${dir}" -type f -links +1 -exec rm {} + || true ; } | pv -l
+        { /usr/bin/find "${dir}" -depth -type d -exec rmdir {} + || true ; } | pv -l
         set +o xtrace
     done
 }
