@@ -4,6 +4,21 @@ set -o pipefail
 set -o nounset
 shopt -s lastpipe
 
+# usage:
+#
+#     cleanupbackup <dir1> <dir2> ...
+#
+# cleans up directories IN REVERSE ORDER --- if you type:
+#
+#     cleanupbackup *
+#
+# and your directories are:
+#
+#     a0 a1 a2 a3 a4 a5 a6 a7 b1 b2 b3 b4 b5 b6 b7
+#
+# we're assuming keep as much as possible in a0 and as little as
+# possible in b7, so we remove candidate files from b7 first.
+
 if (( ! $# )) ; then
     set -- .
 fi
