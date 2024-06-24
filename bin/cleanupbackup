@@ -19,29 +19,17 @@ shopt -s lastpipe
 # we're assuming keep as much as possible in a0 and as little as
 # possible in b7, so we remove candidate files from b7 first.
 
-if (( ! $# )) ; then
-    set -- .
-fi
-
 main () {
-    local dir
-    local -a reversed
-    reverse "$@"
-    for dir in "${reversed[@]}" ; do
-        echo "=== ${dir} ==="
-        set -o xtrace
-        { /usr/bin/find "${dir}" -type l -exec rm {} +           || true ; } | pv -l
-        { /usr/bin/find "${dir}" -type f -links +1 -exec rm {} + || true ; } | pv -l
-        { /usr/bin/find "${dir}" -depth -type d -exec rmdir {} + || true ; } | pv -l
-        set +o xtrace
-    done
-}
-
-reverse () {
+    if (( ! $# )) ; then
+        set -- .
+    fi
+    local -a dirs
     local i
     for (( i = $# ; i >= 1 ; i -= 1 )) ; do
-        reversed+=("${!i}")
+        dirs+=("${!i}")
     done
+    /usr/bin/find "${dirs[@]}" -type f -links +1 -print -delete || true
+    /usr/bin/find "${dirs[@]}" -depth -type d -delete || true
 }
 
 main "$@"
