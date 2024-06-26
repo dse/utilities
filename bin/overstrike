@@ -30,11 +30,11 @@ sub overstrike {
     }
 
     warn("Unrecognized overstrike: @uniq_char; not modifying.\n");
-    return $str;
+    return $char[-1];
 }
 =pod
 
-=head NAME
+=head1 NAME
 
 overstrike - filter out overstrikes
 
@@ -96,8 +96,8 @@ The following sequence(s) is(are) also recognized:
 
 =back
 
-Unexpected sequences are not modified; warnings are sent to stderr
-about them.
+Sequences not in any of the above listed categories are transformed to
+their last character; warnings are sent to stderr about them.
 
 =head1 AUTHOR
 
