@@ -28,8 +28,9 @@ main () {
     for (( i = $# ; i >= 1 ; i -= 1 )) ; do
         dirs+=("${!i}")
     done
-    /usr/bin/find "${dirs[@]}" -type f -links +1 -print -delete || true
-    /usr/bin/find "${dirs[@]}" -depth -type d -delete || true
+    /usr/bin/find "${dirs[@]}" -type l -ls -delete || true
+    /usr/bin/find "${dirs[@]}" -type f -links +1 -ls -delete || true
+    /usr/bin/find "${dirs[@]}" -depth -type d -empty -ls -delete || true
 }
 
 main "$@"
