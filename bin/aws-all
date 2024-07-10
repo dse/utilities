@@ -9,37 +9,56 @@ main () {
     list-aws-profiles | readarray -t profiles
     declare -i count=${#profiles[@]}
     declare -i exit=0
-    declare -a index=0
-    local profile
-    local close
+    declare -a count=0
+    local profile type length role_arn
+
+    temp="$(mktemp)"
     echo "["
     for profile in "default" "${profiles[@]}" ; do
-        index+=1
-        if (( index == count )) ; then
-            close="    }"
-        else
-            close="    },"
-        fi
         echo "// ******* ${profile} *******" >&2
-        echo '    {'
-        echo -n '        "Account": '
-        if ! aws sts get-caller-identity | sed '2,${s/^/        /;}' ; then
-            echo "null"
-            echo "${close}"
-            exit=1
-            continue
+        aws "$@" >"${temp}" || continue
+        type="$(jq -r type "${temp}")" || continue
+        if [[ "$type" = "array" ]] ; then
+            length="$(jq -r length "${temp}")" || continue
+            if (( $length == 0 )) ; then
+                continue
+            fi
+        elif [[ "$type" = "object" ]] ; then
+            length="$(jq -r 'keys|length' "${temp}")" || continue
+            if (( $length == 0 )) ; then
+                continue
+            fi
+            if (( $length == 1 )) ; then
+                type="$(jq -r '. as $obj|keys|.[0] as $key|$obj[$key]|type' "${temp}")" || continue
+                if [[ "$type" = "array" ]] ; then
+                    length="$(jq -r '. as $obj|keys|.[0] as $key|$obj[$key]|length' "${temp}")" || continue
+                    if (( $length == 0 )) ; then
+                        continue
+                    fi
+                fi
+            fi
         fi
-        echo "        ,"
-        echo -n "        \"Resources\": "
-        if ! aws "$@" | sed '2,${s/^/        /;}' ; then
-            echo "null"
-            echo "${close}"
-            exit=1
-            continue
+        array_next
+        echo "        \"Profile\": \"${profile}\","
+        if role_arn="$(aws configure get role_arn)" ; then
+            echo "        \"RoleArn\": \"${role_arn}\","
         fi
-        echo "${close}"
+        echo -n "        \"Data\": "
+        cat "${temp}" | sed '2,${s/^/        /;}'
     done
+    array_close
     echo "]"
+}
+
+array_next () {
+    if (( count )) ; then
+        echo "    },"
+    fi
+    echo "    {"
+    count+=1
+}
+array_close () {
+    echo "    }"
 }
 
 aws () {
@@ -53,6 +72,12 @@ run_aws_with () {
         opt_profile=()
     fi
     command aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+
+trap at_exit EXIT
+
+at_exit () {
+    [[ -v temp ]] && [[ -e "${temp}" ]] && { rm -f "${temp}" || true ; }
 }
 
 main "$@"
