@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# dotenv - execute a command with environment variables in current
+# directory's .env or nearest parent.
+#
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    set -a
+    . "$(findup .env)"
+    exec "$@"
+}
+
+findup () {
+    local filename="$1"; shift
+    local version
+    local dir="${PWD}"
+    [[ "${dir}" = "/" ]] && dir=""
+    local parent
+    while true ; do
+        if [[ -e "${dir}/${filename}" ]] ; then
+            echo "${dir}/${filename}"
+            return 0
+        fi
+        if [[ "${dir}" == "" ]] ; then
+            break
+        fi
+        parent="${dir%/*}"
+        if [[ "${dir}" = "${parent}" ]] ; then
+            break
+        fi
+        dir="${parent}"
+    done
+    return 1
+}
+
+main "$@"
