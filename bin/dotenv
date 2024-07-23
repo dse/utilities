@@ -9,7 +9,7 @@ set -o nounset
 shopt -s lastpipe
 
 main () {
-    set -a
+    set -a                      # export by default
     . "$(findup .env)"
     exec "$@"
 }
