@@ -1,0 +1,45 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use JSON::XS;
+use List::Util qw(sum all);
+use open IO => ':locale';
+local $/ = undef;
+my $json = JSON::XS->new()->pretty(1)->ascii(1);
+while (<>) {
+    my $o = $json->decode($_);
+    my $text = compactify($o);
+    print($text . "\n");
+}
+sub compactify {
+    my ($value, $gap) = @_;
+    $gap //= 0;
+    if (ref $value eq 'ARRAY') {
+        return "[]" if scalar @$value == 0;
+        my $separ = ",\n  " . (" " x $gap);
+        my @items = map { compactify($_, $gap + 2) } @$value;
+        if (all { ref $_ eq '' } @$value) {
+            my $str = "[" . join(", ", @items) . "]";
+            return $str if length($str) <= 64;
+            return $str if length($str) + $gap <= 80;
+        }
+        return "[ " . join($separ, map { compactify($_, $gap + 2) } @$value) . " ]";
+    }
+    if (ref $value eq 'HASH') {
+        return "{}" if scalar keys %$value == 0;
+        my $separ = ",\n  " . (" " x $gap);
+        my @items;
+        foreach my $key (sort keys %$value) {
+            my $key_str = encode($key . "") . ": ";
+            push(@items, $key_str . compactify($value->{$key}, $gap + 2 + length($key_str)));
+        }
+        return "{ " . join($separ, @items) . " }";
+    }
+    return encode($value);
+}
+sub encode {
+    my ($value) = @_;
+    my $str = $json->encode($value);
+    $str =~ s{\s+\z}{};
+    return $str;
+}
