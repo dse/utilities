@@ -89,16 +89,8 @@ main () {
             if (( $? != 23 )) ; then exit $? ; fi
         }
     fi
-    find "${tmp1}" -ls
-    find "${tmp2}" -ls
 
-    exit=0
-    git diff --no-index "${git_diff_options[@]}" "${tmp1}" "${tmp2}" || exit=$?
-
-    rm -fr "${tmp1}"
-    rm -fr "${tmp2}"
-
-    exit $exit
+    git diff --no-index "${git_diff_options[@]}" "${tmp1}" "${tmp2}"
 }
 
 declare -a rsync_options=(
@@ -145,5 +137,11 @@ declare -a exclude=(
     # --exclude="*.bundle"
     # --exclude="*.bundle.*"
 )
+
+trap at_exit EXIT
+at_exit () {
+    [[ -v tmp1 ]] && [[ -e "${tmp1}" ]] && { rm -fr "${tmp1}" || true ; }
+    [[ -v tmp2 ]] && [[ -e "${tmp2}" ]] && { rm -fr "${tmp2}" || true ; }
+}
 
 main "$@"
