@@ -1,0 +1,113 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long;
+use Sort::Naturally;
+
+our $word;
+our @pattern;
+our $fixed;
+our $sort;
+
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    'w|word-regexp' => sub { $word = 1; },
+    'e|regexp=s' => \@pattern,
+    'F|fixed-strings' => \$fixed,
+    'sort' => \$sort,
+) or die(":-(\n");
+
+if (!scalar @pattern) {
+    if (!scalar @ARGV) {
+        die("no pattern\n");
+    }
+    push(@pattern, shift(@ARGV));
+}
+
+my %lines;
+
+line:
+while (<>) {
+    foreach my $pattern (@pattern) {
+        if (matches($pattern)) {
+            push(@{$lines{$pattern}}, $_);
+            next line;
+        }
+    }
+    push(@{$lines{''}}, $_);
+}
+foreach my $pattern (@pattern, '') {
+    next if !exists $lines{$pattern};
+    my @lines = @{$lines{$pattern}};
+    @lines = nsort @lines if $sort;
+    print foreach @lines;
+}
+
+sub matches {
+    my $pattern = shift;
+    if ($fixed) {
+        if ($word) {
+            return m{\b\Q$pattern\E\b};
+        }
+        return index($_, $pattern) != -1;
+    }
+    if ($word) {
+        return m{\b$pattern\b};
+    }
+    return m{$pattern};
+}
+
+=pod
+
+=head1 NAME
+
+grepsort - print lines grouped by patterns matched
+
+=head1 SYNOPSIS
+
+    grepsort [-weF] [--sort] pattern [file [...]]
+    grepsort [-weF] [--sort] -e pattern ... [file [...]]
+
+=head1 DESCRIPTION
+
+grepsort reads each line from standard input, or one or more files,
+then checks each line against one or more patterns.
+
+After reading, grepsort prints every line matching the first pattern,
+then any remaining lines matching the second pattern if specified,
+then any remaining lines matching the third pattern if specified, etc.
+grepsort then finally prints any remaining lines that do not match any
+of the patterns.
+
+=head1 OPTIONS
+
+=over 4
+
+=item -e, --regexp=pattern
+
+This option allows you to specify multiple patterns.  Specify "-e
+pattern" for each pattern.
+
+=item -w, --word-regexp
+
+Interpret each pattern to start and end at word boundaries.
+
+=item -F, --fixed-strings
+
+By default, grepsort uses Perl regular expressions to test each
+pattern.  This option switches grepsort's behavior to interpret
+patterns as fixed strings.
+
+=back
+
+Additional grep options will be added as needed.
+
+=head1 AUTHOR
+
+Darren Embry dsembry@gmail.com.
+
+=head1 COPYRIGHT AND LICENSE
+
+Distributed under the same terms as Perl itself.
+
+=cut

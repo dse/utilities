@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use File::Find qw(find);
+
+our %counts;
+
+if (!scalar @ARGV) {
+    @ARGV = ('.');
+}
+foreach my $pathname (@ARGV) {
+    find(\&wanted, $pathname);
+}
+foreach my $dir (sort keys %counts) {
+    my @lc_filenames = grep { scalar @{$counts{$dir}{$_}} > 1 } keys %{$counts{$dir}};
+    foreach my $lc_filename (@lc_filenames) {
+        my @filename = @{$counts{$dir}{$lc_filename}};
+        printf("%d\n", scalar(@filename));
+        foreach my $filename (@filename) {
+            printf("    %s/%s\n", $dir, $filename);
+        }
+    }
+}
+
+sub wanted {
+    my @stat = lstat($_);       # don't follow symlinks
+    return unless scalar @stat; # did stat fail?
+    return if -l _;             # don't traverse symlinks
+    # my ($dev, $ino, $mode, $nlink, $uid, $gid) = @stat;
+    push(@{$counts{$File::Find::dir}{lc $_}}, $_);
+}

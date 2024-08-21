@@ -1,0 +1,11 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+my @lines;
+while (<>) {
+    push(@lines, $_);
+}
+for (my $i = 0; $i < scalar @lines; $i += 1) {
+    $lines[$i] = (' ' x scalar @lines - 1 - $i) . $lines[$i];
+}
+print foreach @lines;

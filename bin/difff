@@ -4,4 +4,4 @@ set -o pipefail
 set -o nounset
 shopt -s lastpipe
 
-exec git diff --no-index -w "$@"
+exec git diff --no-index "$@"

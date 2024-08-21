@@ -1,98 +1,69 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use v5.10.0;
-use utf8;
-
-use open IO => ":locale";
-
-use HTML::TreeBuilder;
+use Sort::Naturally;
 use Getopt::Long;
-use File::Find qw();
-use Sort::Naturally qw(nsort);
 
-our $opt_verbose = 0;
+our $opt_main;
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions('main' => \$opt_main) or die(":-(\n");
 
-BEGIN {
-    if (grep { $_ eq "--carp" } @ARGV) {
-        # This does nothing during regular runtime.
-        require Carp::Always;
-        import Carp::Always;
-    }
-}
-
-Getopt::Long::Configure("bundling", "gnu_compat", "no_ignore_case");
-Getopt::Long::GetOptions(
-    "v|verbose+" => \$opt_verbose,
-    "h|help" => sub { usage(); exit 0; }
-) or die("Type '$0 --help' for help.\n");
-
-sub usage { print <<"END"; }
-usage:
-    htmlclassnames [<option> ...] [<file> ...]
-options:
-    -h, --help
-    -v, --verbose               list files as they're being searched
-END
-
-###############################################################################
-
-# replace directories with lists of files
-my @files;
-foreach my $arg (@ARGV) {
-    if (-d $arg) {
-        my $wanted = sub {
-            my ($dev,$ino,$mode,$nlink,$uid,$gid);
-            (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
-                -f _ &&
-                /^.*\.html?\z/si
-                && push(@files, $File::Find::name);
-        };
-        File::Find::find({ wanted => $wanted }, $arg);
-    } else {
-        push(@files, $arg);
-    }
-}
-
-@ARGV = @files;
-
-my %cssClass;
-
+our %classes;
 local $/ = undef;
+my $file_count = 0;
+my $byte_count = 0;
 while (<>) {
-    if ($opt_verbose) {
-        printf STDERR ("%s...\n", $ARGV);
-    }
-
-    # required for unknown tags to work
-    if ($_ !~ m{<body[^>]*>.*</body>}smi) {
-        $_ = '<body>' . $_ . '</body>';
-    }
-    if ($_ !~ m{<html[^>]*>.*</html>}smi) {
-        $_ = '<html>' . $_ . '</html>';
-    }
-
-    my $tree = HTML::TreeBuilder->new();
-    $tree->ignore_unknown(0);
-    $tree->parse($_);
-    $tree->eof();
-
-    my @results = $tree->look_down(
-        sub {
-            defined $_[0]->attr('class')
-        }
-    );
-
-    foreach my $result (@results) {
-        my $cssClass = $result->attr('class');
-        next unless defined $cssClass;
-        my @cssClass = split(' ', $cssClass);
-        foreach my $cssClass (@cssClass) {
-            $cssClass{$cssClass} += 1;
-        }
-    }
+    $byte_count += length($_);
+    $file_count += 1;
+    my $parser = My::HTML::Parser->new();
+    $parser->{main} = 1 if $opt_main;
+    $parser->parse($_);
+    $parser->eof();
 }
-
-foreach my $cssClass (nsort keys %cssClass) {
-    printf("%6d  %s\n", $cssClass{$cssClass}, $cssClass);
+package My::HTML::Parser {
+    use base "HTML::Parser";
+    sub new {
+        my ($class, @args) = @_;
+        my $self = $class->SUPER::new(
+            @args,
+            api_version => 3,
+            start_h => [
+                \&start, 'self, tagname, attr',
+            ],
+            end_h => [
+                \&end, 'self, tagname',
+            ],
+        );
+        $self->{classes} //= {};
+        $self->{parsing} = 0;
+        return $self;
+    }
+    sub start {
+        my ($self, $tagname, $attr) = @_;
+        if ($self->{main}) {
+            if ($tagname eq 'main') {
+                $self->{parsing} = 1;
+                return;
+            }
+            if (!$self->{parsing}) {
+                return;
+            }
+        }
+        my $class = $attr->{class};
+        return if !defined $class;
+        my @class = grep { /\S/ } split(/\s+/, $class);
+        printf("%s\n", $_) foreach @class;
+    }
+    sub end {
+        my ($self, $tagname) = @_;
+        if ($self->{main}) {
+            if ($tagname eq 'main') {
+                $self->{parsing} = 0;
+                return;
+            }
+            if (!$self->{parsing}) {
+                return;
+            }
+        }
+    }
 }

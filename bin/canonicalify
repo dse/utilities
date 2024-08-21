@@ -1,0 +1,108 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use feature qw(state);
+use LWP::UserAgent;
+my $ua = LWP::UserAgent->new();
+my $RX_DOMAIN   = qr{[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+                     (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*}x;
+my $RX_DOMAIN_2 = qr{[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+                     (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+}x;
+our $print_urls;
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions('u|url' => \$print_urls) or die(":-(");
+while (<>) {
+    s{(?:
+          (?# a URL or domain inside < ... >.  <blah> is not acceptable. #)
+          (?<prefix>\<\s*)
+          (?<url>(?:https?://${RX_DOMAIN}|${RX_DOMAIN_2})(?:[/?#][^>]*?)?)
+          (?<suffix>\s*\>)
+      |
+          (?# a URL or domain inside ]< ... > where the <> are parentheses. #)
+          (?# [foo]< blah > is acceptable. #)
+          (?<prefix>\]\(\s*)
+          (?<url>(?:https?://)?${RX_DOMAIN}(?:[/?#][^>]*?)?)
+          (?<suffix>\s*\))
+      |
+          (?# a URL or domain #)
+          (?#    immediately preceded by space or BOL #)
+          (?#    or any punctuation other than period #)
+          (?<prefix>^|\s|[^A-Za-z0-9\.])
+          (?<url>(?:https?://${RX_DOMAIN}|${RX_DOMAIN_2})(?:[/?#]\S*?)?)
+          (?# and: #)
+          (?#    immediately followed by EOL or space #)
+          (?#    or a period not immediately followed by alnum #)
+          (?#    or other end of sentence punctuation #)
+          (?#    or end quote punctuation #)
+          (?#    or end bracket punctuation #)
+          (?<suffix>$|\s|\.(?![A-Za-z0-9])|'|"|’|”|\?|!|\)|\]|\})
+      )
+     }
+     {replace($&, %+)}gexi;
+    if (!$print_urls) {
+        print;
+    }
+}
+sub replace {
+    my ($whole, %plus) = @_;
+    my $prefix = $plus{prefix} // '';
+    my $suffix = $plus{suffix} // '';
+    my $url = $+{url};
+    my $result_url = canonicalize($url);
+    if ($print_urls) {
+        printf("%s\n", $result_url);
+    }
+    return $prefix . $result_url . $suffix;
+}
+sub canonicalize {
+    state %cache;
+    my ($url) = @_;
+    if ($url !~ m{^https://}) {
+        $url = "http://" . $url;
+    }
+    if (exists $cache{$url}) {
+        return $cache{$url};
+    }
+    my $req = HTTP::Request->new('HEAD', $url);
+    my $res = $ua->request($req);
+    my $result = $res->base;
+    if (!$res->is_success) {
+        $result .= sprintf("#HTTP_%d", $res->code);
+    }
+    $cache{$res->base} = $result;
+    $cache{$url} = $result;
+    return $result;
+}
+__DATA__
+<https://www.example.org/>
+<https://example.org/>
+<https://example/>
+< https://www.example.org/ >
+< https://example.org/ >
+< https://example/ >
+<https://www.example.org>
+<https://example.org>
+<https://example>
+< https://www.example.org >
+< https://example.org >
+< https://example >
+<www.blah>
+< www.blah >
+<blah>
+< blah >
+[link](https://www.example.org/)
+[link](https://example.org/)
+[link](https://example/)
+[link]( https://www.example.org/ )
+[link]( https://example.org/ )
+[link]( https://example/ )
+[link](https://www.example.org)
+[link](https://example.org)
+[link](https://example)
+[link]( https://www.example.org )
+[link]( https://example.org )
+[link]( https://example )
+notaurl
+isa.url
+isa.url.

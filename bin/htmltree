@@ -1,20 +1,36 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use v5.10.0;
-
 use open IO => ":locale";
+
+BEGIN {
+    if (grep { $_ eq '--debug' } @ARGV) {
+        $HTML::TreeBuilder::DEBUG = 15;
+    }
+}
 
 use HTML::TreeBuilder;
 use Data::Dumper;
 use Getopt::Long;
+use JSON::XS;
 
-my $format = 'tree';
+our $JSON = JSON::XS->new()->pretty(1)->ascii(1)->canonical(1);
 
-Getopt::Long::Configure('bundling', 'gnu_compat', 'no_ignore_case');
+our $format = 'tree';
+our $elementify;
+our $delete_meta;
+our $unknown;
+
+Getopt::Long::Configure('gnu_getopt');
 Getopt::Long::GetOptions(
-    'd|dumper' => sub { $format = 'dumper'; },
-) or die;
+    'debug'        => sub { $format = 'debug'; },
+    'd|dumper'     => sub { $format = 'dumper'; },
+    'j|json'       => sub { $format = 'json'; },
+    'e|elementify' => \$elementify,
+    'h|html'       => sub { $format = 'html'; },
+    'unknown'      => \$unknown,
+    'delete-meta'  => \$delete_meta,
+) or die(":-(");
 
 local $Data::Dumper::Indent   = 1;
 local $Data::Dumper::Terse    = 1;
@@ -24,12 +40,25 @@ local $Data::Dumper::Useqq    = 1;
 
 local $/ = undef;
 while (<>) {
+    if ($delete_meta) {
+        s{<\s*meta(?=\s|>)[^>]*>}{}gs;
+    }
     my $tree = HTML::TreeBuilder->new();
-    $tree->parse($_);
-    $tree->eof();
-    $tree->elementify();
+    $tree->implicit_tags(0);
+    $tree->ignore_unknown(0) if $unknown; # safe
+    $tree->parse_content($_);
+    if ($elementify) {
+        $tree->elementify();
+    }
     if ($format eq 'dumper') {
         print Dumper($tree);
+    } elsif ($format eq 'json') {
+        print $JSON->encode($tree);
+    } elsif ($format eq 'html') {
+        print $tree->as_HTML(undef, "  ");
+    } elsif ($format eq 'debug') {
+        # do nothing; HTML::TreeBuilder is taking care of debug
+        # output.
     } else {
         $tree->dump();
     }

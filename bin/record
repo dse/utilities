@@ -3,74 +3,53 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-usage () { cat <<EOF; }
-usage:
-    record <dir> <url> <duration>
-arguments:
-    <dir> is subdirectory name of record-a-show archive
-    <url> is streaming URL
-    <duration> is length of recording in seconds
-        See time duration specification in ffmpeg-utils(1) for values
-        examples: 30s = 30000ms = 30000000us
-                  90 minutes = 5400s = 1:30:00 = 90:00
-EOF
-}
-
-if (( $# )) ; then
-    case "$1" in
-        help|--help|-\?|-h)
-            usage; exit 0;;
-    esac
-fi
 if (( $# < 3 )) ; then
     echo "record: not enough arguments" >&2
-    echo "record: type '$0 --help' for help"
     exit 1
 fi
 
+: ${RECORD_A_SHOW_HOME:="${HOME}/record-a-show"}
+
 STREAMDIR="$1"
 STREAMURL="$2"
-DURATION="$3"
+TOTAL_DURATION="$3"
 
 #------------------------------------------------------------------------------
-FFMPEG="/usr/bin/ffmpeg"
-SLEEP=5
-
-#------------------------------------------------------------------------------
-[[ "${STREAMDIR}" != /* ]] && STREAMDIR="${HOME}/record-a-show/${STREAMDIR}"
+mkdir -p "${RECORD_A_SHOW_HOME}"
+STREAMDIR="$(cd "${RECORD_A_SHOW_HOME}" && realpath "${STREAMDIR}")"
 
 #------------------------------------------------------------------------------
 NOW="$(date +%s)"               # 1645902696 (seconds)
-DATE="$(date +'%Y-%m-%d')"      # 2022-02-26
-END=$(( NOW + DURATION ))       # 1645910136 (seconds)
-INITSLEEP="${SLEEP}"
+END=$(( NOW + TOTAL_DURATION ))       # 1645910136 (seconds)
 
 #------------------------------------------------------------------------------
 declare -a CMD
-declare -a FILENAMES
 mkdir -p "${STREAMDIR}"
 cd "${STREAMDIR}"
 
+EXT="$(ffprobe "${STREAMURL}" |& sed -nE '/^\s*Stream .* Audio: (\S+),.*$/{s//\1/p;q;}')"
+: ${EXT:=mp4}          # default. MP4 IS A CONTAINER; CODEC IS COPIED.
+
 while (( NOW < END )) ; do
-    FFMPEG_DURATION=$(( END - NOW + 5 )) # 7445
-    TIME="$(date +'%H%M%S')"             # 165800
-    FILENAME="${DATE}-${TIME}.mp4"       # .../2022-02-26-165800.mp4 MP4 IS A CONTAINER; CODEC IS COPIED
-    FILENAMES+=("${FILENAME}")
-    CMD=("${FFMPEG}" -y -loglevel warning -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}")
-    >&2 echo "+ ${CMD[@]@Q}"
+    FFMPEG_DURATION=$(( END - NOW )) # 7440
+    TIMESTAMP="$(date +'%Y-%m-%d-%H%M%S')" # 165800
+    FILENAME="${TIMESTAMP}.${EXT}" # .../2022-02-26-165800.mp4
+    set -o xtrace
+    CMD=(
+        /usr/bin/ffmpeg
+        -reconnect 1
+        -reconnect_at_eof 1
+        -reconnect_streamed 1
+        -reconnect_on_network_error 1
+        -reconnect_on_http_error 4xx,5xx
+        -y -loglevel warning
+        -i "${STREAMURL}" -t "${FFMPEG_DURATION}" -codec copy "${FILENAME}"
+    )
     if "${CMD[@]}" ; then
         break
     fi
+    set +o xtrace
     echo "${FFMPEG} failed, exiting with code $?"
-    LAST="${NOW}"
     NOW="$(date +%s)"
-    if (( NOW - LAST < 5 )) ; then # don't restart too fast
-        >&2 echo "sleeping ${SLEEP}; next sleep if restarting too fast = 30"
-        sleep "${SLEEP}"; SLEEP=30
-        LAST="${NOW}"
-        NOW="$(date +%s)"
-    elif (( SLEEP > INITSLEEP )) ; then # resume normalcy
-        >&2 echo "resume normal sleep 5 next time"
-        SLEEP="${INITSLEEP}"
-    fi
+    sleep 5
 done

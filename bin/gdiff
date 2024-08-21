@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    while getopts 'U:-:h' OPTION ; do
+        if [[ "${OPTION}" = "-" ]] ; then
+            case "${OPTARG}" in
+                '')
+                    break
+                    ;;
+                *=*)
+                    OPTARG="${OPTION#*=}"
+                    OPTION="${OPTION%%=*}"
+                    ;;
+                *)
+                    OPTION="${OPTARG}"
+                    unset OPTARG
+                    ;;
+            esac
+        fi
+        case "${OPTION}" in
+            help)
+                usage
+                exit 0
+                ;;
+            word-diff)
+                git_diff_options+=(--word-diff)
+                ;;
+            ignore-blank-lines)
+                git_diff_options+=(--ignore-blank-lines)
+                ;;
+            U)
+                git_diff_options+=(-U "${OPTARG}")
+                ;;
+            unified)
+                OPTIND+=1
+        esac
+    done
+    shift $((OPTIND - 1))
+
+    if (( $# < 2 )) ; then
+        echo "gdiff: not enough arguments" >&2
+        exit 1
+    fi
+
+    if [[ "$1" = -* ]] ; then
+        echo "gdiff: git-diff options must come AFTER the both paths" >&2
+        exit 1
+    fi
+
+    path1="$(realpath "$1")"
+    path2="$(realpath "$2")"
+    shift 2
+
+    both_are_dirs=0
+    both_are_files=0
+    if [[ -d "${path1}" ]] && [[ -d "${path2}" ]] ; then
+        both_are_dirs=1
+    elif  [[ -f "${path1}" ]] && [[ -f "${path2}" ]] ; then
+        both_are_files=1
+    fi
+    if (( !both_are_dirs && !both_are_files )) ; then
+        echo "both paths must be directories or both paths must be regular files" >&2
+        exit 1
+    fi
+
+    tmpdir="/tmp/.gdiff-$(whoami)"
+
+    tmp1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
+    tmp2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+
+    mkdir -p "${tmp1}"
+    mkdir -p "${tmp2}"
+    if (( both_are_dirs )) ; then
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmp1}" >&/dev/null || {
+            if (( $? != 23 )) ; then exit $? ; fi
+        }
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}" >&/dev/null || {
+            if (( $? != 23 )) ; then exit $? ; fi
+        }
+    elif (( both_are_files )) ; then
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}" "${tmp1}" >&/dev/null || {
+            if (( $? != 23 )) ; then exit $? ; fi
+        }
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}" "${tmp2}" >&/dev/null || {
+            if (( $? != 23 )) ; then exit $? ; fi
+        }
+    fi
+
+    git diff --no-index "${git_diff_options[@]}" "${tmp1}" "${tmp2}"
+}
+
+declare -a rsync_options=(
+    -avC --delete-excluded
+)
+
+declare -a git_diff_options=(
+    --no-prefix
+    --ignore-blank-lines
+    --word-diff
+    # --diff-filter=MT
+)
+
+# these are supplied to RSYNC.
+declare -a exclude=(
+    # directories
+    --exclude=".git"
+    --exclude="node_modules"
+    --exclude="_cacache"
+    --exclude=".node-gyp"
+    --exclude="vendor"
+    --exclude=".cache"
+
+    # temp/backup files
+    --exclude="*~"
+    --exclude="#*#"
+    --exclude="*.tmp"
+    --exclude="*.bak"
+    --exclude="*.orig"
+    --exclude="*.old"
+    --exclude="*.tmp.*"
+    --exclude="*.bak.*"
+    --exclude="*.orig.*"
+    --exclude="*.old.*"
+
+    # bloat
+    --exclude="*.min"
+    --exclude="*.min.*"
+    --exclude="package-lock.json"
+    --exclude="composer.lock"
+    --exclude="yarn.lock"
+    --exclude="*.map"
+    --exclude="*.map.*"
+    # --exclude="*.bundle"
+    # --exclude="*.bundle.*"
+)
+
+trap at_exit EXIT
+at_exit () {
+    [[ -v tmp1 ]] && [[ -e "${tmp1}" ]] && { rm -fr "${tmp1}" || true ; }
+    [[ -v tmp2 ]] && [[ -e "${tmp2}" ]] && { rm -fr "${tmp2}" || true ; }
+}
+
+main "$@"

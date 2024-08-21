@@ -1,0 +1,71 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Scalar::Util qw(looks_like_number);
+use POSIX qw(:math_h);
+use POSIX qw(:math_h_c99);
+use Math::Trig qw(:pi);
+use Math::Trig qw(:radial);
+use Math::Trig qw(:great_circle);
+our $last_result = 0;
+sub _ () {
+    # prototype required for things like "_ + 5" to work
+    return $last_result;
+}
+# supported:
+#     { expr }
+#     { expr | fmt }
+#     { expr = }
+#     { expr = | fmt }
+#     { expr = text }
+#     { expr = text | fmt }
+while (<>) {
+    s{(?<start>\{)
+      (?<sp1>\s*)
+      (?<expr>\S.*?)
+      (?<sp2>\s*)
+      (?:
+          (?<eq>=>?)
+          (?<sp3>\s*)
+          (?:
+              (?<repl>\S.*?)
+              (?<sp4>\s*)
+          )?? (?# non-greedy in case char after '=' is '|' )
+      )?
+      (?<pipe_fmt>
+          (?<pipe>\|)
+          (?<sp5>\s*)
+          (?:
+              (?<fmt>\S.*?)
+              (?<sp6>\s*)
+          )?
+      )?
+      (?<end>\})}
+     { replace($&, %+) }gex;
+    print;
+}
+sub replace {
+    my ($match, %group) = @_;
+    my ($start, $sp1, $expr, $sp2, $eq, $sp3, $repl, $sp4, $pipe_fmt, $pipe, $sp5, $fmt, $sp6, $end)
+      = @group{qw(start sp1 expr sp2 eq sp3 repl sp4 pipe_fmt pipe sp5 fmt sp6 end)};
+    my $eval = evaluate($expr, $fmt);
+    if ($@) {
+        warn($@);
+        return $match;
+    }
+    if (defined $eq) {
+        return $start . $sp1 . $expr . $sp2 . $eq . $sp3 . $eval . ($sp4 // $sp3) . ($pipe_fmt // '') . $end;
+        #      {               2 + 2          =            whatever                    |       %d       }
+    }
+    return $start . $sp1 . $eval . $sp2 . $end;
+}
+sub evaluate {
+    my ($expr, $fmt) = @_;
+    return $expr if looks_like_number($expr) && !defined $fmt;
+    my $result = eval($expr);
+    if (defined $result) {
+        $last_result = $result;
+    }
+    $result = sprintf($fmt, $result) if defined $result && defined $fmt;
+    return $result;
+}

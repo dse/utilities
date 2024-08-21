@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use List::Util qw(uniq);
+
+while (<>) {
+    s{.(?:\x08.)+}{overstrike($&)}ge;
+    print;
+}
+
+sub overstrike {
+    my $str = shift;
+    my @char = split("\x08", $str);
+
+    # Filter out boldface overstrikes (duplicates of the same character).
+    my @uniq_char = uniq sort @char;
+    if (scalar @uniq_char == 1) {
+        return $uniq_char[0];
+    }
+
+    # Bullets
+    if (join("", @uniq_char) eq "+o") { # (increasing codepoint order)
+        return "*";
+    }
+
+    # Filter out underline overstrikes.
+    my @uniq_non_ul = grep { $_ ne "_" } @uniq_char;
+    if (scalar @uniq_non_ul == 1) {
+        return $uniq_non_ul[0];
+    }
+
+    warn("Unrecognized overstrike: @uniq_char; not modifying.\n");
+    return $char[-1];
+}
+=pod
+
+=head1 NAME
+
+overstrike - filter out overstrikes
+
+=head1 SYNOPSIS
+
+overstrike [FILENAME ...]
+
+=head1 DESCRIPTION
+
+The overstrike utility reads lines of text from each of the supplied
+filenames in the order in which they are specified, or from standard
+input if no filenames are supplied; removes overstrikes from those
+lines of text; and outputs the resultant lines of text.
+
+An overstrike is defined as a series of one or more characters
+separated by U+0008 BACKSPACE.  Overstrikes are typically used in
+outputting manual pages to effect underlined text, boldface, and
+bullets for list items.
+
+=head1 EXAMPLES
+
+=over 4
+
+=item *
+
+"_\x08o" normally outputs an underlined "o".  This utility removes the
+underscore and simply outputs an "o".
+
+=item *
+
+"A\x08A" normally outputs a boldface "A".  This utility filters out
+the overstrike and simply outputs an "A".
+
+=item *
+
+Boldface text, with backspaces represented by "<":
+
+    A<av<va<ai<il<la<ab<bl<le<e C<co<om<mm<ma<an<nd<ds<s
+
+    Available Commands
+
+=item *
+
+Underlined text, again with backspaces represented by "<":
+
+    _<D_<o_<m_<a_<i_<n _<R_<e_<g_<i_<s_<t_<r_<a_<t_<i_<o_<n
+
+    Domain Registration
+
+=back
+
+The following sequence(s) is(are) also recognized:
+
+=over 4
+
+=item *
+
+"+\x08o", normally used as a bullet, is replaced with a "*".
+
+=back
+
+Sequences not in any of the above listed categories are transformed to
+their last character; warnings are sent to stderr about them.
+
+=head1 AUTHOR
+
+Darren Embry <dsembry@gmail.com>
+
+=head1 LICENSE
+
+This utility is licensed using the same terms as Perl itself.
+
+=cut
