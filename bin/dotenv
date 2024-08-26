@@ -10,7 +10,12 @@ shopt -s lastpipe
 
 main () {
     set -a                      # export by default
-    . "$(findup .env)"
+    if (( $# )) && [[ "$1" = .env* ]] ; then
+        . "$(findup "$1")"
+        shift
+    else
+        . "$(findup .env)"
+    fi
     exec "$@"
 }
 

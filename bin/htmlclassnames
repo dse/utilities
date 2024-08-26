@@ -5,8 +5,9 @@ use Sort::Naturally;
 use Getopt::Long;
 
 our $opt_main;
+our $opt_tag;
 Getopt::Long::Configure('gnu_getopt');
-Getopt::Long::GetOptions('main' => \$opt_main) or die(":-(\n");
+Getopt::Long::GetOptions('main' => \$opt_main, 'tag' => \$opt_tag) or die(":-(\n");
 
 our %classes;
 local $/ = undef;
@@ -17,6 +18,7 @@ while (<>) {
     $file_count += 1;
     my $parser = My::HTML::Parser->new();
     $parser->{main} = 1 if $opt_main;
+    $parser->{tag} = 1 if $opt_tag;
     $parser->parse($_);
     $parser->eof();
 }
@@ -52,7 +54,11 @@ package My::HTML::Parser {
         my $class = $attr->{class};
         return if !defined $class;
         my @class = grep { /\S/ } split(/\s+/, $class);
-        printf("%s\n", $_) foreach @class;
+        if ($self->{tag}) {
+            printf("%-14s  %s\n", $tagname, $_) foreach @class;
+        } else {
+            printf("%s\n", $_) foreach @class;
+        }
     }
     sub end {
         my ($self, $tagname) = @_;

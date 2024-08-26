@@ -100,7 +100,7 @@ declare -a rsync_options=(
 declare -a git_diff_options=(
     --no-prefix
     --ignore-blank-lines
-    --word-diff
+    # --word-diff
     # --diff-filter=MT
 )
 

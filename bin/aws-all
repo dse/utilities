@@ -7,6 +7,7 @@ shopt -s lastpipe
 main () {
     declare -a profiles
     list-aws-profiles | readarray -t profiles
+    echo "${#profiles[@]} profiles found"
     declare -i count=${#profiles[@]}
     declare -i exit=0
     declare -a count=0
@@ -16,6 +17,10 @@ main () {
     echo "["
     for profile in "default" "${profiles[@]}" ; do
         echo "// ******* ${profile} *******" >&2
+        if (( !$# )) ; then
+            continue
+        fi
+
         aws "$@" >"${temp}" || continue
         type="$(jq -r type "${temp}")" || continue
         if [[ "$type" = "array" ]] ; then

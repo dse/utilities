@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-gawk '
-    length($0) > 512 {
-        printf("%s:%d:%d\n", FILENAME, FNR, length($0))
-    }
-' "$@"
+length="${1:-1024}"
+
+exec awk 'length($0) > '"${length}"' { print }' "$@"
