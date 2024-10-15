@@ -51,15 +51,30 @@ main () {
         exit 1
     fi
 
-    path1="$(realpath "$1")"
-    path2="$(realpath "$2")"
+    path1="$1"
+    path2="$2"
     shift 2
+
+    if [[ "${path1}" = /dev/fd/* ]] ; then
+        tmp3="$(mktemp)"
+        cat "${path1}" >"${tmp3}"
+        path1="${tmp3}"
+    else
+        path1="$(realpath "${path1}")"
+    fi
+    if [[ "${path2}" = /dev/fd/* ]] ; then
+        tmp4="$(mktemp)"
+        cat "${path2}" >"${tmp4}"
+        path2="${tmp4}"
+    else
+        path2="$(realpath "${path2}")"
+    fi
 
     both_are_dirs=0
     both_are_files=0
     if [[ -d "${path1}" ]] && [[ -d "${path2}" ]] ; then
         both_are_dirs=1
-    elif  [[ -f "${path1}" ]] && [[ -f "${path2}" ]] ; then
+    elif [[ -f "${path1}" ]] && [[ -f "${path2}" ]] ; then
         both_are_files=1
     fi
     if (( !both_are_dirs && !both_are_files )) ; then
@@ -142,6 +157,8 @@ trap at_exit EXIT
 at_exit () {
     [[ -v tmp1 ]] && [[ -e "${tmp1}" ]] && { rm -fr "${tmp1}" || true ; }
     [[ -v tmp2 ]] && [[ -e "${tmp2}" ]] && { rm -fr "${tmp2}" || true ; }
+    [[ -v tmp3 ]] && [[ -e "${tmp3}" ]] && { rm -fr "${tmp3}" || true ; }
+    [[ -v tmp4 ]] && [[ -e "${tmp4}" ]] && { rm -fr "${tmp4}" || true ; }
 }
 
 main "$@"
