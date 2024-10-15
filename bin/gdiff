@@ -56,16 +56,16 @@ main () {
     shift 2
 
     if [[ "${path1}" = /dev/fd/* ]] ; then
-        tmp3="$(mktemp)"
-        cat "${path1}" >"${tmp3}"
-        path1="${tmp3}"
+        tempfile1="$(mktemp)"
+        cat "${path1}" >"${tempfile1}"
+        path1="${tempfile1}"
     else
         path1="$(realpath "${path1}")"
     fi
     if [[ "${path2}" = /dev/fd/* ]] ; then
-        tmp4="$(mktemp)"
-        cat "${path2}" >"${tmp4}"
-        path2="${tmp4}"
+        tempfile2="$(mktemp)"
+        cat "${path2}" >"${tempfile2}"
+        path2="${tempfile2}"
     else
         path2="$(realpath "${path2}")"
     fi
@@ -84,28 +84,28 @@ main () {
 
     tmpdir="/tmp/.gdiff-$(whoami)"
 
-    tmp1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
-    tmp2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+    tmpdir1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
+    tmpdir2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
 
-    mkdir -p "${tmp1}"
-    mkdir -p "${tmp2}"
+    mkdir -p "${tmpdir1}"
+    mkdir -p "${tmpdir2}"
     if (( both_are_dirs )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmp1}" >&/dev/null || {
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmpdir1}" >&/dev/null || {
             if (( $? != 23 )) ; then exit $? ; fi
         }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}" >&/dev/null || {
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmpdir2}" >&/dev/null || {
             if (( $? != 23 )) ; then exit $? ; fi
         }
     elif (( both_are_files )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}" "${tmp1}" >&/dev/null || {
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}" "${tmpdir1}" >&/dev/null || {
             if (( $? != 23 )) ; then exit $? ; fi
         }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}" "${tmp2}" >&/dev/null || {
+        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}" "${tmpdir2}" >&/dev/null || {
             if (( $? != 23 )) ; then exit $? ; fi
         }
     fi
 
-    git diff --no-index "${git_diff_options[@]}" "${tmp1}" "${tmp2}"
+    git diff --no-index "${git_diff_options[@]}" "${tmpdir1}" "${tmpdir2}"
 }
 
 declare -a rsync_options=(
@@ -155,10 +155,10 @@ declare -a exclude=(
 
 trap at_exit EXIT
 at_exit () {
-    [[ -v tmp1 ]] && [[ -e "${tmp1}" ]] && { rm -fr "${tmp1}" || true ; }
-    [[ -v tmp2 ]] && [[ -e "${tmp2}" ]] && { rm -fr "${tmp2}" || true ; }
-    [[ -v tmp3 ]] && [[ -e "${tmp3}" ]] && { rm -fr "${tmp3}" || true ; }
-    [[ -v tmp4 ]] && [[ -e "${tmp4}" ]] && { rm -fr "${tmp4}" || true ; }
+    [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] && { rm -fr "${tmpdir1}" || true ; }
+    [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] && { rm -fr "${tmpdir2}" || true ; }
+    [[ -v tempfile1 ]] && [[ -e "${tempfile1}" ]] && { rm -fr "${tempfile1}" || true ; }
+    [[ -v tempfile2 ]] && [[ -e "${tempfile2}" ]] && { rm -fr "${tempfile2}" || true ; }
 }
 
 main "$@"
