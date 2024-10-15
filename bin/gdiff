@@ -78,7 +78,7 @@ main () {
         both_are_files=1
     fi
     if (( !both_are_dirs && !both_are_files )) ; then
-        echo "both paths must be directories or both paths must be regular files" >&2
+        echo "both paths must be directories or both paths must be files" >&2
         exit 1
     fi
 
