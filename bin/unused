@@ -182,33 +182,3 @@ sub check_for_text {
         return;
     }
 }
-
-sub create_regexp {
-    my @str = grep { defined $_ } @_;
-    if (!scalar @str) {
-        return;
-    }
-    if (scalar @str == 1) {
-        return quotemeta($str[0]);
-    }
-    my %first_char;
-    my @regexp;
-    my $optional = scalar grep { $_ eq '' } @str;
-    foreach my $str (grep { $_ ne '' } @str) {
-        my $chr = substr($str, 0, 1);
-        push(@{$first_char{$chr}}, substr($str, 1));
-    }
-    foreach my $char (sort { scalar @{$first_char{$b}} <=> scalar @{$first_char{$a}} } keys %first_char) {
-        my @str = uniq sort { $a cmp $b } @{$first_char{$char}};
-        my $rest_regexp = create_regexp(@str);
-        next if !defined $rest_regexp;
-        push(@regexp, quotemeta($char) . $rest_regexp);
-    }
-    @regexp = uniq @regexp;
-    return if !scalar @regexp;
-    return $regexp[0] if scalar @regexp == 1 && !$optional;
-    my $alts = join('|', @regexp);
-    return $alts . '?' if length($alts) == 1 && $optional;
-    return $alts if length($alts) == 1;
-    return '(?:' . $alts . ')' . ($optional ? '?' : '');
-}
