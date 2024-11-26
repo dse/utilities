@@ -56,16 +56,16 @@ main () {
     shift 2
 
     if [[ "${path1}" = /dev/fd/* ]] ; then
-        tempfile1="$(mktemp)"
-        cat "${path1}" >"${tempfile1}"
-        path1="${tempfile1}"
+        tmpfile1="$(mktmp)"
+        cat "${path1}" >"${tmpfile1}"
+        path1="${tmpfile1}"
     else
         path1="$(realpath "${path1}")"
     fi
     if [[ "${path2}" = /dev/fd/* ]] ; then
-        tempfile2="$(mktemp)"
-        cat "${path2}" >"${tempfile2}"
-        path2="${tempfile2}"
+        tmpfile2="$(mktmp)"
+        cat "${path2}" >"${tmpfile2}"
+        path2="${tmpfile2}"
     else
         path2="$(realpath "${path2}")"
     fi
@@ -104,6 +104,11 @@ main () {
             if (( $? != 23 )) ; then exit $? ; fi
         }
     fi
+
+    # keep_tmpdir1=1
+    # keep_tmpdir2=1
+    # keep_tmpfile1=1
+    # keep_tmpfile2=1
 
     git diff --no-index "${git_diff_options[@]}" "${tmpdir1}" "${tmpdir2}"
 }
@@ -155,10 +160,34 @@ declare -a exclude=(
 
 trap at_exit EXIT
 at_exit () {
-    [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] && { rm -fr "${tmpdir1}" || true ; }
-    [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] && { rm -fr "${tmpdir2}" || true ; }
-    [[ -v tempfile1 ]] && [[ -e "${tempfile1}" ]] && { rm -fr "${tempfile1}" || true ; }
-    [[ -v tempfile2 ]] && [[ -e "${tempfile2}" ]] && { rm -fr "${tempfile2}" || true ; }
+    if [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] ; then
+        if [[ -v keep_tmpdir1 ]] ; then
+            [[ -e "${tmpdir1}" ]] && ls -ld "${tmpdir1}"
+        else
+            rm -fr "${tmpdir1}" || true
+        fi
+    fi
+    if [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] ; then
+        if [[ -v keep_tmpdir2 ]] ; then
+            ls -ld "${tmpdir2}"
+        else
+            rm -fr "${tmpdir2}" || true
+        fi
+    fi
+    if [[ -v tmpfile1 ]] && [[ -e "${tmpfile1}" ]] ; then
+        if [[ -v keep_tmpfile1 ]] ; then
+            ls -ld "${tmpfile1}"
+        else
+            rm -fr "${tmpfile1}" || true
+        fi
+    fi
+    if [[ -v tmpfile2 ]] && [[ -e "${tmpfile2}" ]] ; then
+        if [[ -v keep_tmpfile2 ]] ; then
+            ls -ld "${tmpfile2}"
+        else
+            rm -fr "${tmpfile2}" || true
+        fi
+    fi
 }
 
 main "$@"
