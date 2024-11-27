@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+my %count;
+my %first;
+while (<>) {
+    s{\R\z}{};
+    $count{$_} += 1;
+    $first{$_} //= $.;
+}
+foreach my $line (sort { $first{$a} <=> $first{$b} } keys %count) {
+    printf("%7d %s\n", $count{$line}, $line);
+}

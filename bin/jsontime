@@ -1,0 +1,46 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use JSON::XS;
+use POSIX qw(strftime floor);
+use Scalar::Util qw(looks_like_number);
+use open IO => ':locale';
+local $/ = undef;
+my $json = JSON::XS->new()->pretty(1)->ascii(1);
+my %usec = (
+    time_usec => 1,
+);
+my %msec = (
+    last_active_time_unix_epoch_millis => 1,
+    timestamp_msec => 1,
+);
+my %sec = (
+);
+while (<>) {
+    my $o = $json->decode($_);
+    crawl($o);
+    print($json->encode($o));
+}
+sub crawl {
+    my $value = shift;
+    if (ref $value eq 'ARRAY') {
+        foreach my $item (@$value) {
+            crawl($item);
+        }
+    } elsif (ref $value eq 'HASH') {
+        foreach my $key (keys %$value) {
+            crawl($value->{$key});
+        }
+        foreach my $key (keys %$value) {
+            if (looks_like_number($value->{$key})) {
+                if ($sec{$key}) {
+                    $value->{$key} = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime($value->{$key}));
+                } elsif ($msec{$key}) {
+                    $value->{$key} = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime(floor($value->{$key} / 1000)));
+                } elsif ($usec{$key}) {
+                    $value->{$key} = strftime("%Y-%m-%dT%H:%M:%SZ", gmtime(floor($value->{$key} / 1000000)));
+                }
+            }
+        }
+    }
+}
