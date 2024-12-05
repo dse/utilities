@@ -22,7 +22,9 @@ if (scalar @ARGV < 2) {
 }
 my $src = shift @ARGV;
 my $dest = shift @ARGV;
-if (!-d $dest) {
+if (!-e $dest) {
+    mkdir($dest) or die("$0: $dest: $!\n");
+} elsif (!-d $dest) {
     die("$0: $dest: not a directory\n");
 }
 warn("src: $src\n");
@@ -83,8 +85,10 @@ sub make_link {
 }
 sub compute_moved_pathname {
     my ($pathname, $src, $dest) = @_;
-    die("$0: $pathname: not in $src\n") if !is_in($pathname, $src);
-    die("$0: $pathname: already in $dest\n") if is_in($pathname, $dest);
+    die("$0: $pathname: not in $src\n")
+      if !is_in($pathname, $src); # for good measure
+    die("$0: $pathname: already in $dest\n")
+      if is_in($pathname, $dest); # for good measure
     return $dest . "/" . substr($pathname, length($src) + 1);
 }
 sub is_in {
