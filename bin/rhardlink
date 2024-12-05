@@ -1,0 +1,93 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Cwd qw(realpath);
+use Getopt::Long;
+use File::Find qw(find);
+use File::Path qw(make_path);
+use File::Basename qw(dirname);
+
+our $opt_exclude_cvs;
+our $opt_dry_run;
+our $opt_verbose = 0;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    'C|exclude-cvs' => \$opt_exclude_cvs,
+    'n|dry-run'     => \$opt_dry_run,
+    'v|verbose+'    => \$opt_verbose,
+);
+
+if (scalar @ARGV < 2) {
+    die("$0: not enough arguments\n");
+}
+my $src = shift @ARGV;
+my $dest = shift @ARGV;
+if (!-d $dest) {
+    die("$0: $dest: not a directory\n");
+}
+warn("src: $src\n");
+warn("dest: $dest\n");
+$src = realpath($src);
+$dest = realpath($dest);
+$src =~ s{/+$}{};
+$dest =~ s{/+$}{};
+warn("src: $src\n");
+warn("dest: $dest\n");
+if ($src eq $dest) {
+    die("$0: source and destination are the same\n");
+}
+if (is_in($src, $dest)) {
+    die("$0: source cannot be inside destination\n");
+}
+find(\&wanted, $src);
+
+sub wanted {
+    my ($dev, $ino, $mode, $nlink, $uid, $gid) = lstat($_);
+    return unless defined $dev && defined $ino;
+    my $src_path = $File::Find::name;
+    if ($src_path eq $dest) {
+        warn("$0: $src_path is the same as $dest; pruning\n") if $opt_verbose;
+        return $File::Find::prune = 1;
+    }
+    if (is_in($src_path, $dest)) {
+        warn("$0: $src_path is in $dest; pruning\n") if $opt_verbose;
+        return $File::Find::prune = 1;
+    }
+    return if -d _;
+    my $dest_path = compute_moved_pathname($src_path, $src, $dest);
+    my ($dest_dev, $dest_ino) = lstat($dest_path);
+    if ($!{ENOENT}) {           # file does not exist
+        make_link($src_path, $dest_path);
+    } elsif ($!) {
+        warn("$0: $dest_path: $!\n");
+    } elsif (!(defined $dest_dev && defined $dest_ino)) { # for good measure
+        make_link($src_path, $dest_path);
+    } elsif ($dest_dev == $dev && $dest_ino == $ino) {
+        warn("$0: $dest_path exists and is already a hard link to $src_path\n")
+          if $opt_verbose >= 2;
+    } else {
+        warn("$0: $dest_path exists and is not a hard link to $src_path\n");
+    }
+}
+sub make_link {
+    my ($src_path, $dest_path) = @_;
+    if ($opt_dry_run) {
+        warn("ln $src_path $dest_path\n");
+        return;
+    }
+    make_path(dirname($dest_path));
+    if ($opt_verbose) {
+        warn("ln $src_path $dest_path\n");
+    }
+    link($src_path, $dest_path) or warn("$0: $dest_path: $!\n");
+}
+sub compute_moved_pathname {
+    my ($pathname, $src, $dest) = @_;
+    die("$0: $pathname: not in $src\n") if !is_in($pathname, $src);
+    die("$0: $pathname: already in $dest\n") if is_in($pathname, $dest);
+    return $dest . "/" . substr($pathname, length($src) + 1);
+}
+sub is_in {
+    my ($subdir, $dir) = @_;
+    return $dir . "/" eq substr($subdir, 0, length($dir) + 1);
+}
