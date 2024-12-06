@@ -128,8 +128,8 @@ sub is_in {
 }
 sub pattern_to_regexp {
     my %PATTERN_TO_REGEXP = (
-        '*' => '.*',
-        '?' => '.',
+        '*' => '[^/]*',
+        '?' => '[^/]',
     );
     my $pattern = shift;
     $pattern =~ s{.}{$PATTERN_TO_REGEXP{$&} // quotemeta($&)}ge;
