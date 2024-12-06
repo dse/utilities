@@ -3,6 +3,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 shopt -s lastpipe
+set -o xtrace
 
 main () {
     while getopts 'U:-:h' OPTION ; do
@@ -22,6 +23,13 @@ main () {
             esac
         fi
         case "${OPTION}" in
+            diff-filter)
+                if [[ ! -v OPTARG ]] ; then
+                    echo "option missing required argument -- ${OPTION}"
+                    exit 1
+                fi
+                git_diff_options+=(--diff-filter="${OPTARG}")
+                ;;
             help)
                 usage
                 exit 0
@@ -56,19 +64,17 @@ main () {
     shift 2
 
     if [[ "${path1}" = /dev/fd/* ]] ; then
-        tmpfile1="$(mktmp)"
+        tmpfile1="$(mktemp)"
         cat "${path1}" >"${tmpfile1}"
         path1="${tmpfile1}"
-    else
-        path1="$(realpath "${path1}")"
     fi
+    path1="$(realpath "${path1}")"
     if [[ "${path2}" = /dev/fd/* ]] ; then
-        tmpfile2="$(mktmp)"
+        tmpfile2="$(mktemp)"
         cat "${path2}" >"${tmpfile2}"
         path2="${tmpfile2}"
-    else
-        path2="$(realpath "${path2}")"
     fi
+    path2="$(realpath "${path2}")"
 
     both_are_dirs=0
     both_are_files=0
@@ -82,27 +88,25 @@ main () {
         exit 1
     fi
 
-    tmpdir="/tmp/.gdiff-$(whoami)"
+    if (( both_are_files )) ; then
+        exec git diff --no-index "$path1" "$path2"
+    fi
 
-    tmpdir1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
-    tmpdir2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+    #--------------------------------------------------------------------------
+    # at and after this point, path1 and path2 are directories.
+    #--------------------------------------------------------------------------
 
-    mkdir -p "${tmpdir1}"
-    mkdir -p "${tmpdir2}"
-    if (( both_are_dirs )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmpdir1}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmpdir2}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-    elif (( both_are_files )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}" "${tmpdir1}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}" "${tmpdir2}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
+    path2_inside_path1=0
+    path1_inside_path2=0
+    if [[ "${path1}" = "${path2}"/* ]] ; then
+        # rhardlink run for path2 has to exclude path1
+        path1_inside_path2=1
+    elif [[ "${path2}" = "${path1}"/* ]] ; then
+        # rhardlink run for path1 has to exclude path2
+        path2_inside_path1=1
+    elif [[ "${path1}" = "${path2}" ]] ; then
+        echo "$0: paths are the same directory"
+        exit 1
     fi
 
     # keep_tmpdir1=1
@@ -110,7 +114,59 @@ main () {
     # keep_tmpfile1=1
     # keep_tmpfile2=1
 
-    git diff --no-index "${git_diff_options[@]}" "${tmpdir1}" "${tmpdir2}"
+    tmpdir1="${path1}/.gdiff-$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
+    tmpdir2="${path2}/.gdiff-$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+    mkdir -p "${tmpdir1}"
+    mkdir -p "${tmpdir2}"
+
+    (
+        declare -a exclude_1=()
+        declare -a exclude_2=()
+        echo "path1 = ${path1}"
+        echo "path2 = ${path2}"
+        echo "tmpdir1 = ${tmpdir1}"
+        echo "tmpdir2 = ${tmpdir2}"
+        if (( path2_inside_path1 )) ; then
+            exclude_1+=("--exclude=$path2")
+            echo "path2 is inside of path1"
+        fi
+        if (( path1_inside_path2 )) ; then
+            exclude_2+=("--exclude=$path1")
+            echo "path1 is inside of path2"
+        fi
+        declare -a rhardlink_1=(
+            rhardlink -vv "${exclude[@]}" "${exclude_1[@]}" "${path1}" "${tmpdir1}"
+        )
+        declare -a rhardlink_2=(
+            rhardlink -vv "${exclude[@]}" "${exclude_2[@]}" "${path2}" "${tmpdir2}"
+        )
+        echo "+ ${rhardlink_1[@]@Q}"
+        "${rhardlink_1[@]}" 2>&1
+        echo "+ ${rhardlink_2[@]@Q}"
+        "${rhardlink_2[@]}" 2>&1
+        echo "$tmpdir1"
+        echo "$tmpdir2"
+        declare -a git_diff_cmd=(
+            git --no-pager diff --color=always --no-index \
+                --src-prefix="SRC/" \
+                --dst-prefix="DST/" \
+                "${git_diff_options[@]}" "${tmpdir1}" "${tmpdir2}"
+        )
+        declare -a sed_cmd=(
+            sed -E \
+                -e '/^'$'\e\[1m''(diff|---|\+\+\+)/{' \
+                -e 's# SRC'"$tmpdir1"'# A#g;' \
+                -e 's# DST'"$tmpdir2"'# B#g;' \
+                -e '}' \
+                -e '/^'$'\e\[1m''rename /{' \
+                -e 's#rename from '"$tmpdir1"'#rename from A#;' \
+                -e 's#rename to '"$tmpdir2"'#rename to B#;' \
+                -e '}'
+        )
+        echo "+ ${git_diff_cmd[@]@Q}"
+        echo "+ ${sed_cmd[@]@Q}"
+        "${git_diff_cmd[@]}" | "${sed_cmd[@]}"
+    ) | less -sR
 }
 
 declare -a rsync_options=(
@@ -118,35 +174,24 @@ declare -a rsync_options=(
 )
 
 declare -a git_diff_options=(
-    --no-prefix
     --ignore-blank-lines
+    # --no-prefix
     # --word-diff
     # --diff-filter=MT
+    # --src-prefix="A/"
+    # --dst-prefix="B/"
 )
 
-# these are supplied to RSYNC.
+# these are supplied to RHARDLINK.
 declare -a exclude=(
-    # directories
-    --exclude=".git"
-    --exclude="node_modules"
-    --exclude="_cacache"
-    --exclude=".node-gyp"
-    --exclude="vendor"
-    --exclude=".cache"
-
-    # temp/backup files
-    --exclude="*~"
-    --exclude="#*#"
+    -C
+    --exclude="node_modules/"
+    --exclude="_cacache/"
+    --exclude=".node-gyp/"
+    --exclude="vendor/"
+    --exclude=".cache/"
     --exclude="*.tmp"
-    --exclude="*.bak"
-    --exclude="*.orig"
-    --exclude="*.old"
     --exclude="*.tmp.*"
-    --exclude="*.bak.*"
-    --exclude="*.orig.*"
-    --exclude="*.old.*"
-
-    # bloat
     --exclude="*.min"
     --exclude="*.min.*"
     --exclude="package-lock.json"
@@ -154,35 +199,33 @@ declare -a exclude=(
     --exclude="yarn.lock"
     --exclude="*.map"
     --exclude="*.map.*"
-    # --exclude="*.bundle"
-    # --exclude="*.bundle.*"
 )
 
 trap at_exit EXIT
 at_exit () {
     if [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] ; then
-        if [[ -v keep_tmpdir1 ]] ; then
+        if [[ -v keep_tmpdir1 ]] && (( keep_tmpdir1 )) ; then
             [[ -e "${tmpdir1}" ]] && ls -ld "${tmpdir1}"
         else
             rm -fr "${tmpdir1}" || true
         fi
     fi
     if [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] ; then
-        if [[ -v keep_tmpdir2 ]] ; then
+        if [[ -v keep_tmpdir2 ]] && (( keep_tmpdir2 )) ; then
             ls -ld "${tmpdir2}"
         else
             rm -fr "${tmpdir2}" || true
         fi
     fi
     if [[ -v tmpfile1 ]] && [[ -e "${tmpfile1}" ]] ; then
-        if [[ -v keep_tmpfile1 ]] ; then
+        if [[ -v keep_tmpfile1 ]] && (( keep_tmpfile1 )) ; then
             ls -ld "${tmpfile1}"
         else
             rm -fr "${tmpfile1}" || true
         fi
     fi
     if [[ -v tmpfile2 ]] && [[ -e "${tmpfile2}" ]] ; then
-        if [[ -v keep_tmpfile2 ]] ; then
+        if [[ -v keep_tmpfile2 ]] && (( keep_tmpfile2 )) ; then
             ls -ld "${tmpfile2}"
         else
             rm -fr "${tmpfile2}" || true
