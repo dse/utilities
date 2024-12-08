@@ -1,0 +1,83 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+# ported from detect-indent and detect-indent-cli npm pkgs
+
+my $map = My::IndentMap->new();
+while (<>) {
+    $map->add_line($_);
+} continue {
+    if (eof) {
+        my ($amount, $type) = $map->get_most_used_key();
+        printf("%d %-5s %s\n", $amount, $type, $ARGV);
+        $map = My::IndentMap->new();
+    }
+}
+
+package My::IndentMap {
+    use warnings;
+    use strict;
+    sub new {
+        my ($class) = @_;
+        my $self = bless({}, $class);
+        $self->{ignore_single_space} = 0;
+        $self->{previous_size} = 0;
+        $self->{previous_indent_type} = '';
+        $self->{indents} = {};
+        $self->{weights} = {};
+        $self->{key} = join($;, 0, '');
+        return $self;
+    }
+    sub add_line {
+        my ($self, $line) = @_;
+        return if $line !~ /\S/; # skip empty line
+        my $indent;
+        my $indent_type;
+        my $use;
+        my $weight;
+        my $entry;
+        if (/^\t+/) {
+            $indent_type = 'tab';
+            $indent = length($&);
+        } elsif (/^ +/) {
+            $indent_type = 'space';
+            $indent = length($&);
+        } else {
+            $self->{previous_size} = 0;
+            $self->{previous_indent_type} = '';
+            return;
+        }
+        if ($self->{ignore_single_space} && $indent_type eq 'space' && $indent == 1) {
+            return;
+        }
+        if ($indent_type ne $self->{previous_indent_type}) {
+            $self->{previous_size} = 0;
+        }
+        $self->{previous_indent_type} = $indent_type;
+        $use = 1;
+        $weight = 0;
+        my $indent_difference = $indent - $self->{previous_size};
+        $self->{previous_size} = $indent;
+        if (!$indent_difference) {
+            $use = 0;
+            $weight = 1;
+        } else {
+            my $absolute_indent_difference = abs($indent_difference);
+            $self->{key} = join($;, $absolute_indent_difference, $indent_type);
+        }
+        my $key = $self->{key};
+        my $indents = $self->{indents};
+        my $weights = $self->{weights};
+        $indents->{$key} = defined $indents->{$key} ? $indents->{$key} + $use : 1;
+        $weights->{$key} = defined $weights->{$key} ? $weights->{$key} + $weight : 0;
+    }
+    sub get_most_used_key {
+        my ($self) = @_;
+        my @keys = keys %{$self->{indents}};
+        return (0, '') if !scalar @keys;
+        my $indents = $self->{indents};
+        my $weights = $self->{weights};
+        @keys = sort { $indents->{$b} <=> $indents->{$a} || $weights->{$b} <=> $weights->{$a} } @keys;
+        return split($;, $keys[0]);
+    }
+}
