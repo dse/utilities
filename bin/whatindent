@@ -22,10 +22,10 @@ package My::IndentMap {
         my $self = bless({}, $class);
         $self->{ignore_single_space} = 0;
         $self->{previous_size} = 0;
-        $self->{previous_indent_type} = '';
+        $self->{previous_indent_type} = 'none';
         $self->{indents} = {};
         $self->{weights} = {};
-        $self->{key} = join($;, 0, '');
+        $self->{key} = join($;, 0, 'none');
         return $self;
     }
     sub add_line {
@@ -44,7 +44,7 @@ package My::IndentMap {
             $indent = length($&);
         } else {
             $self->{previous_size} = 0;
-            $self->{previous_indent_type} = '';
+            $self->{previous_indent_type} = 'none';
             return;
         }
         if ($self->{ignore_single_space} && $indent_type eq 'space' && $indent == 1) {
@@ -74,7 +74,7 @@ package My::IndentMap {
     sub get_most_used_key {
         my ($self) = @_;
         my @keys = keys %{$self->{indents}};
-        return (0, '') if !scalar @keys;
+        return (0, 'none') if !scalar @keys;
         my $indents = $self->{indents};
         my $weights = $self->{weights};
         @keys = sort { $indents->{$b} <=> $indents->{$a} || $weights->{$b} <=> $weights->{$a} } @keys;
