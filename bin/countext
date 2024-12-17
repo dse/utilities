@@ -26,7 +26,7 @@ while (<>) {
 print STDERR ("\e[K") if -t 2;
 
 foreach my $ext (sort keys %count) {
-    my $avg = $size{$ext} / $count{$ext};
+    my $avg = defined $size{$ext} ? ($size{$ext} / $count{$ext}) : -1;
     printf("%7d %15d %11d %11d %s\n",
            $count{$ext} // -1,
            $size{$ext} // -1,
