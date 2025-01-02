@@ -48,7 +48,7 @@ our @opt_exclude_patterns;
 
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
-    'C|exclude-cvs' => \$opt_exclude_cvs,
+    'C|exclude-cvs|cvs-exclude' => \$opt_exclude_cvs,
     'n|dry-run'     => \$opt_dry_run,
     'v|verbose+'    => \$opt_verbose,
     'x|exclude=s'   => \@opt_exclude_patterns,
