@@ -32,6 +32,10 @@ while (<>) {
     push(@lines, $_);
 }
 
+while (scalar @lines && $lines[-1] !~ /\S/) {
+    pop(@lines);
+}
+
 my @chunks = chunks();
 columnize();
 
@@ -87,7 +91,8 @@ sub compute {
             my $end_row = min($start_row + $row_count - 1, scalar @lines - 1);
             push(@widths, max map { length $_ } @lines[$start_row .. $end_row]);
         }
-        return sum @widths + length($SEPAR) * (scalar @widths - 1);
+        my $separ = length($SEPAR) * (scalar @widths - 1);
+        return $separ + sum @widths;
     }
 }
 
