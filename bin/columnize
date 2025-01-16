@@ -6,6 +6,34 @@ use Data::Dumper qw(Dumper);
 use POSIX qw(floor);
 use Getopt::Long;
 
+### NOTE: lines per page doesn't work right.  Is for example:
+###
+###     page 1
+###        a   i
+###        b   j
+###        c   k
+###     page 2
+###        d   l
+###        e   m
+###        f   n
+###        g
+###     page 3
+###        h
+###
+### Should be:
+###
+###     page 1
+###        a   d
+###        b   e
+###        c   f
+###            g
+###     page 2
+###        h   l
+###        i   m
+###        j   n
+###        k
+###     ...
+
 my $WIDTH = 80;
 my $SEPAR = " | ";
 my $CHUNKS = 0;
