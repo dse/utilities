@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use List::Util qw(max min sum);
+use Data::Dumper qw(Dumper);
+use POSIX qw(floor);
+
+my $WIDTH = 80;
+my $SEPAR = " | ";
+
+my @lines;
+while (<>) {
+    s{\R\z}{};
+    s{\s+$}{};
+    push(@lines, $_);
+}
+
+my @chunks = chunks();
+columnize();
+
+sub columnize {
+    my $row_count;
+    for ($row_count = max map { scalar @$_ } @chunks;
+         $row_count <= scalar @lines;
+         $row_count += 1) {
+        my $width = compute($row_count);
+        if ($width <= $WIDTH) {
+            last;
+        }
+    }
+    my ($columns, $widths) = generate($row_count);
+    my @columns = @$columns;
+    my @widths = @$widths;
+    while (scalar grep { scalar @$_ } @columns) {
+        my $line = "";
+        foreach my $col_num (0 .. (scalar @columns - 1)) {
+            my $column = $columns[$col_num];
+            my $str = shift(@$column) // "";
+            $line .= $SEPAR if length $line;
+            $line .= sprintf("%-*s", $widths[$col_num], $str);
+        }
+        printf("%s\n", $line);
+    }
+}
+
+sub compute {
+    my $row_count = shift;
+    my $column_info = { row_count => 0, width => 0 };
+    my @column_info = ($column_info);
+    foreach my $chunk (@chunks) {
+        my $column_new_row_count = $column_info->{row_count} +
+          (scalar @$chunk ? 1 : 0) + scalar @$chunk;
+        if ($column_new_row_count > $row_count) {
+            $column_info = { row_count => 0, width => 0 };
+            push(@column_info, $column_info);
+        }
+        $column_info->{row_count} +=
+          ($column_info->{row_count} ? 1 : 0) + scalar @$chunk;
+        $column_info->{width} = max($column_info->{width},
+                                    map { length $_ } @$chunk);
+    }
+    my $separ = length($SEPAR) * (scalar @column_info - 1);
+    return $separ + sum map { $_->{width} } @column_info;
+}
+
+sub generate {
+    my $row_count = shift;
+    my $column = [];
+    my @columns = ($column);
+    foreach my $chunk (@chunks) {
+        my $column_new_row_count = @$column +
+          (scalar @$chunk ? 1 : 0) + scalar @$chunk;
+        if ($column_new_row_count > $row_count) {
+            $column = [];
+            push(@columns, $column);
+        }
+        push(@$column, '') if scalar @$column;
+        push(@$column, @$chunk);
+    }
+    my @widths = map { max map { length($_) } @$_ } @columns;
+    return (\@columns, \@widths) if wantarray;
+    return [\@columns, \@widths];
+}
+
+
+sub chunks {
+    my $chunk;
+    my @chunks;
+    foreach my $line (@lines) {
+        if ($line !~ /\S/) {
+            $chunk = undef;
+            next;
+        }
+        if (!defined $chunk) {
+            $chunk = [];
+            push(@chunks, $chunk);
+        }
+        push(@$chunk, $line);
+    }
+    return @chunks;
+}
