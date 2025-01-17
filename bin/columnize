@@ -103,24 +103,12 @@ sub compute {
         foreach my $chunk (@chunks) {
             my $column_new_row_count = $column_info->{row_count} +
               (scalar @$chunk ? 1 : 0) + scalar @$chunk;
-            my $new_page = 0;
             if ($column_new_row_count > $row_count) {
                 $column_info = { row_count => 0, width => 0 };
                 push(@column_info, $column_info);
-            } elsif ($LINES_PER_PAGE) {
-                my $page_count = floor(($column_info->{row_count} + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                my $new_page_count = floor(($column_new_row_count + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                if ($page_count && $new_page_count > $page_count) {
-                    $new_page = 1;
-                }
             }
-            if ($new_page) {
-                my $new_page_count = floor(($column_new_row_count + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                $column_info->{row_count} = ($new_page_count - 1) * $LINES_PER_PAGE + scalar @$chunk;
-            } else {
-                $column_info->{row_count} +=
-                  ($column_info->{row_count} ? 1 : 0) + scalar @$chunk;
-            }
+            $column_info->{row_count} +=
+              ($column_info->{row_count} ? 1 : 0) + scalar @$chunk;
             $column_info->{width} = max($column_info->{width},
                                         map { length $_ } @$chunk);
         }
@@ -151,22 +139,8 @@ sub generate {
             if ($column_new_row_count > $row_count) {
                 $column = [];
                 push(@columns, $column);
-            } elsif ($LINES_PER_PAGE) {
-                my $page_count = floor((scalar @$column + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                my $new_page_count = floor(($column_new_row_count + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                if ($page_count && $new_page_count > $page_count) {
-                    $new_page = 1;
-                }
             }
-            if ($new_page) {
-                my $new_page_count = floor(($column_new_row_count + $LINES_PER_PAGE - 1) / $LINES_PER_PAGE);
-                my $new_row_count = ($new_page_count - 1) * $LINES_PER_PAGE;
-                while (scalar @$column < $new_row_count) {
-                    push(@$column, '');
-                }
-            } else {
-                push(@$column, '') if scalar @$column;
-            }
+            push(@$column, '') if scalar @$column;
             push(@$column, @$chunk);
         }
         my @widths = map { max map { length($_) } @$_ } @columns;
