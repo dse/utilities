@@ -3,17 +3,26 @@ set -o errexit
 set -o pipefail
 set -o nounset
 shopt -s lastpipe
+# set -o xtrace
 
 main () {
-    while getopts 'U:-:h' OPTION ; do
+    no_sed=0
+    verbose=0
+    dry_run=0
+    keep=0
+    declare -a opt_dry_run=()
+    declare -a opt_verbose=()
+    while getopts 'knv-:h' OPTION ; do
         if [[ "${OPTION}" = "-" ]] ; then
             case "${OPTARG}" in
                 '')
+                    # "--" argument
+                    OPTIND=$((OPTIND + 1))
                     break
                     ;;
                 *=*)
-                    OPTARG="${OPTION#*=}"
-                    OPTION="${OPTION%%=*}"
+                    OPTION="${OPTARG%%=*}"
+                    OPTARG="${OPTARG#*=}"
                     ;;
                 *)
                     OPTION="${OPTARG}"
@@ -22,75 +31,188 @@ main () {
             esac
         fi
         case "${OPTION}" in
-            help)
+            k|keep)
+                keep=1
+                ;;
+            n|dry-run)
+                dry_run=1
+                opt_dry_run=(-n)
+                ;;
+            v|verbose)
+                verbose=$((verbose + 1))
+                opt_verbose+=(-v)
+                ;;
+            no-sed)
+                no_sed=1
+                ;;
+            h|help)
                 usage
                 exit 0
                 ;;
-            word-diff)
-                git_diff_options+=(--word-diff)
+            *)
+                # option error
+                exit 1
                 ;;
-            ignore-blank-lines)
-                git_diff_options+=(--ignore-blank-lines)
-                ;;
-            U)
-                git_diff_options+=(-U "${OPTARG}")
-                ;;
-            unified)
-                OPTIND+=1
         esac
     done
     shift $((OPTIND - 1))
 
     if (( $# < 2 )) ; then
-        echo "gdiff: not enough arguments" >&2
-        exit 1
+        FATAL "not enough arguments"
     fi
 
-    if [[ "$1" = -* ]] ; then
-        echo "gdiff: git-diff options must come AFTER the both paths" >&2
-        exit 1
+    if (( $# >= 1 )) && [[ "$1" = -* ]] ; then
+        FATAL "git-diff options must come AFTER the both paths"
     fi
 
-    path1="$(realpath "$1")"
-    path2="$(realpath "$2")"
+    path1="$1"
+    path2="$2"
     shift 2
+
+    git_diff_options+=("$@")
+
+    if [[ "${path1}" = /dev/fd/* ]] ; then
+        tmpfile1="$(mktemp)"
+        cat "${path1}" >"${tmpfile1}"
+        path1="${tmpfile1}"
+    fi
+    path1="$(realpath "${path1}")"
+    if [[ "${path2}" = /dev/fd/* ]] ; then
+        tmpfile2="$(mktemp)"
+        cat "${path2}" >"${tmpfile2}"
+        path2="${tmpfile2}"
+    fi
+    path2="$(realpath "${path2}")"
 
     both_are_dirs=0
     both_are_files=0
     if [[ -d "${path1}" ]] && [[ -d "${path2}" ]] ; then
         both_are_dirs=1
-    elif  [[ -f "${path1}" ]] && [[ -f "${path2}" ]] ; then
+    elif [[ -f "${path1}" ]] && [[ -f "${path2}" ]] ; then
         both_are_files=1
     fi
     if (( !both_are_dirs && !both_are_files )) ; then
-        echo "both paths must be directories or both paths must be regular files" >&2
+        FATAL "both paths must be directories or both paths must be files"
         exit 1
     fi
 
-    tmpdir="/tmp/.gdiff-$(whoami)"
-
-    tmp1="${tmpdir}/$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
-    tmp2="${tmpdir}/$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
-
-    mkdir -p "${tmp1}"
-    mkdir -p "${tmp2}"
-    if (( both_are_dirs )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}/" "${tmp1}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}/" "${tmp2}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-    elif (( both_are_files )) ; then
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path1}" "${tmp1}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
-        rsync "${rsync_options[@]}" "${exclude[@]}" "${path2}" "${tmp2}" >&/dev/null || {
-            if (( $? != 23 )) ; then exit $? ; fi
-        }
+    if (( both_are_files )) ; then
+        exec git diff --no-index "$path1" "$path2"
     fi
 
-    git diff --no-index "${git_diff_options[@]}" "${tmp1}" "${tmp2}"
+    #--------------------------------------------------------------------------
+    # at and after this point, path1 and path2 are directories.
+    #--------------------------------------------------------------------------
+
+    path2_inside_path1=0
+    path1_inside_path2=0
+    if [[ "${path1}" = "${path2}"/* ]] ; then
+        # rhardlink run for path2 has to exclude path1
+        path1_inside_path2=1
+    elif [[ "${path2}" = "${path1}"/* ]] ; then
+        # rhardlink run for path1 has to exclude path2
+        path2_inside_path1=1
+    elif [[ "${path1}" = "${path2}" ]] ; then
+        FATAL "paths are the same directory"
+    fi
+
+    # keep_tmpdir1=1
+    # keep_tmpdir2=1
+    # keep_tmpfile1=1
+    # keep_tmpfile2=1
+
+    subdir1=".gdiff-$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
+    subdir2=".gdiff-$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
+
+    # We prefer temporary .gdiff directories to be kept out of the way
+    # if you're in a code repository.  But if they're not on the same
+    # device it's ok to use the supplied directories.
+
+    path1_dev="$(stat -c %d "${path1}")"
+    path2_dev="$(stat -c %d "${path2}")"
+    tmp_dev="$(stat -c %d /tmp)"
+    var_tmp_dev="$(stat -c %d /var/tmp)"
+
+    if [[ "$path1_dev" == "$tmp_dev" ]] ; then
+        tmpdir1="/tmp/${subdir1}"
+    elif [[ "$path1_dev" == "$var_tmp_dev" ]] ; then
+        tmpdir1="/var/tmp/${subdir1}"
+    else
+        tmpdir1="${path1}/${subdir1}"
+    fi
+
+    if [[ "$path2_dev" == "$tmp_dev" ]] ; then
+        tmpdir2="/tmp/${subdir2}"
+    elif [[ "$path2_dev" == "$var_tmp_dev" ]] ; then
+        tmpdir2="/var/tmp/${subdir2}"
+    else
+        tmpdir2="${path2}/${subdir2}"
+    fi
+
+    DEBUG "tmpdir1 = ${tmpdir1}"
+    DEBUG "tmpdir2 = ${tmpdir2}"
+
+    RUN rm -fr "${tmpdir1}"
+    RUN rm -fr "${tmpdir2}"
+    RUN mkdir -p "${tmpdir1}"
+    RUN mkdir -p "${tmpdir2}"
+
+    (
+        declare -a exclude_1=()
+        declare -a exclude_2=()
+        DEBUG "path1 = ${path1}"
+        DEBUG "path2 = ${path2}"
+        DEBUG "tmpdir1 = ${tmpdir1}"
+        DEBUG "tmpdir2 = ${tmpdir2}"
+        if (( path2_inside_path1 )) ; then
+            exclude_1+=("--exclude=$path2")
+            DEBUG "DST ${path2} is inside of SRC ${path1}"
+            DEBUG "source run of rhardlink will run with --exclude=${path2@Q}"
+        fi
+        if (( path1_inside_path2 )) ; then
+            exclude_2+=("--exclude=$path1")
+            DEBUG "SRC ${path1} is inside of DST ${path2}"
+            DEBUG "dest run of rhardlink will run with --exclude=${path1@Q}"
+        fi
+        declare -a rhardlink_1=(
+            rhardlink "${opt_verbose[@]}" "${opt_dry_run[@]}"
+            "${exclude[@]}" "${exclude_1[@]}"
+            "${path1}" "${tmpdir1}"
+        )
+        declare -a rhardlink_2=(
+            rhardlink "${opt_verbose[@]}" "${opt_dry_run[@]}"
+            "${exclude[@]}" "${exclude_2[@]}"
+            "${path2}" "${tmpdir2}"
+        )
+        RUN "${rhardlink_1[@]}"
+        RUN "${rhardlink_2[@]}"
+        declare -a git_diff_cmd=(
+            git --no-pager diff --color=always --no-index \
+                --src-prefix="SRC/" \
+                --dst-prefix="DST/" \
+                "${git_diff_options[@]}" "${tmpdir1}" "${tmpdir2}"
+        )
+        declare -a sed_cmd=(
+            sed -E
+            -e '/^'$'\e\[1m''(diff|---|\+\+\+)/{'
+            -e 's# SRC'"$tmpdir1"'# A#g;'
+            -e 's# DST'"$tmpdir2"'# B#g;'
+            -e 's# SRC'"$tmpdir2"'# A#g;' # when files are created git diff will output wrong source path
+            -e 's# DST'"$tmpdir1"'# B#g;' # for good measure
+            -e '}'
+            -e '/^'$'\e\[1m''rename /{'
+            -e 's#rename from '"$tmpdir1"'#rename from A#;'
+            -e 's#rename to '"$tmpdir2"'#rename to B#;'
+            -e 's#rename from '"$tmpdir2"'#rename from A#;' # for good measure
+            -e 's#rename to '"$tmpdir1"'#rename to B#;'     # for good measure
+            -e '}'
+        )
+        if (( no_sed )) ; then
+            RUN "${git_diff_cmd[@]}"
+            exit 1              # in case we go past exec
+        fi
+        RUN "${git_diff_cmd[@]}" | RUN "${sed_cmd[@]}"
+    ) | less -sR
 }
 
 declare -a rsync_options=(
@@ -98,35 +220,24 @@ declare -a rsync_options=(
 )
 
 declare -a git_diff_options=(
-    --no-prefix
     --ignore-blank-lines
-    --word-diff
+    # --no-prefix
+    # --word-diff
     # --diff-filter=MT
+    # --src-prefix="A/"
+    # --dst-prefix="B/"
 )
 
-# these are supplied to RSYNC.
+# these are supplied to RHARDLINK.
 declare -a exclude=(
-    # directories
-    --exclude=".git"
-    --exclude="node_modules"
-    --exclude="_cacache"
-    --exclude=".node-gyp"
-    --exclude="vendor"
-    --exclude=".cache"
-
-    # temp/backup files
-    --exclude="*~"
-    --exclude="#*#"
+    -C
+    --exclude="node_modules/"
+    --exclude="_cacache/"
+    --exclude=".node-gyp/"
+    --exclude="vendor/"
+    --exclude=".cache/"
     --exclude="*.tmp"
-    --exclude="*.bak"
-    --exclude="*.orig"
-    --exclude="*.old"
     --exclude="*.tmp.*"
-    --exclude="*.bak.*"
-    --exclude="*.orig.*"
-    --exclude="*.old.*"
-
-    # bloat
     --exclude="*.min"
     --exclude="*.min.*"
     --exclude="package-lock.json"
@@ -134,14 +245,85 @@ declare -a exclude=(
     --exclude="yarn.lock"
     --exclude="*.map"
     --exclude="*.map.*"
-    # --exclude="*.bundle"
-    # --exclude="*.bundle.*"
+    --exclude=".gdiff-*/"
 )
 
 trap at_exit EXIT
 at_exit () {
-    [[ -v tmp1 ]] && [[ -e "${tmp1}" ]] && { rm -fr "${tmp1}" || true ; }
-    [[ -v tmp2 ]] && [[ -e "${tmp2}" ]] && { rm -fr "${tmp2}" || true ; }
+    if (( ! keep )) ; then
+        if [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] ; then
+            if [[ -v keep_tmpdir1 ]] && (( keep_tmpdir1 )) ; then
+                [[ -e "${tmpdir1}" ]] && ls -ld "${tmpdir1}"
+            else
+                DEBUG "removing $tmpdir1"
+                rm -fr "${tmpdir1}" || true
+            fi
+        fi
+        if [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] ; then
+            if [[ -v keep_tmpdir2 ]] && (( keep_tmpdir2 )) ; then
+                ls -ld "${tmpdir2}"
+            else
+                DEBUG "removing $tmpdir2"
+                rm -fr "${tmpdir2}" || true
+            fi
+        fi
+        if [[ -v tmpfile1 ]] && [[ -e "${tmpfile1}" ]] ; then
+            if [[ -v keep_tmpfile1 ]] && (( keep_tmpfile1 )) ; then
+                ls -ld "${tmpfile1}"
+            else
+                DEBUG "removing $tmpfile1"
+                rm -fr "${tmpfile1}" || true
+            fi
+        fi
+        if [[ -v tmpfile2 ]] && [[ -e "${tmpfile2}" ]] ; then
+            if [[ -v keep_tmpfile2 ]] && (( keep_tmpfile2 )) ; then
+                ls -ld "${tmpfile2}"
+            else
+                DEBUG "removing $tmpfile2"
+                rm -fr "${tmpfile2}" || true
+            fi
+        fi
+    fi
 }
+
+DEBUG () {
+    (( verbose < 2 )) && return
+    LOG DEBUG "$@"
+}
+INFO () {
+    (( verbose < 1 )) && return
+    LOG INFO "$@"
+}
+WARNING () {
+    (( verbose < 0 )) && return
+    LOG WARNING "$@"
+}
+ERROR () {
+    (( verbose < -1 )) && return
+    LOG ERROR "$@"
+}
+FATAL () {
+    LOG FATAL "$@"
+    exit 1
+}
+LOG () {
+    local prefix=$1; shift
+    echo -n "gdiff: [$prefix] " >&2
+    echo "$@" >&2
+}
+DRY_RUN () {
+    (( dry_run )) || return
+    LOG DRY-RUN "$@"
+}
+RUN () {
+    LOG DEBUG "$@"
+    "$@"
+}
+
+usage () { cat <<EOF; }
+gdiff ─┬ [--dry-run]        ┬─┬ <dir1> <dir2>   ┬─ [git diff options ...]
+       │ [--keep]           │ └ <file1> <file2> ┘
+       └ [-v,--verbose ...] ┘
+EOF
 
 main "$@"

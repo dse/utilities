@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my $line = 0;
+
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    'l|line' => \$line,
+) or die(":-(");
+
+while (<>) {
+    s{\R\z}{};
+    s{['\x{2019}]}{}g;
+    if ($line) {
+        kebab($_);
+        print("$_\n");
+    } else {
+        my @words = split(qr{(\s*\t\s*| {2,})}, $_);
+        for (my $i = 0; $i <= $#words; $i += 2) {
+            kebab($words[$i]);
+        }
+        print(join("", @words), "\n");
+    }
+}
+
+sub kebab {
+    if (!defined wantarray) {
+        for (@_) {
+            s{[^0-9A-Za-z]+}{-}g;
+            s{^-+}{};
+            s{-+$}{};
+            $_ = lc($_);
+        }
+    } else {
+        my @words = @_;
+        kebab(@words);
+        return @words;
+    }
+}
