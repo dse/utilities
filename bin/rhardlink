@@ -8,6 +8,7 @@ use File::Path qw(make_path);
 use File::Basename qw(dirname);
 use List::Util qw(any);
 use Data::Dumper qw(Dumper);
+use IO::File;
 use feature qw(state);
 
 our %LOG_LEVEL_NAMES = (
@@ -45,6 +46,7 @@ our $opt_exclude_cvs = 0;
 our $opt_dry_run = 0;
 our $opt_verbose = 0;
 our @opt_exclude_patterns;
+our @opt_exclude_patterns_from,
 
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
@@ -52,6 +54,14 @@ Getopt::Long::GetOptions(
     'n|dry-run'     => \$opt_dry_run,
     'v|verbose+'    => \$opt_verbose,
     'x|exclude=s'   => \@opt_exclude_patterns,
+    'exclude-from=s' => sub {
+        my $filename = $_[1];
+        my $fh = IO::File->new($filename, "r");
+        while (<$fh>) {
+            s{\R\z}{};
+            push(@opt_exclude_patterns, $_);
+        }
+    }
 ) or die(":-(");
 
 DEBUG("verbose = $opt_verbose\n");
@@ -113,10 +123,10 @@ $dest =~ s{/+$}{};
 DEBUG("final src: $src\n");
 DEBUG("final dest: $dest\n");
 if ($src eq $dest) {
-    FATAL("source and destination are the same\n");
+    FATAL("source $src and destination $dest are the same\n");
 }
 if (is_in($src, $dest)) {
-    FATAL("source cannot be inside destination\n");
+    FATAL("source $src cannot be inside destination $dest\n");
 }
 
 find(\&wanted, $src);

@@ -12,7 +12,8 @@ main () {
     keep=0
     declare -a opt_dry_run=()
     declare -a opt_verbose=()
-    while getopts 'knv-:h' OPTION ; do
+    declare -a git_diff_options=()
+    while getopts 'mknv-:h' OPTION ; do
         if [[ "${OPTION}" = "-" ]] ; then
             case "${OPTARG}" in
                 '')
@@ -30,6 +31,17 @@ main () {
                     ;;
             esac
         fi
+        get_arg () {
+            if [[ ! -v OPTARG ]] ; then
+                if (( OPTIND > $# )) ; then
+                    echo "option missing required argument - ${OPTION}"
+                    exit 1
+                fi
+                OPTARG="${!OPTIND}"
+                OPTIND=$((OPTIND + 1))
+                echo "OPTIND=${OPTARG}"
+            fi
+        }
         case "${OPTION}" in
             k|keep)
                 keep=1
@@ -42,6 +54,21 @@ main () {
                 verbose=$((verbose + 1))
                 opt_verbose+=(-v)
                 ;;
+            x|exclude)
+                get_arg "$@"
+                exclude+=(--exclude "${OPTARG}")
+                ;;
+            diff-filter)
+                get_arg "$@"
+                git_diff_options+=(--diff-filter="${OPTARG}")
+                ;;
+            m|modified)
+                git_diff_options+=(--diff-filter=M)
+                ;;
+            exclude-from)
+                get_arg "$@"
+                exclude+=(--exclude-from "${OPTARG}")
+                ;;
             no-sed)
                 no_sed=1
                 ;;
@@ -50,7 +77,7 @@ main () {
                 exit 0
                 ;;
             *)
-                # option error
+                echo "gdiff: illegal option - ${OPTION}"
                 exit 1
                 ;;
         esac
@@ -97,7 +124,7 @@ main () {
     fi
 
     if (( both_are_files )) ; then
-        exec git diff --no-index "$path1" "$path2"
+        exec git diff "${git_diff_options[@]}" --no-index "$path1" "$path2"
     fi
 
     #--------------------------------------------------------------------------

@@ -38,6 +38,7 @@ my $WIDTH = 80;
 my $SEPAR = " | ";
 my $CHUNKS = 0;
 my $LINES_PER_PAGE = 0;
+my $FORM_FEED = 0;
 
 Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
@@ -45,6 +46,7 @@ Getopt::Long::GetOptions(
     's|separator=s' => \$SEPAR,
     'c|chunks' => \$CHUNKS,
     'l|lines-per-page=i' => \$LINES_PER_PAGE,
+    'f|form-feed' => \$FORM_FEED,
     'help' => sub { help(); exit(0); }
 ) or die("Type '$0 --help' for help.\n");
 
@@ -71,27 +73,82 @@ my @chunks = chunks();
 columnize();
 
 sub columnize {
-    my $row_count;
-    for ($row_count = max map { scalar @$_ } @chunks;
-         $row_count <= scalar @lines;
-         $row_count += 1) {
-        my $width = compute($row_count);
-        if ($width <= $WIDTH) {
-            last;
+    if ($LINES_PER_PAGE) {
+        my @columns;
+        if ($CHUNKS) {
+            my @chunks = chunks();
+            my $column = [];
+            push(@columns, $column);
+            my @widths = (0);
+            foreach my $chunk (@chunks) {
+                while (scalar @$chunk > $LINES_PER_PAGE) {
+                    push(@columns, [splice(@$chunk, 0, $LINES_PER_PAGE)]);
+                }
+                next if !scalar @$chunk;
+                my $new_row_count = scalar @$column + (scalar @$column ? 1 : 0) + scalar @$chunk;
+                if ($new_row_count > $LINES_PER_PAGE) {
+                    $column = [];
+                    push(@columns, $column);
+                    push(@widths, 0);
+                    $new_row_count = scalar @$chunk;
+                }
+                push(@$column, '') if scalar @$column;
+                push(@$column, @$chunk);
+                $widths[-1] = max($widths[-1], max map { length $_ } @$chunk);
+            }
         }
-    }
-    my ($columns, $widths) = generate($row_count);
-    my @columns = @$columns;
-    my @widths = @$widths;
-    while (scalar grep { scalar @$_ } @columns) {
-        my $line = "";
-        foreach my $col_num (0 .. (scalar @columns - 1)) {
-            my $column = $columns[$col_num];
-            my $str = shift(@$column) // "";
-            $line .= $SEPAR if length $line;
-            $line .= sprintf("%-*s", $widths[$col_num], $str);
+        my $page = { width => 0, widths => [], columns => [] };
+        my @pages = $page;
+        foreach my $column (@columns) {
+            my $this_column_width = max map { length $_ } @$column;
+            my $new_width = $page->{width} + ($page->{width} ? length($SEPAR) : 0) + $this_column_width;
+            if ($new_width > $WIDTH) {
+                $page = { width => 0, widths => [], columns => [] };
+                push(@pages, $page);
+            }
+            $page->{width} = $page->{width} + ($page->{width} ? length($SEPAR) : 0) + $this_column_width;
+            push(@{$page->{columns}}, $column);
+            push(@{$page->{widths}}, $this_column_width);
         }
-        printf("%s\n", $line);
+        for my $page_number (0 .. (scalar @pages - 1)) {
+            my $page = $pages[$page_number];
+            if ($FORM_FEED && $page_number) {
+                print("\f");
+            }
+            foreach my $row_idx (0 .. ($LINES_PER_PAGE - 1)) {
+                my $line = "";
+                foreach my $col_idx (0 .. (scalar @{$page->{columns}} - 1)) {
+                    if ($col_idx) {
+                        $line .= $SEPAR;
+                    }
+                    $line .= sprintf("%-*s", $page->{widths}->[$col_idx], $page->{columns}->[$col_idx]->[$row_idx] // "");
+                }
+                print("$line\n");
+            }
+        }
+    } else {
+        my $row_count;
+        for ($row_count = max map { scalar @$_ } @chunks;
+             $row_count <= scalar @lines;
+             $row_count += 1) {
+            my $width = compute($row_count);
+            if ($width <= $WIDTH) {
+                last;
+            }
+        }
+        my ($columns, $widths) = generate($row_count);
+        my @columns = @$columns;
+        my @widths = @$widths;
+        while (scalar grep { scalar @$_ } @columns) {
+            my $line = "";
+            foreach my $col_num (0 .. (scalar @columns - 1)) {
+                my $column = $columns[$col_num];
+                my $str = shift(@$column) // "";
+                $line .= $SEPAR if length $line;
+                $line .= sprintf("%-*s", $widths[$col_num], $str);
+            }
+            printf("%s\n", $line);
+        }
     }
 }
 
@@ -176,4 +233,15 @@ sub chunks {
         push(@$chunk, $line);
     }
     return @chunks;
+}
+
+sub fixed_columns {
+    my @columns;
+    for (my $start = 0; $start < scalar @lines; $start += $LINES_PER_PAGE) {
+        my $end = min($start + $LINES_PER_PAGE - 1,
+                      scalar @lines - 1);
+        my $column = [@lines[$start .. $end]];
+        push(@columns, $column);
+    }
+    return @columns;
 }
