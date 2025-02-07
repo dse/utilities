@@ -1,0 +1,256 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Cwd qw(realpath);
+use Getopt::Long;
+use File::Find qw(find);
+use File::Path qw(make_path);
+use File::Basename qw(dirname);
+use List::Util qw(any);
+use Data::Dumper qw(Dumper);
+use IO::File;
+use feature qw(state);
+
+our %LOG_LEVEL_NAMES = (
+    -2 => "CRITICAL",
+    -1 => "ERROR",
+    0 => "WARNING",
+    1 => "INFO",
+    2 => "DEBUG",
+    # python:
+    #     debug
+    #     info
+    #     warning
+    #     error
+    #     critical
+    # apache:
+    #     trace8 ... trace1
+    #     debug
+    #     info
+    #     notice
+    #     warning
+    #     error
+    #     crit
+    #     alert
+    #     emerg
+    # apache commons logging:
+    #     trace
+    #     debug
+    #     info
+    #     warning
+    #     error
+    #     fatal
+);
+
+our $opt_exclude_cvs = 0;
+our $opt_dry_run = 0;
+our $opt_verbose = 0;
+our @opt_exclude_patterns;
+our @opt_exclude_patterns_from,
+
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    'C|exclude-cvs|cvs-exclude' => \$opt_exclude_cvs,
+    'n|dry-run'     => \$opt_dry_run,
+    'v|verbose+'    => \$opt_verbose,
+    'x|exclude=s'   => \@opt_exclude_patterns,
+    'exclude-from=s' => sub {
+        my $filename = $_[1];
+        my $fh = IO::File->new($filename, "r");
+        while (<$fh>) {
+            s{\R\z}{};
+            push(@opt_exclude_patterns, $_);
+        }
+    }
+) or die(":-(");
+
+DEBUG("verbose = $opt_verbose\n");
+DEBUG("exclude_cvs = $opt_exclude_cvs\n");
+DEBUG("dry_run = $opt_dry_run\n");
+DEBUG("exclude_pattern = @opt_exclude_patterns\n");
+if ($opt_exclude_cvs) {
+    push(@opt_exclude_patterns,
+         'RCS', 'SCCS', 'CVS', 'CVS.adm', 'RCSLOG', 'cvslog.*', 'tags',
+         'TAGS', '.make.state', '.nse_depinfo', '*~', '#*', '.#*',
+         ',*', '_$*', '*$', '*.old', '*.bak', '*.BAK', '*.orig',
+         '*.rej', '.del-*', '*.a', '*.olb', '*.o', '*.obj', '*.so',
+         '*.exe', '*.Z', '*.elc', '*.ln', 'core', '.svn/', '.git/',
+         '.hg/', '.bzr/');
+    # see rsync(1)
+}
+DEBUG("exclude_pattern = @opt_exclude_patterns\n");
+our @exclude_regexp = map {
+    my $pattern = $_;
+    my $ends_with_slash = substr($pattern, -1) eq '/';
+    my $starts_with_slash = substr($pattern, 0, 1) eq '/';
+    if ($ends_with_slash) {
+        if ($starts_with_slash) {
+            { match_path => 1, dir_only => 1, regexp => pattern_to_regexp(substr($_, 0, -1)) }
+        } else {
+            { dir_only => 1, regexp => pattern_to_regexp(substr($_, 0, -1)) }
+        }
+    } else {
+        if ($starts_with_slash) {
+            { match_path => 1, regexp => pattern_to_regexp($_) }
+        } else {
+            { regexp => pattern_to_regexp($_) }
+        }
+    }
+} @opt_exclude_patterns;
+
+DEBUG(Dumper(\@exclude_regexp));
+
+if (scalar @ARGV < 2) {
+    FATAL("not enough arguments\n");
+}
+my $src = shift @ARGV;
+my $dest = shift @ARGV;
+if (!-e $dest) {
+    if (mkdir($dest)) {
+        DEBUG("DST $dest: directory created\n");
+    } else {
+        FATAL("DST $dest: $!\n");
+    }
+} elsif (!-d $dest) {
+    FATAL("DST $dest: not a directory\n");
+}
+DEBUG("initial src: $src\n");
+DEBUG("initial dest: $dest\n");
+$src = realpath($src);
+$dest = realpath($dest);
+$src =~ s{/+$}{};
+$dest =~ s{/+$}{};
+DEBUG("final src: $src\n");
+DEBUG("final dest: $dest\n");
+if ($src eq $dest) {
+    FATAL("source $src and destination $dest are the same\n");
+}
+if (is_in($src, $dest)) {
+    FATAL("source $src cannot be inside destination $dest\n");
+}
+
+find(\&wanted, $src);
+
+sub wanted {
+    my ($dev, $ino, $mode, $nlink, $uid, $gid) = lstat($_);
+    my $src_path = $File::Find::name;
+    if (!defined $dev || !defined $ino) {
+        WARNING("SRC ${src_path}: $!\n");
+        return;
+    }
+    if ($src_path eq $dest) {
+        DEBUG("SRC $src_path is the same as DST $dest; pruning\n");
+        return $File::Find::prune = 1;
+    }
+    if (is_in($src_path, $dest)) {
+        DEBUG("SRC $src_path is in DST $dest; pruning\n");
+        return $File::Find::prune = 1;
+    }
+    my $basename = $_;
+    if (-d _) {
+        if (any { ($_->{match_path} ? $src_path : $basename) =~ $_->{regexp} } @exclude_regexp) {
+            foreach my $rule (@exclude_regexp) {
+                my $path = $rule->{match_path} ? $src_path : $basename;
+                if ($path =~ $rule->{regexp}) {
+                    DEBUG("exclusion: %s matches %s\n", $path, $rule->{regexp});
+                }
+            }
+            DEBUG("SRC $src_path: is directory; excluding and pruning due to exclude rule\n");
+            return $File::Find::prune = 1;
+        }
+        DEBUG("SRC $src_path: is directory; not adding directories but recursing\n");
+        return;
+    }
+    if (any { ($_->{match_path} ? $src_path : $basename) =~ $_->{regexp} } grep { !$_->{dir_only} } @exclude_regexp) {
+        DEBUG("SRC $src_path: excluding due to exclude rule\n");
+        return;
+    }
+
+    my $dest_path = compute_moved_pathname($src_path, $src, $dest);
+    if (!defined $dest_path) {
+        return;
+    }
+    my ($dest_dev, $dest_ino) = lstat($dest_path);
+    if ($!{ENOENT}) {           # file does not exist
+        if (make_link($src_path, $dest_path)) {
+            INFO("DST $dest_path created successfully\n");
+        }
+    } elsif ($!) {
+        ERROR("DST $dest_path: $!\n");
+    } elsif (!(defined $dest_dev && defined $dest_ino)) { # for good measure
+        if (make_link($src_path, $dest_path)) {
+            DEBUG("DST $dest_path created successfully\n");
+        }
+    } elsif ($dest_dev == $dev && $dest_ino == $ino) {
+        INFO("DST $dest_path exists and is already a hard link to SRC $src_path\n");
+    } else {
+        INFO("DST $dest_path exists and is not a hard link to SRC $src_path\n");
+    }
+}
+sub make_link {
+    state %dir_created;
+    my ($src_path, $dest_path) = @_;
+    if ($opt_dry_run) {
+        DRY_RUN("would create: ln SRC $src_path DST $dest_path\n");
+        return;
+    }
+    my $dir = dirname($dest_path);
+    if (!$dir_created{$dir}++) {
+        make_path($dir);
+    }
+    INFO("creating: ln SRC $src_path DST $dest_path\n");
+    if (link($src_path, $dest_path)) {
+        DEBUG("created DST $dest_path\n");
+    } else {
+        WARNING("DST $dest_path: $!\n");
+    }
+}
+sub compute_moved_pathname {
+    my ($pathname, $src, $dest) = @_;
+    ERROR("$pathname: not in SRC $src\n") if !is_in($pathname, $src); # for good measure
+    ERROR("$pathname: already in DST $dest\n") if is_in($pathname, $dest); # for good measure
+    return $dest . "/" . substr($pathname, length($src) + 1);
+}
+sub is_in {
+    my ($subdir, $dir) = @_;
+    return $dir . "/" eq substr($subdir, 0, length($dir) + 1);
+}
+sub pattern_to_regexp {
+    my %PATTERN_TO_REGEXP = (
+        '*' => '[^/]*',
+        '?' => '[^/]',
+    );
+    my $pattern = shift;
+    $pattern =~ s{.}{$PATTERN_TO_REGEXP{$&} // quotemeta($&)}ge;
+    return qr{^(?:$pattern)$};
+}
+
+sub DEBUG {
+    LOG("DEBUG", @_) if $opt_verbose >= 2;
+}
+sub INFO {
+    LOG("INFO", @_) if $opt_verbose >= 1;
+}
+sub WARNING {
+    LOG("WARNING", @_) if $opt_verbose >= 0;
+}
+sub ERROR {
+    LOG("ERROR", @_) if $opt_verbose >= -1;
+}
+sub FATAL {
+    LOG("FATAL", @_) if $opt_verbose >= -2;
+    exit(1);
+}
+sub LOG {
+    my ($prefix, $format, @args) = @_;
+    $format =~ s{\R\z}{};
+    $format .= "\n";
+    warn(sprintf("rhardlink: [%s] $format", $prefix, @args));
+}
+sub DRY_RUN {
+    return if !$opt_dry_run;
+    LOG("DRY RUN", @_);
+}
+sub UNEXPECTED {
+    LOG("UNEXPECTED", @_);
+}

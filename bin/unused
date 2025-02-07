@@ -1,0 +1,184 @@
+#!/usr/bin/env perl
+#
+# print names of large files not referenced in any of the text files
+#
+use warnings;
+use strict;
+use File::Find;
+use File::MMagic::XS;
+use Data::Dumper;
+use File::Basename qw(basename);
+use List::Util qw(uniq all max min);
+use Getopt::Long;
+use HTML::Entities qw(decode_entities);
+use URI::Escape qw(uri_unescape);
+
+STDERR->autoflush(1);
+
+if (!scalar @ARGV) {
+    print STDERR ("usage: $0 <dir> [...]\n");
+    exit(1);
+}
+
+use constant LARGE_FILE_SIZE_MIN => 1 << 16;
+
+my %exclude_dir;
+
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    'X|exclude-dir=s' => sub { $exclude_dir{$_[1]} = 1; },
+) or die(":-(\n");
+
+my @files;
+my @text_files;
+my @small_files;
+my @large_files;
+my @large_file_basenames;
+my %large_files_by_basename;
+my %not_mentioned;
+my %size;
+my $m = File::MMagic::XS->new();
+
+warn("Finding files...\n");
+find_files();
+warn("Divvying files...\n");
+divvy_files();
+warn("Grepping files...\n");
+grep_files();
+
+sub find_files {
+    my $wanted = sub {
+        my @lstat = lstat($_);
+        return if !scalar @lstat;
+        if (-d _ && ($_ eq 'node_modules' ||
+                     $_ eq '.git' ||
+                     $exclude_dir{$_})) {
+            $File::Find::prune = 1;
+            return;
+        }
+        return if !-f _ && !-l _;
+        return if m{:Zone\.Identifier$}i;
+        my $size = $size{$File::Find::name} = -s _;
+        if ($size <= LARGE_FILE_SIZE_MIN) {
+            push(@small_files, $File::Find::name);
+        } else {
+            push(@large_files, $File::Find::name);
+        }
+        push(@files, $File::Find::name);
+    };
+    find($wanted, @ARGV);
+}
+
+sub divvy_files {
+    foreach my $i (0..$#small_files) {
+        small_file($small_files[$i]);
+    }
+    foreach my $i (0..$#large_files) {
+        large_file($large_files[$i]);
+    }
+    printf STDERR ("    %5d small files\n", scalar @small_files);
+    printf STDERR ("    %5d large files\n", scalar @large_files);
+    printf STDERR ("    %5d text files\n", scalar @text_files);
+}
+
+sub grep_files {
+    %not_mentioned = ();
+    $not_mentioned{$_} = 1 foreach @large_file_basenames;
+    my $large_file_basename_count = scalar keys %not_mentioned;
+    my $text_file_count = scalar @text_files;
+    printf STDERR ("    %5d basenames to check for\n", scalar keys %not_mentioned);
+    foreach my $i (0 .. $#text_files) {
+        my $text_file = $text_files[$i];
+        my $fh;
+        if (!($fh = IO::File->new($text_file, 'r'))) {
+            if (-t 2) {
+                printf STDERR ("\r\e[K");
+            }
+            warn("$text_file: $!\n");
+            next;
+        }
+        if (-t 2) {
+            printf STDERR ("\r    %5d/%d not mentioned.  %5d/%d.  %10d  %s\e[K",
+                           scalar keys %not_mentioned,
+                           $large_file_basename_count,
+                           $i + 1,
+                           $text_file_count,
+                           $size{$text_file}, $text_file);
+        }
+        while (<$fh>) {
+            if (!/\S/) {
+                next;
+            }
+            my @str = ($_);
+            if (/%/) {
+                push(@str, map { uri_unescape($_) } @str);
+                @str = uniq sort @str;
+            }
+            if (/&/) {
+                push(@str, map { decode_entities($_) } @str);
+                @str = uniq sort @str;
+            }
+            foreach my $basename (keys %not_mentioned) {
+                if (!$not_mentioned{$basename}) { # this file was mentioned
+                    next;
+                }
+                if (all { index($_, $basename) == -1 } @str) { # this file not mentioned
+                    next;
+                }
+                delete $not_mentioned{$basename};
+                if (!scalar keys %not_mentioned) {
+                    if (-t 2) {
+                        printf STDERR ("\r\e[K");
+                    }
+                    printf STDERR ("All filenames are mentioned.\n");
+                    return;
+                }
+            }
+        }
+    }
+    if (-t 2) {
+        printf STDERR ("\r\e[K");
+    }
+    foreach my $basename (keys %not_mentioned) {
+        print("$basename\n");
+    }
+    printf STDERR ("# %d unmentioned files found\n", scalar keys %not_mentioned);
+    printf STDERR ("# grep --exclude-dir=node_modules --exclude-dir=.git -F -r -f <filename> @ARGV\n");
+}
+
+sub small_file {
+    my $file = shift;
+    check_for_text($file);
+}
+
+sub large_file {
+    my $file = shift;
+    check_for_text($file);
+    push(@large_files, $file);
+    push(@large_file_basenames, basename($file));
+    push(@{$large_files_by_basename{basename($file)}}, $file);
+}
+
+sub check_for_text {
+    my $file = shift;
+    if ($file =~ m{\.(ttf|woff|woff2|otf|pfa|pfb|sfd|ufo|jpe?g|png|bmp|gif|swf|mp3|mp4|qt|aac|pdf|ps)$}i) {
+        return;
+    }
+    if ($file =~ m{\.(html?|njk|md|txt|php|js|ts|cjs|mjs|jsx|css|scss)$}i) {
+        push(@text_files, $file);
+        return;
+    }
+    my $mime_type = $m->get_mime($file);
+    if ($mime_type =~ m{^(?:audio|image|video|movie|sound)/}) {
+        return;
+    }
+    if ($mime_type =~ m{^text/}) {
+        push(@text_files, $file);
+        return;
+    }
+    if (!-B $file) {
+        print STDERR ("double-check if this is a type of text file: $file\n");
+        push(@text_files, $file);
+        return;
+    }
+}

@@ -1,0 +1,50 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use List::Util qw(max all);
+use Scalar::Util qw(looks_like_number);
+
+my @rows;
+while (<>) {
+    s{\R\z}{};
+    my @row = split("\t");
+    push(@rows, \@row);
+}
+
+my $column_count = max map { scalar @$_ } @rows;
+my @column_widths;
+foreach my $column_idx (0 .. ($column_count - 1)) {
+    $column_widths[$column_idx] = max map { defined $_ ? length $_ : 0 } map { $_->[$column_idx] } @rows;
+}
+
+my @numeric;
+foreach my $column_idx (0 .. ($column_count - 1)) {
+    $numeric[$column_idx] = all { !is_value_of_non_numeric_column($_) } map { $_->[$column_idx] } @rows;
+}
+
+foreach my $row (@rows) {
+    my $line = join(" | ",
+                    map {
+                        ((!defined $row->[$_]) ?
+                         sprintf("%*s", $column_widths[$_], "") :
+                         ($row->[$_] eq '-') ? '-' x $column_widths[$_] :
+                         sprintf(
+                             ($numeric[$_] ? "%*s" : "%-*s"),
+                             $column_widths[$_],
+                             $row->[$_] // ""
+                         ))
+                    } (0 .. ($column_count - 1)));
+    # extend horizontal rules to space between separators
+    $line =~ s{(-+) (\|)}{$1-$2}g;
+    $line =~ s{(\|) (-+)}{$1-$2}g;
+    print("$line\n");
+}
+
+sub is_value_of_non_numeric_column {
+    my $str = shift;
+    return 0 if !defined $str;
+    return 0 if $str eq '';
+    return 0 if $str !~ /\S/;
+    return 0 if looks_like_number($str);
+    return 1;
+}

@@ -19,6 +19,9 @@ my $json = JSON->new()->pretty();
 local $/ = undef;
 while (<>) {
     local $YAML::Preserve = 1;
+    # if ($_ !~ m{\A---\r?\n}) {
+    #     $_ = "---\n$_";
+    # }
     my $doc = YAML::Load($_);
     print $json->encode($doc);
 }

@@ -1,107 +1,22 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use v5.10.0;
-
 use HTML::Tagset;
-use HTML::Valid::Tagset;
 use Data::Dumper;
-
-BEGIN {
-    %HTML::Tagset::emptyElement                 = %HTML::Valid::Tagset::emptyElement;
-    %HTML::Tagset::optionalEndTag               = %HTML::Valid::Tagset::optionalEndTag;
-    %HTML::Tagset::linkElements                 = %HTML::Valid::Tagset::linkElements;
-    %HTML::Tagset::boolean_attr                 = %HTML::Valid::Tagset::boolean_attr;
-    %HTML::Tagset::isPhraseMarkup               = %HTML::Valid::Tagset::isPhraseMarkup;
-    %HTML::Tagset::is_Possible_Strict_P_Content = %HTML::Valid::Tagset::is_Possible_Strict_P_Content;
-    %HTML::Tagset::isHeadElement                = %HTML::Valid::Tagset::isHeadElement;
-    %HTML::Tagset::isList                       = %HTML::Valid::Tagset::isList;
-    %HTML::Tagset::isTableElement               = %HTML::Valid::Tagset::isTableElement;
-    %HTML::Tagset::isFormElement                = %HTML::Valid::Tagset::isFormElement;
-    %HTML::Tagset::isBodyMarkup                 = %HTML::Valid::Tagset::isBodyMarkup;
-    %HTML::Tagset::isHeadOrBodyElement          = %HTML::Valid::Tagset::isHeadOrBodyElement;
-    %HTML::Tagset::isKnown                      = %HTML::Valid::Tagset::isKnown;
-    %HTML::Tagset::canTighten                   = %HTML::Valid::Tagset::canTighten;
-    @HTML::Tagset::p_closure_barriers           = @HTML::Valid::Tagset::p_closure_barriers;
-    %HTML::Tagset::isCDATA_Parent               = %HTML::Valid::Tagset::isCDATA_Parent;
-}
-
-our @variables = (
-    { full_name => '%HTML::Tagset::emptyElement'                 },
-    { full_name => '%HTML::Tagset::optionalEndTag'               },
-    { full_name => '%HTML::Tagset::linkElements'                 },
-    { full_name => '%HTML::Tagset::boolean_attr'                 },
-    { full_name => '%HTML::Tagset::isPhraseMarkup'               },
-    { full_name => '%HTML::Tagset::is_Possible_Strict_P_Content' },
-    { full_name => '%HTML::Tagset::isHeadElement'                },
-    { full_name => '%HTML::Tagset::isList'                       },
-    { full_name => '%HTML::Tagset::isTableElement'               },
-    { full_name => '%HTML::Tagset::isFormElement'                },
-    { full_name => '%HTML::Tagset::isBodyMarkup'                 },
-    { full_name => '%HTML::Tagset::isHeadOrBodyElement'          },
-    { full_name => '%HTML::Tagset::isKnown'                      },
-    { full_name => '%HTML::Tagset::canTighten'                   },
-    { full_name => '@HTML::Tagset::p_closure_barriers'           },
-    { full_name => '%HTML::Tagset::isCDATA_Parent'               },
-);
-
-my %variables;
-
-foreach my $variable (@variables) {
-    $variable->{short_name}       = short_name($variable->{full_name});
-    $variable->{short_name_kebab} = kebab_case($variable->{short_name});
-    $variables{$variable->{short_name}}       = $variable;
-    $variables{$variable->{short_name_kebab}} = $variable;
-}
-
-sub short_name {
-    my $name = shift;
-    my $sigil = ($name =~ m{^[\$\&\%\@\*]}) ? $& : undef;
-    $name =~ s{^.*::}{};
-    return ($name, $sigil) if wantarray;
-    return $name;
-}
-
-sub kebab_case {
-    my $name = shift;
-    # aBC => a-BC
-    # aBc => a-bc
-    # aB  => a-b
-    $name =~ s{([[:lower:]])([[:upper:]])([[:upper:]]?)}
-              {$1 . "-" . ($3 eq "" ? lc($2) : $2) . $3}gex;
-    $name =~ s{[-_]+}
-              {-}gx;
-    $name = lc $name;
-    return $name;
-}
-
-sub dumper {
-    my $variable = shift;
-    my $full_name = $variable->{full_name};
-    my $expr = "\\" . $full_name;
-    my $value = eval {
-        eval $expr;
-    };
-    if ($@) {
-        return;
-    }
-    local $Data::Dumper::Indent = 1;
-    local $Data::Dumper::Sortkeys = 1;
-    my $dumper = Data::Dumper->Dump([$value], [$expr]);
-    $dumper =~ s{^(\s+)}{$1$1}gm;
-    print $dumper;
-}
-
-if (!scalar @ARGV) {
-    @ARGV = qw(all);
-}
-
-foreach my $arg (@ARGV) {
-    if (exists $variables{$arg}) {
-        dumper($variables{$arg});
-    } elsif ($arg eq "all") {
-        foreach my $variable (@variables) {
-            dumper($variable);
-        }
-    }
-}
+$Data::Dumper::Terse = 1;
+print('\\%HTML::Tagset::emptyElement = ', Dumper(\%HTML::Tagset::emptyElement));
+print('\\%HTML::Tagset::optionalEndTag = ', Dumper(\%HTML::Tagset::optionalEndTag));
+print('\\%HTML::Tagset::linkElements = ', Dumper(\%HTML::Tagset::linkElements));
+print('\\%HTML::Tagset::boolean_attr = ', Dumper(\%HTML::Tagset::boolean_attr));
+print('\\%HTML::Tagset::isPhraseMarkup = ', Dumper(\%HTML::Tagset::isPhraseMarkup));
+print('\\%HTML::Tagset::is_Possible_Strict_P_Content = ', Dumper(\%HTML::Tagset::is_Possible_Strict_P_Content));
+print('\\%HTML::Tagset::isHeadElement = ', Dumper(\%HTML::Tagset::isHeadElement));
+print('\\%HTML::Tagset::isList = ', Dumper(\%HTML::Tagset::isList));
+print('\\%HTML::Tagset::isTableElement = ', Dumper(\%HTML::Tagset::isTableElement));
+print('\\%HTML::Tagset::isFormElement = ', Dumper(\%HTML::Tagset::isFormElement));
+print('\\%HTML::Tagset::isBodyElement = ', Dumper(\%HTML::Tagset::isBodyElement));
+print('\\%HTML::Tagset::isHeadOrBodyElement = ', Dumper(\%HTML::Tagset::isHeadOrBodyElement));
+print('\\%HTML::Tagset::isKnown = ', Dumper(\%HTML::Tagset::isKnown));
+print('\\%HTML::Tagset::canTighten = ', Dumper(\%HTML::Tagset::canTighten));
+print('\\@HTML::Tagset::p_closure_barriers = ', Dumper(\@HTML::Tagset::p_closure_barriers));
+print('\\%HTML::Tagset::isCDATA_Parent = ', Dumper(\%HTML::Tagset::isCDATA_Parent));

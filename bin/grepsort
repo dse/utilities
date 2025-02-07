@@ -8,12 +8,14 @@ our $word;
 our @pattern;
 our $fixed;
 our $sort;
+our $separator;
 
 Getopt::Long::Configure('gnu_getopt');
 Getopt::Long::GetOptions(
     'w|word-regexp' => sub { $word = 1; },
     'e|regexp=s' => \@pattern,
     'F|fixed-strings' => \$fixed,
+    'separator' => \$separator,
     'sort' => \$sort,
 ) or die(":-(\n");
 
@@ -28,6 +30,7 @@ my %lines;
 
 line:
 while (<>) {
+    s{\R\z}{};
     foreach my $pattern (@pattern) {
         if (matches($pattern)) {
             push(@{$lines{$pattern}}, $_);
@@ -39,8 +42,10 @@ while (<>) {
 foreach my $pattern (@pattern, '') {
     next if !exists $lines{$pattern};
     my @lines = @{$lines{$pattern}};
+    next if !scalar @lines;
     @lines = nsort @lines if $sort;
-    print foreach @lines;
+    print "$_\n" foreach @lines;
+    print "\n" if $separator;
 }
 
 sub matches {

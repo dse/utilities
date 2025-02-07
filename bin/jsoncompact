@@ -2,7 +2,7 @@
 use warnings;
 use strict;
 use JSON::XS;
-use List::Util qw(sum all);
+use List::Util qw(all max);
 use open IO => ':locale';
 local $/ = undef;
 my $json = JSON::XS->new()->pretty(1)->ascii(1);
@@ -18,10 +18,10 @@ sub compactify {
         return "[]" if scalar @$value == 0;
         my $separ = ",\n  " . (" " x $gap);
         my @items = map { compactify($_, $gap + 2) } @$value;
-        if (all { ref $_ eq '' } @$value) {
+        my $max_len = max(64, 80 - $gap);
+        if (all { ref $_ eq '' } @$value && scalar @$value <= floor($max_len / 2)) {
             my $str = "[" . join(", ", @items) . "]";
-            return $str if length($str) <= 64;
-            return $str if length($str) + $gap <= 80;
+            return $str if length($str) <= $max_len;
         }
         return "[ " . join($separ, map { compactify($_, $gap + 2) } @$value) . " ]";
     }
@@ -43,3 +43,25 @@ sub encode {
     $str =~ s{\s+\z}{};
     return $str;
 }
+
+#------------------------------------------------------------------------------
+# Amazon's interview ranking via https://www.youtube.com/watch?v=cLvqAv_u4f
+#                                which is about job interview processes
+#
+# 1 - I would quit if you hire them
+# 2 - probably shouldn't hire
+# <no middle so everyone has to pick one hireability side>
+# 3 - probably should hire
+# 4 - I would quit if you don't hire them
+#
+# 1,4 reflect taking stronger ownership
+# you take stronger ownership if there's fewer people
+#
+# look up: diffusion of responsibility on wikipedia
+#
+# https://www.haskellforall.com/2024/06/my-spiciest-take-on-tech-hiring.html
+
+#------------------------------------------------------------------------------
+# Requiring salary histories is bad because this is a good way to filter
+# out better candidates; a higher proportion of your candidates would be
+# desperate people.
