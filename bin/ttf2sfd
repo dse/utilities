@@ -1,0 +1,22 @@
+#!/usr/bin/env fontforge
+# -*- mode: python; coding: utf-8 -*-
+import fontforge
+import tempfile
+import argparse
+import os
+
+def main():
+    global args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename')
+    args = parser.parse_args()
+
+    font = fontforge.open(args.filename)
+    fp = tempfile.NamedTemporaryFile(suffix=".sfd")
+    fp.close()
+    font.save(fp.name)
+    fp = open(fp.name, "r")
+    print(fp.read(), end='')
+    os.remove(fp.name)
+
+main()
