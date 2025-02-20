@@ -13,7 +13,7 @@ main () {
     declare -a opt_dry_run=()
     declare -a opt_verbose=()
     declare -a git_diff_options=()
-    while getopts 'mknv-:h' OPTION ; do
+    while getopts 'wmknv-:h' OPTION ; do
         if [[ "${OPTION}" = "-" ]] ; then
             case "${OPTARG}" in
                 '')
@@ -43,6 +43,12 @@ main () {
             fi
         }
         case "${OPTION}" in
+            w)
+                git_diff_options+=(-w)
+                ;;
+            word-diff)
+                git_diff_options+=(--word-diff)
+                ;;
             k|keep)
                 keep=1
                 ;;
