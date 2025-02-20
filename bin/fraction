@@ -36,10 +36,10 @@ sub approximate {
         my $diff = abs($approx - $x);
         if (!defined $mindiff) {
             $mindiff = $diff;
-            printf("    %8d / %-8d = %10.4g (%.4g)\n", $numer, $denom, $approx, $diff);
+            printf("    %8d / %-8d = %10.4g (%.4e)\n", $numer, $denom, $approx, $diff);
         } elsif ($diff < $mindiff) {
             $mindiff = $diff;
-            printf("    %8d / %-8d = %10.4g (%.4g)\n", $numer, $denom, $approx, $diff);
+            printf("    %8d / %-8d = %10.4g (%.4e)\n", $numer, $denom, $approx, $diff);
         }
     };
     if ($scheme == 2) {
