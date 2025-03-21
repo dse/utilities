@@ -1,0 +1,165 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Cwd qw(abs_path);
+use HTML::TreeBuilder;
+use File::Spec::Functions qw(abs2rel);
+use URI;
+
+our %MODES = (
+    "r"  => "<",
+    "r+" => "+<",
+    "w"  => ">",
+    "w+" => "+>",
+    "a"  => ">>",
+    "a+" => "+>>",
+);
+
+our $GREP = 0;
+our $HREF = 1;
+
+our %linked_reverse;
+our %linked;
+our %linked_to;
+our %linked_from;
+
+my $root = ".";
+
+foreach my $filename (@ARGV) {
+    process_file($filename, $root);
+}
+
+sub process_file {
+    my ($pathname, $root) = @_;
+    if (-l $pathname) {
+        process_symlink($pathname, $root);
+    } elsif (-d $pathname) {
+        process_dir($pathname, $root);
+    } elsif (-f $pathname) {
+        process_regular_file($pathname, $root);
+    }
+}
+
+sub process_regular_file {
+    my ($pathname, $root) = @_;
+    if ($pathname !~ /\.x?html?$/i) {
+        return;
+    }
+    process_html(file_get_contents($pathname, $root), $pathname, $root);
+}
+
+sub process_dir {
+    my ($pathname, $root) = @_;
+    my @dirnames = dir_get_contents($pathname, $root);
+    process_file("${pathname}/$_", $root) foreach @dirnames;
+}
+
+sub process_symlink {
+    my ($pathname, $root) = @_;
+    return;
+}
+
+sub process_html {
+    my ($html, $pathname, $root) = @_;
+    my $rel_url = "/" . abs2rel($pathname, $root);
+    $rel_url =~ s/(?<=\/)index\.x?html?$//i;
+    my $tree = HTML::TreeBuilder->new;
+    $tree->ignore_unknown(0);
+    $tree->parse($html);
+    $tree->eof();
+    my @elements = $tree->look_down(sub {
+                                        my $e = shift;
+                                        return $e->tag eq 'a' || $e->tag eq 'link';
+                                    });
+    foreach my $a (@elements) {
+        my $href = $a->attr('href');
+        # if ($HREF) {
+        #     printf("%s:href=\"%s\"\n", $pathname, $href);
+        #     next;
+        # }
+        if (!defined $href) {
+            if ($HREF) {
+                next;
+            } elsif ($GREP) {
+                printf("%s:%s\n", $pathname, $a->as_HTML);
+            } else {
+                print("$rel_url: <a> with href not defined; skipping\n");
+            }
+            next;
+        }
+        if ($href =~ /^#/) {
+            if ($HREF) {
+                printf("%s:href=\"%s\"\n", $pathname, $href);
+            } elsif ($GREP) {
+                printf("%s:%s\n", $pathname, $a->as_HTML);
+            } else {
+                print("$rel_url: <a> href starting with '#'; skipping\n");
+            }
+            next;
+        }
+        my $uri = URI->new($href, $rel_url);
+        if (defined $uri->scheme) {
+            next;
+            if ($HREF) {
+                printf("%s:href=\"%s\"\n", $pathname, $href);
+            } elsif ($GREP) {
+                # printf("%s:%s\n", $pathname, $a->as_HTML);
+            } else {
+                print("$rel_url: <a> href specifies a scheme; skipping\n");
+            }
+            next;
+        }
+        my $url = $uri->as_string;
+        $url =~ s/#.*$//;
+        $url =~ s/\?.*$//;
+        $url =~ s/(?<=\/)index\.x?html?$//i;
+        if ($HREF) {
+            printf("%s:href=\"%s\"\n", $pathname, $href);
+        } elsif ($GREP) {
+            printf("%s:%s\n", $pathname, $a->as_HTML);
+        } else {
+            print("$rel_url: $href => $url\n");
+        }
+        $linked{$rel_url}{$url} = 1;
+        $linked_reverse{$url}{$rel_url} = 1;
+        $linked_from{$rel_url} = 1;
+        $linked_to{$url} = 1;
+    }
+}
+
+sub file_get_contents {
+    my ($filename, $bin) = @_;
+    my $fh = $bin ? fopen($filename, 'rb') : fopen($filename, 'r');
+    local $/ = undef;
+    local $. = undef;
+    my $val = <$fh>;
+    close($fh);
+    return $val;
+}
+
+sub dir_get_contents {
+    my ($dirname) = @_;
+    my $dh;
+    opendir($dh, $dirname) or return;
+    my @readdir = grep { $_ ne '.' && $_ ne '..' } readdir($dh);
+    closedir($dh);
+    return @readdir;
+}
+
+sub fopen {
+    my ($filename, $fopen_mode) = @_;
+    my $perl_mode = fopen_mode_to_perl_mode($fopen_mode);
+    my $fh;
+    return open($fh, $perl_mode, $filename) ? $fh : undef;
+}
+
+sub fopen_mode_to_perl_mode {
+    my ($str) = @_;
+    return 'r' if !defined $str || $str eq "";
+    die("invalid mode: $str\n") if $str !~ /^([rwa])(b)?(\+)?(b)?/;
+    my $mode = ($1 eq 'r') ? '<' : ($1 eq 'w') ? '>' : ($1 eq 'a') ? '>>' : undef;
+    die("ASSERTION FAILED: $str must start with [rwa]\n") if !defined $mode;
+    my $bin  = (defined $2 || defined $4) ? ":raw" : "";
+    my $plus = (defined $3) ? "+" : "";
+    return $plus . $mode . $bin;
+}
