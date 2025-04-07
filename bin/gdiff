@@ -13,7 +13,7 @@ main () {
     declare -a opt_dry_run=()
     declare -a opt_verbose=()
     declare -a git_diff_options=()
-    while getopts 'mknv-:h' OPTION ; do
+    while getopts 'wmknv-:h' OPTION ; do
         if [[ "${OPTION}" = "-" ]] ; then
             case "${OPTARG}" in
                 '')
@@ -43,6 +43,12 @@ main () {
             fi
         }
         case "${OPTION}" in
+            w)
+                git_diff_options+=(-w)
+                ;;
+            word-diff)
+                git_diff_options+=(--word-diff)
+                ;;
             k|keep)
                 keep=1
                 ;;
@@ -53,6 +59,49 @@ main () {
             v|verbose)
                 verbose=$((verbose + 1))
                 opt_verbose+=(-v)
+                ;;
+            quasi)
+                exclude+=(--exclude "*.pdf")
+                exclude+=(--exclude "*.doc")
+                exclude+=(--exclude "*.xls")
+                exclude+=(--exclude "*.ppt")
+                exclude+=(--exclude "*.sfd")
+                ;;
+            images)
+                exclude+=(--exclude "*.gif")
+                exclude+=(--exclude "*.jpg")
+                exclude+=(--exclude "*.jpeg")
+                exclude+=(--exclude "*.png")
+                exclude+=(--exclude "*.tif")
+                exclude+=(--exclude "*.tiff")
+                exclude+=(--exclude "*.bmp")
+                exclude+=(--exclude "*.heic")
+                exclude+=(--exclude "*.webm")
+                ;;
+            audio)
+                exclude+=(--exclude "*.mp3")
+                exclude+=(--exclude "*.wav")
+                exclude+=(--exclude "*.aac")
+                exclude+=(--exclude "*.aiff")
+                exclude+=(--exclude "*.ogg")
+                exclude+=(--exclude "*.wma")
+                exclude+=(--exclude "*.m4a")
+                exclude+=(--exclude "*.alac")
+                exclude+=(--exclude "*.mp2")
+                exclude+=(--exclude "*.flac")
+                ;;
+            video)
+                exclude+=(--exclude "*.mp4")
+                exclude+=(--exclude "*.qt")
+                exclude+=(--exclude "*.wmv")
+                exclude+=(--exclude "*.hevc")
+                exclude+=(--exclude "*.au")
+                exclude+=(--exclude "*.avi")
+                exclude+=(--exclude "*.mov")
+                exclude+=(--exclude "*.webm")
+                exclude+=(--exclude "*.flv")
+                exclude+=(--exclude "*.avchd")
+                exclude+=(--exclude "*.mkv")
                 ;;
             x|exclude)
                 get_arg "$@"

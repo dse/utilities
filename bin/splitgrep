@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+#     splitgrep [-wEFHhin] <pattern> [<file> ...]
+#     splitgrep [-wEFHhin] -e <pattern> -e <pattern> [<file> ...]
+#
+# Output lines matching one or more of the patterns, then output lines
+# not matching any of the patterns.
+
+main () {
+    local -a patterns=()
+    local opt_E=0
+    local opt_F=0
+    local opt_i=0
+    local opt_H=0
+    local opt_h=0
+    local opt_n=0
+    local opt_w=0
+    while getopts 'wEFHhine:' OPTION ; do
+        case "${OPTION}" in
+            w)
+                opt_w=1
+                ;;
+            E)
+                opt_E=1
+                opt_F=0
+                ;;
+            F)
+                opt_E=0
+                opt_F=1
+                ;;
+            H)
+                opt_H=1
+                opt_h=0
+                ;;
+            h)
+                opt_h=1
+                opt_H=0
+                ;;
+            i)
+                opt_i=1
+                ;;
+            n)
+                opt_n=1
+                ;;
+            e)
+                patterns+=("${OPTARG}")
+                ;;
+            '?')
+                exit 1
+                ;;
+        esac
+    done
+    shift $((OPTIND - 1))
+    if (( !${#patterns[@]} )) ; then
+        if (( !$# )) ; then
+            echo "splitgrep: not enough arguments" >&2
+            exit 1
+        fi
+        patterns+=("$1")
+        shift
+    fi
+
+    # collect list of files
+    local -a files
+    local temp
+    local file
+    if (( !$# )) ; then
+        temp="$(mktemp)"
+        cat >"${temp}"
+        files+=("${temp}")
+    else
+        for file ; do
+            if [[ "$file" = "-" ]] ; then
+                if [[ -v temp ]] ; then
+                    echo "splitgrep: '-' can only be specified once" >&2
+                    exit 1
+                fi
+                temp="$(mktemp)"
+                cat >"${temp}"
+                files+=("${temp}")
+            else
+                files+=("${file}")
+            fi
+        done
+    fi
+
+    # grep options
+    declare -a grep_opts=()
+    (( $opt_E )) && grep_opts+=(-E)
+    (( $opt_F )) && grep_opts+=(-F)
+    (( $opt_i )) && grep_opts+=(-i)
+    (( $opt_H )) && grep_opts+=(-H)
+    (( $opt_h )) && grep_opts+=(-h)
+    (( $opt_n )) && grep_opts+=(-n)
+    (( $opt_w )) && grep_opts+=(-w)
+
+    declare -a grep_patterns=()
+    local pattern
+    for pattern in "${patterns[@]}" ; do
+        grep_patterns+=(-e "${pattern}")
+    done
+
+    echo "---"
+    grep "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
+    echo "---"
+    grep -v "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
+}
+
+at_exit () {
+    [[ -v temp  ]] && [[ -e "${temp}"  ]] && ( rm "${temp}"  || true )
+    [[ -v temp1 ]] && [[ -e "${temp1}" ]] && ( rm "${temp1}" || true )
+    [[ -v temp2 ]] && [[ -e "${temp2}" ]] && ( rm "${temp2}" || true )
+}
+
+trap at_exit EXIT
+
+#------------------------------------------------------------------------------
+main "$@"
