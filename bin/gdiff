@@ -161,6 +161,7 @@ main () {
         path1="${tmpfile1}"
     fi
     path1="$(realpath "${path1}")"
+
     if [[ "${path2}" = /dev/fd/* ]] ; then
         tmpfile2="$(mktemp)"
         cat "${path2}" >"${tmpfile2}"
@@ -241,30 +242,19 @@ main () {
         tmpdir2="${path2}/${subdir2}"
     fi
 
-    DEBUG "tmpdir1 = ${tmpdir1}"
-    DEBUG "tmpdir2 = ${tmpdir2}"
-
-    RUN rm -fr "${tmpdir1}"
-    RUN rm -fr "${tmpdir2}"
-    RUN mkdir -p "${tmpdir1}"
-    RUN mkdir -p "${tmpdir2}"
+    rm -fr "${tmpdir1}"
+    rm -fr "${tmpdir2}"
+    mkdir -p "${tmpdir1}"
+    mkdir -p "${tmpdir2}"
 
     (
         declare -a exclude_1=()
         declare -a exclude_2=()
-        DEBUG "path1 = ${path1}"
-        DEBUG "path2 = ${path2}"
-        DEBUG "tmpdir1 = ${tmpdir1}"
-        DEBUG "tmpdir2 = ${tmpdir2}"
         if (( path2_inside_path1 )) ; then
             exclude_1+=("--exclude=$path2")
-            DEBUG "DST ${path2} is inside of SRC ${path1}"
-            DEBUG "source run of rhardlink will run with --exclude=${path2@Q}"
         fi
         if (( path1_inside_path2 )) ; then
             exclude_2+=("--exclude=$path1")
-            DEBUG "SRC ${path1} is inside of DST ${path2}"
-            DEBUG "dest run of rhardlink will run with --exclude=${path1@Q}"
         fi
         declare -a rhardlink_1=(
             rhardlink "${opt_verbose[@]}" "${opt_dry_run[@]}"
@@ -276,8 +266,8 @@ main () {
             "${exclude[@]}" "${exclude_2[@]}"
             "${path2}" "${tmpdir2}"
         )
-        RUN "${rhardlink_1[@]}"
-        RUN "${rhardlink_2[@]}"
+        "${rhardlink_1[@]}"
+        "${rhardlink_2[@]}"
         declare -a git_diff_cmd=(
             git --no-pager diff --color=always --no-index \
                 --src-prefix="SRC/" \
@@ -300,10 +290,10 @@ main () {
             -e '}'
         )
         if (( no_sed )) ; then
-            RUN "${git_diff_cmd[@]}"
+            "${git_diff_cmd[@]}"
             exit 1              # in case we go past exec
         fi
-        RUN "${git_diff_cmd[@]}" | RUN "${sed_cmd[@]}"
+        "${git_diff_cmd[@]}" | "${sed_cmd[@]}"
     ) | less -sR
 }
 
@@ -347,7 +337,6 @@ at_exit () {
             if [[ -v keep_tmpdir1 ]] && (( keep_tmpdir1 )) ; then
                 [[ -e "${tmpdir1}" ]] && ls -ld "${tmpdir1}"
             else
-                DEBUG "removing $tmpdir1"
                 rm -fr "${tmpdir1}" || true
             fi
         fi
@@ -355,7 +344,6 @@ at_exit () {
             if [[ -v keep_tmpdir2 ]] && (( keep_tmpdir2 )) ; then
                 ls -ld "${tmpdir2}"
             else
-                DEBUG "removing $tmpdir2"
                 rm -fr "${tmpdir2}" || true
             fi
         fi
@@ -363,7 +351,6 @@ at_exit () {
             if [[ -v keep_tmpfile1 ]] && (( keep_tmpfile1 )) ; then
                 ls -ld "${tmpfile1}"
             else
-                DEBUG "removing $tmpfile1"
                 rm -fr "${tmpfile1}" || true
             fi
         fi
@@ -371,7 +358,6 @@ at_exit () {
             if [[ -v keep_tmpfile2 ]] && (( keep_tmpfile2 )) ; then
                 ls -ld "${tmpfile2}"
             else
-                DEBUG "removing $tmpfile2"
                 rm -fr "${tmpfile2}" || true
             fi
         fi
@@ -406,10 +392,6 @@ LOG () {
 DRY_RUN () {
     (( dry_run )) || return
     LOG DRY-RUN "$@"
-}
-RUN () {
-    LOG DEBUG "$@"
-    "$@"
 }
 
 usage () { cat <<EOF; }
