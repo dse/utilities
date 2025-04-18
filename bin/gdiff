@@ -151,9 +151,25 @@ main () {
         tmpfile1="$(mktemp)"
         cat "${path1}" >"${tmpfile1}"
         path1="${tmpfile1}"
+    elif [[ "${path1}" = "-" ]] ; then
+        tmpfile1="$(mktemp)"
+        cat >"${tmpfile1}"
+        path1="${tmpfile1}"
+    elif [[ -f "${path1}" ]] ; then
+        tmpfile1="$(mktemp)"
+        cat "${path1}" >"${tmpfile1}"
+        path1="${tmpfile1}"
     fi
     path1="$(realpath "${path1}")"
     if [[ "${path2}" = /dev/fd/* ]] ; then
+        tmpfile2="$(mktemp)"
+        cat "${path2}" >"${tmpfile2}"
+        path2="${tmpfile2}"
+    elif [[ "${path2}" = "-" ]] ; then
+        tmpfile2="$(mktemp)"
+        cat >"${tmpfile2}"
+        path2="${tmpfile2}"
+    elif [[ -f "${path2}" ]] ; then
         tmpfile2="$(mktemp)"
         cat "${path2}" >"${tmpfile2}"
         path2="${tmpfile2}"
