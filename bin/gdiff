@@ -209,17 +209,8 @@ main () {
         FATAL "paths are the same directory"
     fi
 
-    # keep_tmpdir1=1
-    # keep_tmpdir2=1
-    # keep_tmpfile1=1
-    # keep_tmpfile2=1
-
     subdir1=".gdiff-$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
     subdir2=".gdiff-$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
-
-    # We prefer temporary .gdiff directories to be kept out of the way
-    # if you're in a code repository.  But if they're not on the same
-    # device it's ok to use the supplied directories.
 
     path1_dev="$(stat -c %d "${path1}")"
     path2_dev="$(stat -c %d "${path2}")"
@@ -247,7 +238,7 @@ main () {
     mkdir -p "${tmpdir1}"
     mkdir -p "${tmpdir2}"
 
-    (
+    {
         declare -a exclude_1=()
         declare -a exclude_2=()
         if (( path2_inside_path1 )) ; then
@@ -294,7 +285,7 @@ main () {
             exit 1              # in case we go past exec
         fi
         "${git_diff_cmd[@]}" | "${sed_cmd[@]}"
-    ) | less -sR
+    } | less -sR
 }
 
 declare -a rsync_options=(
