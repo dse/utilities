@@ -147,35 +147,41 @@ main () {
 
     git_diff_options+=("$@")
 
-    if [[ "${path1}" = /dev/fd/* ]] ; then
-        tmpfile1="$(mktemp)"
-        cat "${path1}" >"${tmpfile1}"
-        path1="${tmpfile1}"
-    elif [[ "${path1}" = "-" ]] ; then
-        tmpfile1="$(mktemp)"
-        cat >"${tmpfile1}"
-        path1="${tmpfile1}"
-    elif [[ -f "${path1}" ]] ; then
-        tmpfile1="$(mktemp)"
-        cat "${path1}" >"${tmpfile1}"
-        path1="${tmpfile1}"
-    fi
-    path1="$(realpath "${path1}")"
+    if (( dry_run )) ; then
+        tmpfile1="TEMPFILE1"
+        tmpfile2="TEMPFILE2"
+    else
+        if [[ "${path1}" = /dev/fd/* ]] ; then
+            tmpfile1="$(mktemp)"
+            cat "${path1}" >"${tmpfile1}"
+            path1="${tmpfile1}"
+        elif [[ "${path1}" = "-" ]] ; then
+            tmpfile1="$(mktemp)"
+            cat >"${tmpfile1}"
+            path1="${tmpfile1}"
+        elif [[ -f "${path1}" ]] ; then
+            tmpfile1="$(mktemp)"
+            cat "${path1}" >"${tmpfile1}"
+            path1="${tmpfile1}"
+        fi
+        path1="$(realpath "${path1}")"
 
-    if [[ "${path2}" = /dev/fd/* ]] ; then
-        tmpfile2="$(mktemp)"
-        cat "${path2}" >"${tmpfile2}"
-        path2="${tmpfile2}"
-    elif [[ "${path2}" = "-" ]] ; then
-        tmpfile2="$(mktemp)"
-        cat >"${tmpfile2}"
-        path2="${tmpfile2}"
-    elif [[ -f "${path2}" ]] ; then
-        tmpfile2="$(mktemp)"
-        cat "${path2}" >"${tmpfile2}"
-        path2="${tmpfile2}"
+        if [[ "${path2}" = /dev/fd/* ]] ; then
+            tmpfile2="$(mktemp)"
+            cat "${path2}" >"${tmpfile2}"
+            path2="${tmpfile2}"
+        elif [[ "${path2}" = "-" ]] ; then
+            tmpfile2="$(mktemp)"
+            cat >"${tmpfile2}"
+            path2="${tmpfile2}"
+        elif [[ -f "${path2}" ]] ; then
+            tmpfile2="$(mktemp)"
+            cat "${path2}" >"${tmpfile2}"
+            path2="${tmpfile2}"
+        fi
+        path2="$(realpath "${path2}")"
+
     fi
-    path2="$(realpath "${path2}")"
 
     both_are_dirs=0
     both_are_files=0
@@ -189,8 +195,15 @@ main () {
         exit 1
     fi
 
+    declare -a git_diff_cmd=(
+        git diff "${git_diff_options[@]}" --no-index "$path1" "$path2"
+    )
     if (( both_are_files )) ; then
-        exec git diff "${git_diff_options[@]}" --no-index "$path1" "$path2"
+        if (( dry_run )) ; then
+            echo "${git_diff_cmd[@]@Q}"
+            return
+        fi
+        exec "${git_diff_cmd[@]@Q}"
     fi
 
     #--------------------------------------------------------------------------
@@ -209,34 +222,13 @@ main () {
         FATAL "paths are the same directory"
     fi
 
-    subdir1=".gdiff-$(echo -n "${path1}"|sha1sum|awk '{print $1}')"
-    subdir2=".gdiff-$(echo -n "${path2}"|sha1sum|awk '{print $1}')"
-
-    path1_dev="$(stat -c %d "${path1}")"
-    path2_dev="$(stat -c %d "${path2}")"
-    tmp_dev="$(stat -c %d /tmp)"
-    var_tmp_dev="$(stat -c %d /var/tmp)"
-
-    if [[ "$path1_dev" == "$tmp_dev" ]] ; then
-        tmpdir1="/tmp/${subdir1}"
-    elif [[ "$path1_dev" == "$var_tmp_dev" ]] ; then
-        tmpdir1="/var/tmp/${subdir1}"
+    if (( dry_run )) ; then
+        tmpdir1="TMPDIR1"
+        tmpdir2="TMPDIR2"
     else
-        tmpdir1="${path1}/${subdir1}"
+        tmpdir1="$(mktemp -d)"
+        tmpdir2="$(mktemp -d)"
     fi
-
-    if [[ "$path2_dev" == "$tmp_dev" ]] ; then
-        tmpdir2="/tmp/${subdir2}"
-    elif [[ "$path2_dev" == "$var_tmp_dev" ]] ; then
-        tmpdir2="/var/tmp/${subdir2}"
-    else
-        tmpdir2="${path2}/${subdir2}"
-    fi
-
-    rm -fr "${tmpdir1}"
-    rm -fr "${tmpdir2}"
-    mkdir -p "${tmpdir1}"
-    mkdir -p "${tmpdir2}"
 
     {
         declare -a exclude_1=()
@@ -257,8 +249,13 @@ main () {
             "${exclude[@]}" "${exclude_2[@]}"
             "${path2}" "${tmpdir2}"
         )
-        "${rhardlink_1[@]}"
-        "${rhardlink_2[@]}"
+        if (( dry_run )) ; then
+            echo "${rhardlink_1[@]@Q}"
+            echo "${rhardlink_2[@]@Q}"
+        else
+            "${rhardlink_1[@]}"
+            "${rhardlink_2[@]}"
+        fi
         declare -a git_diff_cmd=(
             git --no-pager diff --color=always --no-index \
                 --src-prefix="SRC/" \
@@ -280,6 +277,14 @@ main () {
             -e 's#rename to '"$tmpdir1"'#rename to B#;'     # for good measure
             -e '}'
         )
+        if (( dry_run )) ; then
+            echo "${git_diff_cmd[@]@Q}"
+            return
+        fi
+        find "${tmpdir1}" -type d -exec chmod 0755 {} +
+        find "${tmpdir1}" -type f -exec chmod 0644 {} +
+        find "${tmpdir2}" -type d -exec chmod 0755 {} +
+        find "${tmpdir2}" -type f -exec chmod 0644 {} +
         if (( no_sed )) ; then
             "${git_diff_cmd[@]}"
             exit 1              # in case we go past exec
@@ -303,57 +308,24 @@ declare -a git_diff_options=(
 
 # these are supplied to RHARDLINK.
 declare -a exclude=(
-    -C
-    --exclude="node_modules/"
-    --exclude="_cacache/"
-    --exclude=".node-gyp/"
-    --exclude="vendor/"
-    --exclude=".cache/"
-    --exclude="*.tmp"
-    --exclude="*.tmp.*"
-    --exclude="*.min"
-    --exclude="*.min.*"
-    --exclude="package-lock.json"
-    --exclude="composer.lock"
-    --exclude="yarn.lock"
-    --exclude="*.map"
-    --exclude="*.map.*"
-    --exclude=".gdiff-*/"
+    --exclude=.git
+    # -C
+    # --exclude="node_modules/"
+    # --exclude="_cacache/"
+    # --exclude=".node-gyp/"
+    # --exclude="vendor/"
+    # --exclude=".cache/"
+    # --exclude="*.tmp"
+    # --exclude="*.tmp.*"
+    # --exclude="*.min"
+    # --exclude="*.min.*"
+    # --exclude="package-lock.json"
+    # --exclude="composer.lock"
+    # --exclude="yarn.lock"
+    # --exclude="*.map"
+    # --exclude="*.map.*"
+    # --exclude=".gdiff-*/"
 )
-
-trap at_exit EXIT
-at_exit () {
-    if (( ! keep )) ; then
-        if [[ -v tmpdir1 ]] && [[ -e "${tmpdir1}" ]] ; then
-            if [[ -v keep_tmpdir1 ]] && (( keep_tmpdir1 )) ; then
-                [[ -e "${tmpdir1}" ]] && ls -ld "${tmpdir1}"
-            else
-                rm -fr "${tmpdir1}" || true
-            fi
-        fi
-        if [[ -v tmpdir2 ]] && [[ -e "${tmpdir2}" ]] ; then
-            if [[ -v keep_tmpdir2 ]] && (( keep_tmpdir2 )) ; then
-                ls -ld "${tmpdir2}"
-            else
-                rm -fr "${tmpdir2}" || true
-            fi
-        fi
-        if [[ -v tmpfile1 ]] && [[ -e "${tmpfile1}" ]] ; then
-            if [[ -v keep_tmpfile1 ]] && (( keep_tmpfile1 )) ; then
-                ls -ld "${tmpfile1}"
-            else
-                rm -fr "${tmpfile1}" || true
-            fi
-        fi
-        if [[ -v tmpfile2 ]] && [[ -e "${tmpfile2}" ]] ; then
-            if [[ -v keep_tmpfile2 ]] && (( keep_tmpfile2 )) ; then
-                ls -ld "${tmpfile2}"
-            else
-                rm -fr "${tmpfile2}" || true
-            fi
-        fi
-    fi
-}
 
 DEBUG () {
     (( verbose < 2 )) && return
@@ -390,5 +362,15 @@ gdiff ─┬ [--dry-run]        ┬─┬ <dir1> <dir2>   ┬─ [git diff optio
        │ [--keep]           │ └ <file1> <file2> ┘
        └ [-v,--verbose ...] ┘
 EOF
+
+trap at_exit EXIT
+at_exit () {
+    if (( ! keep )) ; then
+        [[ -v tmpdir1  ]] && [[ -e "${tmpdir1}"  ]] && { rm -fr "${tmpdir1}"  || true; }
+        [[ -v tmpdir2  ]] && [[ -e "${tmpdir2}"  ]] && { rm -fr "${tmpdir2}"  || true; }
+        [[ -v tmpfile1 ]] && [[ -e "${tmpfile1}" ]] && { rm -fr "${tmpfile1}" || true; }
+        [[ -v tmpfile2 ]] && [[ -e "${tmpfile2}" ]] && { rm -fr "${tmpfile2}" || true; }
+    fi
+}
 
 main "$@"
