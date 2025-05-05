@@ -10,6 +10,7 @@ main () {
     verbose=0
     dry_run=0
     keep=0
+    git_diff_w=0
     declare -a opt_dry_run=()
     declare -a opt_verbose=()
     declare -a git_diff_options=()
@@ -44,7 +45,12 @@ main () {
         }
         case "${OPTION}" in
             w)
-                git_diff_options+=(-w)
+                if (( git_diff_w )) ; then
+                    git_diff_options+=(--word-diff)
+                else
+                    git_diff_w=1
+                    git_diff_options+=(-w)
+                fi
                 ;;
             word-diff)
                 git_diff_options+=(--word-diff)
@@ -203,7 +209,11 @@ main () {
             echo "${git_diff_cmd[@]@Q}"
             return
         fi
-        exec "${git_diff_cmd[@]@Q}"
+        if (( no_sed )) ; then
+            exec "${git_diff_cmd[@]}"
+            exit 1
+        fi
+        exec "${git_diff_cmd[@]}"
     fi
 
     #--------------------------------------------------------------------------
@@ -286,7 +296,7 @@ main () {
         find "${tmpdir2}" -type d -exec chmod 0755 {} +
         find "${tmpdir2}" -type f -exec chmod 0644 {} +
         if (( no_sed )) ; then
-            "${git_diff_cmd[@]}"
+            exec "${git_diff_cmd[@]}"
             exit 1              # in case we go past exec
         fi
         "${git_diff_cmd[@]}" | "${sed_cmd[@]}"
