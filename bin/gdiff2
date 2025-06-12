@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+bindir="$(dirname "$0")"
+libexecdir="${bindir}/../libexec"
+
+gdiff2_ln="${libexecdir}/gdiff2.ln.sh"
+gdiff2_pp="${libexecdir}/gdiff2.pp.pl"
+gdiff2_diffpp="${libexecdir}/gdiff2.diffpp.pl"
+
+main () {
+    verbose=0
+    inverse=0
+    opt_inverse=""
+    while getopts "xvh" OPTION ; do
+        case "${OPTION}" in
+            h)
+                usage
+                exit 0
+                ;;
+            x)
+                inverse=1
+                opt_inverse="-x"
+                ;;
+            v)
+                verbose=$((verbose+1))
+                set -o xtrace
+                ;;
+            *)
+                exit 1
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+    if (( $# < 2 )) ; then
+        echo "gdiff2: not enough arguments" >&2
+        exit 1
+    fi
+    if (( $# > 2 )) ; then
+        echo "gdiff2: too many arguments" >&2
+        exit 1
+    fi
+    A="$(realpath "${1}")"
+    B="$(realpath "${2}")"
+    if [[ -f "${A}" && -f "${B}" ]] ; then
+        targets_are=files
+    elif [[ -d "${A}" && -d "${B}" ]] ; then
+        targets_are=directories
+    else
+        echo "gdiff: cannot compare incompatible targets" >&2
+        type_A="$(stat --format=%F "${A}")" >&- || type_A="does not exit"
+        type_B="$(stat --format=%F "${B}")" >&- || type_B="does not exit"
+        echo "    ${A}: ${type_A}" >&2
+        echo "    ${B}: ${type_B}" >&2
+        exit 1
+    fi
+    AA="$("${gdiff2_ln}" "${A}")"
+    BB="$("${gdiff2_ln}" "${B}")"
+    set -o xtrace
+
+    declare -a exclude=(
+        -iname '*.pdf'          # quasi-binary
+        -o -iname '*.jpg'
+        -o -iname '*.jpeg'
+        -o -iname '*.png'
+        -o -iname '*.gif'
+        -o -iname '*.mp4'
+        -o -iname '*.mp3'
+        -o -iname '*.avi'
+        -o -iname '*.wma'
+        -o -iname '*.wmv'
+        -o -iname '*.qt'
+        -o -iname '*.xlsx'
+        -o -iname '*.pptx'
+        -o -iname '*.docx'
+        -o -iname '*.xls'       # quasi-binary
+        -o -iname '*.ppt'       # quasi-binary
+        -o -iname '*.doc'       # quasi-binary
+        -o -iname '*.ttf'
+        -o -iname '*.otf'
+        -o -iname '*.eot'
+        -o -iname '*.woff'      # quasi-binary
+        -o -iname '*.woff2'     # quasi-binary
+        -o -iname '*.psd'
+        -o -iname '*.jar'
+        -o -iname '*.zip'
+        -o -iname '*.tar.*'
+        -o -iname '*.tar'       # quasi-binary
+    )
+
+    # Remove binaries, as this is not intended to be an exhaustive
+    # diff.  Just find differences in **text**.
+    find "${AA}" "${BB}" -type f \( "${exclude[@]}" \) -exec rm {} +
+    find "${AA}" "${BB}" -type f -exec perl -e 'do { unlink($_) if -B $_ } foreach @ARGV' {} +
+
+    find "${AA}" "${BB}" -type f -exec "${gdiff2_pp}" -i {} +
+
+    export GIT_PAGER="less -iRX -+S"
+    git --no-pager \
+        diff \
+        --color=always \
+        --minimal \
+        --no-index -w --word-diff \
+        --diff-filter=ad \
+        --ignore-blank-lines \
+        "$AA" "$BB" | \
+        "${gdiff2_diffpp}" | \
+        less -iRX -+S
+    # excludes added and deleted paths.
+}
+declare -a filenames_A
+declare -a filenames_B
+usage () { cat <<EOF; }
+gdiff2 [-xv] <dir1> <dir2>
+    -x                  print non-matching lines
+    -v                  increase verbosity
+gdiff2 -h               print this help message
+EOF
+
+main "$@"
