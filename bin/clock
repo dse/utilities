@@ -1,14 +1,132 @@
-#!/usr/bin/env bash
+#!/usr/bin/env perl
+use utf8;
+use warnings;
+use strict;
+use POSIX qw(strftime);
+use Time::HiRes qw(usleep gettimeofday);
 
-clockfile="${HOME}/.clock.txt"
-date="$(date +'%a %Y-%m-%d %H:%M:%S')"
+use constant SHOW_CURSOR => "\x1b[?25h";
+use constant HIDE_CURSOR => "\x1b[?25l";
 
-if (( $# < 1 )) ; then
-    if [[ -e "${clockfile}" ]] ; then
-        tail -20 "${clockfile}"
-    fi
-    exit 0
-fi
+our $format;
+our $blink;
 
->>"${clockfile}" echo "[${date}] $@"
-exit 0
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    "f|format=s" => sub {
+        set_format_a_la_ls($_[1]) or
+          die("illegal format option - $_[1]\n");
+    },
+    "I|iso-8601=s" => sub {
+        set_format_iso_8601($_[1]) or
+          die("illegal iso-8601 option - $_[1]\n");
+    },
+    "R|rfc-email|rfc-5322|rfc-822|rfc-2822" => sub {
+        set_format_rfc_email();
+    },
+    "rfc-3339=s" => sub {
+        set_format_rfc_3339($_[1]) or
+          die("illegal rfc-3339 option - $_[1]\n");
+    },
+    "b|blink" => \$blink,
+) or die(":-(");
+
+$format = $format // "%a %b %e %H:%M:%S %Z %Y";
+
+if (-t 1) {
+    STDOUT->autoflush();
+    print(HIDE_CURSOR);
+    foreach my $signal (qw(INT QUIT ABRT HUP TERM)) {
+        $SIG{$signal} = sub {
+            print(SHOW_CURSOR);
+            $SIG{$signal} = undef;
+            kill($signal, $$);
+        };
+    }
+}
+
+while (1) {
+    my ($timestamp, $usec) = timestamp();
+    if (-t 1) {
+        printf("\r%s\e[K", $timestamp);
+    } else {
+        printf("%s\n", $timestamp);
+    }
+    if ($blink) {
+        usleep(500_000 - $usec % 500000);
+    } else {
+        usleep(1_000_000 - $usec);
+    }
+}
+
+sub timestamp {
+    my ($sec, $usec) = gettimeofday();
+    my @localtime = localtime($sec);
+    $format =~ s{%:z}{<zcolon:%z>}g;
+    my $timestamp = strftime($format, @localtime);
+    $timestamp =~ s{<zcolon:(.*)?>}{substr($1,0,-2) . ':' . substr($1,-2)}ge;
+    if ($blink && $usec >= 500000) {
+        $timestamp =~ s{:}{ }g;
+    }
+    return ($timestamp, $usec);
+}
+
+sub set_format_a_la_ls {
+    my ($fmt) = @_;
+    if ($fmt =~ /^\+/) {
+        $format = substr($fmt, 1);
+        return 1;
+    } elsif ($fmt eq "long-iso") {
+        $format = "%Y-%m-%d %H:%M";
+        return 1;
+    } elsif ($fmt eq "iso") {
+        $format = "%Y-%m-%d %m-%d %H:%M";
+        return 1;
+    } elsif ($fmt eq "locale") {
+        $format = "%c";
+        return 1;
+    }
+    return;
+}
+
+sub set_format_rfc_3339 {
+    my ($fmt) = @_;
+    if ($fmt eq 'date') {
+        $format = "%Y-%m-%d";
+        return 1;
+    } elsif ($fmt eq 'seconds') {
+        $format = "%Y-%m-%d %H:%M:%S%:z";
+        return 1;
+    }
+    return;
+}
+
+sub set_format_iso_8601 {
+    my ($fmt) = @_;
+    if ($fmt eq 'date') {
+        $format = "%Y-%m-%d";
+        return 1;
+    } elsif ($fmt eq 'hours') {
+        $format = "%Y-%m-%dT%H%:z";
+        return 1;
+    } elsif ($fmt eq 'minutes') {
+        $format = "%Y-%m-%dT%H:%M%:z";
+        return 1;
+    } elsif ($fmt eq 'seconds') {
+        $format = "%Y-%m-%dT%H:%M:%S%:z";
+        return 1;
+    }
+    return;
+}
+
+sub set_format_rfc_email {
+    $format = "%a, %d %b %Y %H:%M:%S %z";
+    return 1;
+}
+
+END {
+    if (-t 1) {
+        print(SHOW_CURSOR);
+    }
+}
