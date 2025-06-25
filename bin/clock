@@ -10,6 +10,7 @@ use constant HIDE_CURSOR => "\x1b[?25l";
 
 our $format;
 our $blink;
+our $utc;
 
 use Getopt::Long;
 Getopt::Long::Configure(qw(gnu_getopt));
@@ -30,9 +31,14 @@ Getopt::Long::GetOptions(
           die("illegal rfc-3339 option - $_[1]\n");
     },
     "b|blink" => \$blink,
+    "u|utc|universal|gmt" => \$utc,
 ) or die(":-(");
 
 $format = $format // "%a %b %e %H:%M:%S %Z %Y";
+
+if ($utc) {
+    $ENV{TZ} = "UTC0";
+}
 
 if (-t 1) {
     STDOUT->autoflush();
@@ -62,7 +68,7 @@ while (1) {
 
 sub timestamp {
     my ($sec, $usec) = gettimeofday();
-    my @localtime = localtime($sec);
+    my @localtime = $utc ? gmtime($sec) : localtime($sec);
     $format =~ s{%:z}{<zcolon:%z>}g;
     my $timestamp = strftime($format, @localtime);
     $timestamp =~ s{<zcolon:(.*)?>}{substr($1,0,-2) . ':' . substr($1,-2)}ge;
