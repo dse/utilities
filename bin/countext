@@ -1,36 +1,102 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use feature qw(state);
 use File::Basename qw(basename dirname fileparse);
-STDERR->autoflush(1) if -t 2;
+use File::Find qw(find);
+use List::Util qw(any);
+use FindBin;
 
-our $VERSION = "0.000000";
-$VERSION = eval $VERSION;
+use lib "${FindBin::Bin}/../lib/perl";
+use My::File::Wildcard qw(wildcard_to_regexp);
+
+our $RX_HAS_EXT = qr{\.[^/]+$};
+our $RX_IS_EXT = qr{^\.[^/]+$};
+
+our $run_as = (fileparse($0))[0];
+our $cvs_exclude;
+our @exclude;
+our @include;
+
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    "C|cvs-exclude" => \$cvs_exclude,
+    "x|exclude=s" => \@exclude,
+    "i|include=s" => \@include,
+) or die(":-(\n");
 
 my %count;
 my %size;
 my %blocks;
 
-while (<>) {
-    print STDERR ("$.\r") if -t 2 && $. % 23 == 0;
-    s{\R\z}{};
-    my $filename = $_;
-    # my $ext = extname($filename) // '-';
-    my $ext = (fileparse($filename, qr/\.[^.]*/))[2];
-    my ($size, $blocks) = (stat($filename))[7, 12];
-    $count{$ext} += 1;
-    $size{$ext} += $size if defined $size;
-    $blocks{$ext} += $blocks if defined $blocks;
-}
-print STDERR ("\e[K") if -t 2;
+my @targets;
+my @extensions;
 
-foreach my $ext (sort keys %count) {
-    my $avg = defined $size{$ext} ? ($size{$ext} / $count{$ext}) : -1;
-    printf("%7d %15d %11d %11d %s\n",
-           $count{$ext} // -1,
-           $size{$ext} // -1,
-           $blocks{$ext} // -1,
+@exclude = map { wildcard_to_regexp($_) } @exclude;
+@include = map { wildcard_to_regexp($_) } @include;
+
+foreach my $arg (@ARGV) {
+    if ($arg =~ $RX_IS_EXT) {
+        push(@extensions, $arg);
+    } else {
+        push(@targets, $arg);
+    }
+}
+
+if (!scalar @targets) {
+    push(@targets, '.');
+}
+
+find({ wanted => \&process }, @targets);
+
+sub process {
+    my @lstat = lstat($_);
+    return if !scalar @lstat;
+    my ($dev, $ino, $mode, $nlink, $uid, $gid,
+        $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+    if ($cvs_exclude) {
+        if (-d _) {
+            return ($File::Find::prune = 1) if $_ eq '.git';
+            return ($File::Find::prune = 1) if $_ eq 'node_modules';
+        }
+        return ($File::Find::prune = 1) if $_ =~ /~$/;      #   *~ .*~
+        return ($File::Find::prune = 1) if $_ =~ /^#.*#$/;  #   #*#
+        return ($File::Find::prune = 1) if $_ =~ /^\..*#$/; #   .*#
+    }
+    return if -d _;             # only counting files
+    my $basename = $_;
+    if (scalar @include) {
+        return if !any { $basename =~ $_ } @include;
+    }
+    if (scalar @exclude) {
+        return if any { $basename =~ $_ } @exclude;
+    }
+    my $value;
+    my $ext = (fileparse($File::Find::name, $RX_HAS_EXT))[2];
+    if ($run_as eq 'countext') {
+        $value = $ext;
+    } else {
+        $value = $_;
+    }
+    if (scalar @extensions) {
+        return if !any { $ext eq $_ } @extensions;
+    }
+    $count{$value} += 1;
+    $size{$value} += $size if defined $size;
+    $blocks{$value} += $blocks if defined $blocks;
+}
+
+if (-t 1) {
+    printf("%8s  %12s  %10s  %12s  %s\n",
+           "COUNT", "SIZE", "BLOCKS", "AVGSIZE", "EXT");
+}
+
+foreach my $value (sort keys %count) {
+    my $avg = defined $size{$value} ? ($size{$value} / $count{$value}) : -1;
+    printf("%8d  %12d  %10d  %12d  %s\n",
+           $count{$value} // -1,
+           $size{$value} // -1,
+           $blocks{$value} // -1,
            $avg // -1,
-           $ext);
+           $value);
 }
