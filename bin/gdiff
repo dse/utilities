@@ -13,17 +13,11 @@ gdiff_diffpp="${libexecdir}/gdiff.diffpp.pl"
 
 main () {
     verbose=0
-    inverse=0
-    opt_inverse=""
     while getopts "xvh" OPTION ; do
         case "${OPTION}" in
             h)
                 usage
                 exit 0
-                ;;
-            x)
-                inverse=1
-                opt_inverse="-x"
                 ;;
             v)
                 verbose=$((verbose+1))
@@ -115,7 +109,6 @@ declare -a filenames_A
 declare -a filenames_B
 usage () { cat <<EOF; }
 gdiff [-xv] <dir1> <dir2>
-    -x                  print non-matching lines
     -v                  increase verbosity
 gdiff -h                print this help message
 EOF
