@@ -100,8 +100,6 @@ main () {
         --color=always \
         --minimal \
         --no-index \
-        -w \
-        --word-diff \
         --diff-filter=ad \
         --ignore-blank-lines \
         "${git_diff_options[@]}" \
