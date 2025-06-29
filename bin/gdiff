@@ -1,4 +1,24 @@
 #!/usr/bin/env bash
+#
+# gdiff - use `git diff --no-index` to print differences of two
+# directory trees.
+#
+# I had to write this for two reasons:
+#
+# - `git diff --no-index` has issues if either directory tree is in a
+#   git working tree.
+#
+# - there is no native way to exclude files from `git diff
+#   --no-index`.
+#
+# This tool "copies" both directory trees to a directory tree
+# (presumably) outside any git repository but on the same filesystem
+# using hard links.
+#
+# This tool also does some processing on certain files via external
+# utilities which write to temporary files then renames them to avoid
+# changing the original files.
+#
 set -o errexit
 set -o pipefail
 set -o nounset
