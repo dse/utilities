@@ -11,6 +11,8 @@ gdiff_ln="${libexecdir}/gdiff.ln.sh"
 gdiff_pp="${libexecdir}/gdiff.pp.pl"
 gdiff_diffpp="${libexecdir}/gdiff.diffpp.pl"
 
+declare -a git_diff_options=()
+
 main () {
     verbose=0
     while getopts "xvh" OPTION ; do
@@ -97,9 +99,12 @@ main () {
         diff \
         --color=always \
         --minimal \
-        --no-index -w --word-diff \
+        --no-index \
+        -w \
+        --word-diff \
         --diff-filter=ad \
         --ignore-blank-lines \
+        "${git_diff_options[@]}" \
         "$AA" "$BB" | \
         "${gdiff_diffpp}" | \
         less -iRX -+S
