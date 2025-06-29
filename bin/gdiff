@@ -59,7 +59,7 @@ main () {
                 elif (( w == 2 )) ; then
                     git_diff_options+=(--word-diff)
                 else
-                    echo "gdiff: cannot specify -w more than twice" >&2
+                    echo "$0: cannot specify -w more than twice" >&2
                     exit 1
                 fi
                 ;;
@@ -70,11 +70,11 @@ main () {
     done
     shift $((OPTIND-1))
     if (( $# < 2 )) ; then
-        echo "gdiff: not enough arguments" >&2
+        echo "$0: not enough arguments" >&2
         exit 1
     fi
     if (( $# > 2 )) ; then
-        echo "gdiff: too many arguments" >&2
+        echo "$0: too many arguments" >&2
         exit 1
     fi
     A="$(realpath "${1}")"
@@ -84,7 +84,7 @@ main () {
     elif [[ -d "${A}" && -d "${B}" ]] ; then
         targets_are=directories
     else
-        echo "gdiff: cannot compare incompatible targets" >&2
+        echo "$0: cannot compare incompatible targets" >&2
         type_A="$(stat --format=%F "${A}")" >&- || type_A="does not exit"
         type_B="$(stat --format=%F "${B}")" >&- || type_B="does not exit"
         echo "    ${A}: ${type_A}" >&2
