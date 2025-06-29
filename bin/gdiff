@@ -97,9 +97,9 @@ main () {
     export GIT_PAGER="less -iRX -+S"
     git --no-pager \
         diff \
+        --no-index \
         --color=always \
         --minimal \
-        --no-index \
         --diff-filter=ad \
         --ignore-blank-lines \
         "${git_diff_options[@]}" \
