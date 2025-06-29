@@ -7,9 +7,9 @@ shopt -s lastpipe
 bindir="$(dirname "$0")"
 libexecdir="${bindir}/../libexec"
 
-gdiff2_ln="${libexecdir}/gdiff2.ln.sh"
-gdiff2_pp="${libexecdir}/gdiff2.pp.pl"
-gdiff2_diffpp="${libexecdir}/gdiff2.diffpp.pl"
+gdiff_ln="${libexecdir}/gdiff.ln.sh"
+gdiff_pp="${libexecdir}/gdiff.pp.pl"
+gdiff_diffpp="${libexecdir}/gdiff.diffpp.pl"
 
 main () {
     verbose=0
@@ -36,11 +36,11 @@ main () {
     done
     shift $((OPTIND-1))
     if (( $# < 2 )) ; then
-        echo "gdiff2: not enough arguments" >&2
+        echo "gdiff: not enough arguments" >&2
         exit 1
     fi
     if (( $# > 2 )) ; then
-        echo "gdiff2: too many arguments" >&2
+        echo "gdiff: too many arguments" >&2
         exit 1
     fi
     A="$(realpath "${1}")"
@@ -57,8 +57,8 @@ main () {
         echo "    ${B}: ${type_B}" >&2
         exit 1
     fi
-    AA="$("${gdiff2_ln}" "${A}")"
-    BB="$("${gdiff2_ln}" "${B}")"
+    AA="$("${gdiff_ln}" "${A}")"
+    BB="$("${gdiff_ln}" "${B}")"
     set -o xtrace
 
     declare -a exclude=(
@@ -96,7 +96,7 @@ main () {
     find "${AA}" "${BB}" -type f \( "${exclude[@]}" \) -exec rm {} +
     find "${AA}" "${BB}" -type f -exec perl -e 'do { unlink($_) if -B $_ } foreach @ARGV' {} +
 
-    find "${AA}" "${BB}" -type f -exec "${gdiff2_pp}" -i {} +
+    find "${AA}" "${BB}" -type f -exec "${gdiff_pp}" -i {} +
 
     export GIT_PAGER="less -iRX -+S"
     git --no-pager \
@@ -107,17 +107,17 @@ main () {
         --diff-filter=ad \
         --ignore-blank-lines \
         "$AA" "$BB" | \
-        "${gdiff2_diffpp}" | \
+        "${gdiff_diffpp}" | \
         less -iRX -+S
     # excludes added and deleted paths.
 }
 declare -a filenames_A
 declare -a filenames_B
 usage () { cat <<EOF; }
-gdiff2 [-xv] <dir1> <dir2>
+gdiff [-xv] <dir1> <dir2>
     -x                  print non-matching lines
     -v                  increase verbosity
-gdiff2 -h               print this help message
+gdiff -h                print this help message
 EOF
 
 main "$@"
