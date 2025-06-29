@@ -15,7 +15,34 @@ declare -a git_diff_options=()
 
 main () {
     verbose=0
-    while getopts "xvh" OPTION ; do
+    declare -i w=0
+    while getopts "xvhw-:" OPTION ; do
+        if [[ "${OPTION}" = "-" ]] ; then
+            case "${OPTARG}" in
+                '')             # "--"
+                    OPTIND=$((OPTIND + 1))
+                    break
+                    ;;
+                *=*)            # "--name=value"
+                    OPTION="${OPTARG%%=*}"
+                    OPTARG="${OPTARG#*=}"
+                    ;;
+                *)              # "--name"
+                    OPTION="${OPTARG}"
+                    unset OPTARG
+                    ;;
+            esac
+        fi
+        get_required_arg () {
+            if [[ ! -v OPTARG ]] ; then
+                if (( OPTIND > $# )) ; then
+                    echo "$0: option missing required argument -- ${OPTION}" >&2
+                    exit 1
+                fi
+                OPTARG="${!OPTIND}"
+                OPTIND=$((OPTIND + 1))
+            fi
+        }
         case "${OPTION}" in
             h)
                 usage
@@ -24,6 +51,17 @@ main () {
             v)
                 verbose=$((verbose+1))
                 set -o xtrace
+                ;;
+            w)
+                w+=1
+                if (( w == 1 )) ; then
+                    git_diff_options+=(-w)
+                elif (( w == 2 )) ; then
+                    git_diff_options+=(--word-diff)
+                else
+                    echo "gdiff: cannot specify -w more than twice" >&2
+                    exit 1
+                fi
                 ;;
             *)
                 exit 1
