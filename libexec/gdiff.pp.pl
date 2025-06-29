@@ -14,11 +14,13 @@ Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions('i|in-place|inplace' => \$opt_in_place)
   or die(":-(\n");
 
-my $blank = 1;
+my $blank_so_far = 1;
 my $modified = 0;
 my $new_file = 1;
 my $OUT;                        # in-place
 my $temp_filename;              # in-place
+
+@ARGV = grep { !-B $_ } @ARGV;  # don't POSTPROCESS binary files
 
 my %FILE;
 
@@ -34,12 +36,12 @@ while (<>) {
     }
     $new_file = 0;
     my $orig_line = $_;
-    s{^(\s*)<!doctype}{<!DOCTYPE} if $blank;
+    s{^(\s*)<!doctype}{<!DOCTYPE} if $blank_so_far;
     s{ class=""}{};
     $_ = decode_entities($_);
 
     $modified ||= ($_ ne $orig_line);
-    $blank = 0 if /\S/;
+    $blank_so_far = 0 if /\S/;
 } continue {
     print;
     if (eof) {
@@ -53,7 +55,7 @@ while (<>) {
             }
         }
         undef $OUT;
-        $blank = 1;
+        $blank_so_far = 1;
         $modified = 0;
         $new_file = 1;
     }
