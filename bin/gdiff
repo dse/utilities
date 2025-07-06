@@ -40,7 +40,7 @@ main () {
     verbose=0
     declare -i w=0
     declare -i dashdash
-    while getopts "X:xvhw-:" OPTION ; do
+    while getopts "X:xvhw-:{" OPTION ; do
         dashdash=0
         if [[ "${OPTION}" = "-" ]] ; then
             dashdash=1
@@ -70,6 +70,19 @@ main () {
             fi
         }
         case "${OPTION}" in
+            "{")
+                while true ; do
+                    if (( $OPTIND > ${#@} )) ; then
+                        break
+                    fi
+                    if [[ "${!OPTIND}" == "-}" ]] ; then
+                        OPTIND=$((OPTIND + 1))
+                        break
+                    fi
+                    git_diff_options+=("${!OPTIND}")
+                    OPTIND=$((OPTIND + 1))
+                done
+                ;;
             h|help)
                 usage
                 exit 0
@@ -90,6 +103,8 @@ main () {
                     git_diff_options+=(-w)
                 elif (( w == 2 )) ; then
                     git_diff_options+=(--word-diff)
+                elif (( w == 3 )) ; then
+                    git_diff_options+=(--minimal)
                 else
                     echo "$0: cannot specify -w more than twice" >&2
                     exit 1
@@ -177,7 +192,6 @@ main () {
             diff \
             --no-index \
             --color=always \
-            --minimal \
             --diff-filter=ad \
             --ignore-blank-lines \
             "${git_diff_options[@]}" \
@@ -191,9 +205,19 @@ main () {
 declare -a filenames_A
 declare -a filenames_B
 usage () { cat <<EOF; }
-gdiff [-xv] <dir1> <dir2>
-    -v                  increase verbosity
-gdiff -h                print this help message
+gdiff [-xvh] <dir1> <dir2>
+    -x, --inverse       inverse
+    -v, --verbose       increase verbosity
+    -w                  ignore whitespace when comparing lines
+    -ww                 add word diff
+    -www                add --minimal
+    -X<arg>             pass <arg> to git diff as option argument
+                            e.g., -X--minimal
+                                  -X--diff-filter=ad
+                                  -X--diff-filter -Xad
+    -{ <arg> ... -}     pass multiple <arg>s to git diff as option arguments
+                            e.g., -{ --minimal --diff-filter=ad -}
+    -h, --help          print this help message
 EOF
 
 main "$@"
