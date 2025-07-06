@@ -17,9 +17,15 @@ sub xmlPretty {
     my $dom;
     if (ref $arg eq 'GLOB') {
         # assume filehandle for now
-        $dom = XML::LibXML->load_xml(IO => $arg);
+        $dom = XML::LibXML->load_xml(
+            IO => $arg,
+            no_blanks => 1,
+        );
     } else {
-        $dom = XML::LibXML->load_xml(location => $arg);
+        $dom = XML::LibXML->load_xml(
+            location => $arg,
+            no_blanks => 1,
+        );
     }
-    print $dom->toString(1);
+    print $dom->toString(2);
 }

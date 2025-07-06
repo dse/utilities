@@ -2,10 +2,14 @@
 set -o nounset
 set -o pipefail
 set -o errexit
-#set -o xtrace
+shopt -s lastpipe
+# set -o xtrace
 
-# usage:
-#     enscriptttf <filename.ttf> ...
+usage () { cat <<EOF; }
+enscriptttf <filename.ttf> ...
+EOF
+
+fontsdir="${HOME}/.local/enscriptttf/fonts"
 
 main () {
     if ! which ttf2pt1 >/dev/null 2>/dev/null ; then
@@ -16,31 +20,29 @@ main () {
         >&2 echo "enscriptttf: mkafmmap program not found"
         exit 1
     fi
+    if (( !$# )) ; then
+        usage >&2
+        exit 1
+    fi
 
     local font
     for font ; do
         basename="$(basename "$font")"
-
-        # enscript afmlib has problems with filenames containing spaces
-        fontname="${basename%.*}"
-        fontname="${fontname// /}"
-
-        mkdir -p "${HOME}/Fonts/enscript"
-        ttf2pt1 -W 0 -e "$font" "$HOME/Fonts/enscript/$fontname"
-        ttf2pt1 -W 0 -a "$font" "$HOME/Fonts/enscript/$fontname"
-        ttf2pt1 -W 0 -b "$font" "$HOME/Fonts/enscript/$fontname"
+        fontname="${basename%.*}" # remove extension
+        fontname="${fontname// /}" # enscript afmlib can't handle spaces in filenames
+        mkdir -p "${fontsdir}"
+        ttf2pt1 -W 0 -e "$font" "${fontsdir}/${fontname}"
+        ttf2pt1 -W 0 -a "$font" "${fontsdir}/${fontname}"
+        ttf2pt1 -W 0 -b "$font" "${fontsdir}/${fontname}"
     done
 
-    cd "${HOME}/Fonts/enscript"
+    cd "${fontsdir}"
     mkafmmap *.afm >/dev/null
 
     for font ; do
         basename="$(basename "$font")"
-
-        # enscript afmlib has problems with filenames containing spaces
-        fontname="${basename%.*}"
-        fontname="${fontname// /}"
-
+        fontname="${basename%.*}" # remove extension
+        fontname="${fontname// /}" # enscript afmlib can't handle spaces in filenames
         export ENSCRIPTTTF_FONT="${fontname}"
         awk '$2 == ENVIRON["ENSCRIPTTTF_FONT"]' font.map
     done
