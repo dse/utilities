@@ -3,14 +3,31 @@ use warnings;
 use strict;
 use Getopt::Long;
 use IO::Handle;
+use Data::Dumper qw(Dumper);
 use open IO => qw(:locale);
 
 our $opt_inverse = 0;
+our $opt_verbose = 0;
 Getopt::Long::Configure(qw(gnu_getopt));
-Getopt::Long::GetOptions('x|inverse' => \$opt_inverse)
-  or die(":-(\n");
+Getopt::Long::GetOptions(
+    'x|inverse' => \$opt_inverse,
+    'v|verbose+' => \$opt_verbose,
+) or die(":-(\n");
 
-our $COLOR_RX = qr{(?:\e\[(?:[0-9]+(?:;[0-9]+)*|(?:38|48)(?::[0-9]*)*)m)}x;
+our $COLOR_RX = qr{
+    (?:
+        \e\[
+            (?:[0-9]+
+               (?:;[0-9]+)*
+              |(?:38|48)
+               (?::[0-9]*)*)
+        m
+    )
+}x;
+
+our $DIFF_TYPE_1 = qr{^${COLOR_RX}*[-+]};
+our $DIFF_TYPE_2 = qr{${COLOR_RX}(?:\[-|\{\+)};
+our $DIFF_TYPE_3 = qr{(?:-\]|\+\})${COLOR_RX}};
 
 our @diff_header;
 our @ctx;
@@ -19,6 +36,9 @@ our $in_diff_header = 0;
 our $blank_count = 0;
 our $hunk_header;
 our @lines;
+
+$Data::Dumper::Terse = 1;
+$Data::Dumper::Useqq = 1;
 
 while (<>) {
     s{\R\z}{};
@@ -62,7 +82,9 @@ while (<>) {
         push(@diff_header, $this_line);
         next;
     }
-    if (m{\e\[[0-9;]*m(?:\[-|\{\+)|(?:-\]|\+\})\e\[[0-9];]m}) { # line containing differences
+
+    if (m{$DIFF_TYPE_1} || m{$DIFF_TYPE_2} || m{$DIFF_TYPE_3}) {
+        # line containing differences
         $hunk_header->{print} = 1;
         foreach my $line (@diff_header) {
             $line->{print} = 1;
@@ -112,6 +134,13 @@ while (<>) {
 
 sub print_line {
     my ($line) = @_;
+    if ($opt_verbose) {
+        printf("                    - %s", Dumper($_));
+        print ($line->{neverprint} ? "NP " : "   ");
+        printf ("%-16s ", $line->{type});
+        print ("| ", $line->{text}, "\n");
+        return;
+    }
     return if $line->{neverprint};
     if (($opt_inverse && !$line->{print}) ||
         (!$opt_inverse && $line->{print})) {

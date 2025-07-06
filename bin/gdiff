@@ -32,12 +32,15 @@ gdiff_pp="${libexecdir}/gdiff.pp.pl"
 gdiff_diffpp="${libexecdir}/gdiff.diffpp.pl"
 
 declare -a git_diff_options=()
+declare -a gdiff_diffpp_options=()
+declare -a gdiff_pp_options=()
+declare -a gdiff_ln_options=()
 
 main () {
     verbose=0
     declare -i w=0
     declare -i dashdash
-    while getopts "vhw-:" OPTION ; do
+    while getopts "X:xvhw-:" OPTION ; do
         dashdash=0
         if [[ "${OPTION}" = "-" ]] ; then
             dashdash=1
@@ -72,8 +75,14 @@ main () {
                 exit 0
                 ;;
             v|verbose)
+                gdiff_diffpp_options+=(-v)
+                gdiff_pp_options+=(-v)
+                gdiff_ln_options+=(-v)
                 verbose=$((verbose+1))
                 set -o xtrace
+                ;;
+            x)
+                gdiff_diffpp_options+=(-x)
                 ;;
             w)
                 w+=1
@@ -85,6 +94,10 @@ main () {
                     echo "$0: cannot specify -w more than twice" >&2
                     exit 1
                 fi
+                ;;
+            X)
+                get_required_arg "$@"
+                git_diff_options+=("${OPTARG}")
                 ;;
             *)
                 if (( dashdash )) ; then
@@ -155,21 +168,24 @@ main () {
     # diff.  Just find differences in **text**.
     find "${AA}" "${BB}" -type f \( "${exclude[@]}" \) -exec rm {} +
     find "${AA}" "${BB}" -type f -exec perl -e 'do { unlink($_) if -B $_ } foreach @ARGV' {} +
-
     find "${AA}" "${BB}" -type f -exec "${gdiff_pp}" -i {} +
 
     export GIT_PAGER="less -iRX -+S"
-    git --no-pager \
-        diff \
-        --no-index \
-        --color=always \
-        --minimal \
-        --diff-filter=ad \
-        --ignore-blank-lines \
-        "${git_diff_options[@]}" \
-        "$AA" "$BB" | \
-        "${gdiff_diffpp}" | \
-        less -iRX -+S
+
+    declare -a git_diff_cmd=(
+        git --no-pager \
+            diff \
+            --no-index \
+            --color=always \
+            --minimal \
+            --diff-filter=ad \
+            --ignore-blank-lines \
+            "${git_diff_options[@]}" \
+            "$AA" "$BB"
+    )
+
+    "${git_diff_cmd[@]}" | "${gdiff_diffpp}" "${gdiff_diffpp_options[@]}" | less -iRX -+S
+
     # excludes added and deleted paths.
 }
 declare -a filenames_A

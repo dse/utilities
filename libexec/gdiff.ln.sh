@@ -3,25 +3,29 @@ set -o errexit
 set -o pipefail
 set -o nounset
 shopt -s lastpipe
+
 main () {
     if (( $# != 1 )) ; then
-        echo "gdiff2cache: incorrect number of arguments" >&2
+        echo "$0: incorrect number of arguments" >&2
         exit 1
     fi
+
     source="$(realpath "${1}")"
     if [[ -d "${source}" ]] ; then
         source_dir="${source}"
     elif [[ -f "${source}" ]] ; then
         source_dir="$(dirname "${source}")"
     else
-        echo "${source}: neither directory no regular file" >&2
+        echo "$0: ${source}: neither directory nor regular file" >&2
         exit 1
     fi
+
     if git_root="$(git -C "${source_dir}" rev-parse --show-toplevel 2>&-)" ; then
         source_dir="$(realpath "${git_root}/..")"
     else
         source_dir="$(realpath "${source_dir}/..")"
     fi
+
     sum="$(echo "${source}" | sha1sum | awk '{print $1}')"
     target="${source_dir}/.gdiff/${sum}"
     mkdir -p "$(dirname "${target}")"
@@ -33,12 +37,8 @@ main () {
         idx=$(( ${#source} + 1 ))
         find "${source}" \
              -xdev \
-             \! \( -type d -name .git -prune \) \
-             \! \( -type d -name node_modules -prune \) \
-             \! \( -type d -name '*.tmp' -prune \) \
-             \! \( -type d -name '.gidff' -prune \) \
-             \! \( -type f -name '*~' \) \
-             \! \( -type f -name '*.tmp' \) \
+             "${exclude_dirs[@]}" \
+             "${exclude_files[@]}" \
             | while read source_filename ; do
             if [[ "${source}" = "${source_filename}" ]] ; then
                 continue
@@ -55,4 +55,33 @@ main () {
     fi
     echo "${target}"
 }
+
+declare -a exclude_dirs=()
+declare -a exclude_files=()
+
+exclude_dirs () {
+    local i
+    for i ; do
+        exclude_dirs+=( \! \( -type d -name "$i" -prune \) )
+    done
+}
+
+exclude_files () {
+    local i
+    for i ; do
+        exclude_files+=( \! \( -type d -name "$i" -prune \) )
+    done
+}
+
+exclude_dirs .git
+exclude_dirs node_modules
+exclude_dirs '*.tmp'
+exclude_dirs '.gidff'
+
+exclude_dirs '*~'
+exclude_dirs '#*#'
+exclude_dirs '.*~'
+exclude_dirs '.#*'
+exclude_dirs '*.tmp'
+
 main "$@"
