@@ -25,7 +25,6 @@ my $temp_filename;              # in-place
 my %FILE;
 
 while (<>) {
-    warn("$ARGV\n");
     if ($opt_in_place && $new_file) {
         if ($ARGV eq '-') {
             select(STDOUT);
