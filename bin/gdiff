@@ -37,7 +37,7 @@ main () {
     verbose=0
     declare -i w=0
     declare -i dashdash
-    while getopts "xvhw-:" OPTION ; do
+    while getopts "vhw-:" OPTION ; do
         dashdash=0
         if [[ "${OPTION}" = "-" ]] ; then
             dashdash=1
