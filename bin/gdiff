@@ -36,8 +36,11 @@ declare -a git_diff_options=()
 main () {
     verbose=0
     declare -i w=0
+    declare -i dashdash
     while getopts "xvhw-:" OPTION ; do
+        dashdash=0
         if [[ "${OPTION}" = "-" ]] ; then
+            dashdash=1
             case "${OPTARG}" in
                 '')             # "--"
                     OPTIND=$((OPTIND + 1))
@@ -64,11 +67,11 @@ main () {
             fi
         }
         case "${OPTION}" in
-            h)
+            h|help)
                 usage
                 exit 0
                 ;;
-            v)
+            v|verbose)
                 verbose=$((verbose+1))
                 set -o xtrace
                 ;;
@@ -84,6 +87,9 @@ main () {
                 fi
                 ;;
             *)
+                if (( dashdash )) ; then
+                    echo "$0: illegal option -- ${OPTION}"
+                fi
                 exit 1
                 ;;
         esac
