@@ -22,8 +22,6 @@ my $temp_filename;              # in-place
 
 @ARGV = grep { !-B $_ } @ARGV;  # don't POSTPROCESS binary files
 
-my %FILE;
-
 while (<>) {
     if ($opt_in_place && $new_file) {
         if ($ARGV eq '-') {
