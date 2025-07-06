@@ -55,8 +55,13 @@ while (<>) {
     if ($secs) {
         $now = Time::HiRes::time();
         $start //= $now;
-        next unless ($now - $start) >= $secs;
-        $start = $now;
+        if (($now - $start) < $secs) {
+            next;
+        } else {
+            while ($start < $now) {
+                $start += $secs;
+            }
+        }
     }
 
     if ($number) {
