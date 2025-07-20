@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    declare -a profiles
+    list-aws-profiles | readarray -t profiles
+    declare -i count=${#profiles[@]}
+    declare -i exit=0
+    declare -a index=0
+    for profile in "default" "${profiles[@]}" ; do
+        if [[ -t 2 ]] ; then
+            echo "// ${profile}" >&2
+        fi
+        list_hosted_zones "${profile}"
+    done
+}
+list_hosted_zones () {
+    local profile="$1"; shift
+    local -a hosted_zones=()
+    { run_aws_with "${profile}" route53 list-hosted-zones || true ; } | jq -r '.HostedZones[]|.Name' | readarray -t hosted_zones
+    local hosted_zone
+    for hosted_zone in "${hosted_zones[@]}" ; do
+        echo "${profile}" "${hosted_zone}"
+    done
+}
+run_aws_with () {
+    local profile="$1"; shift
+    local -a opt_profile=(--profile "${profile}")
+    if [[ "${profile}" = "" ]] || [[ "${profile}" = "-" ]] || [[ "${profile}" = "default" ]] ; then
+        opt_profile=()
+    fi
+    aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+main "$@"

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+for i ; do
+    jq -r '.dependencies|keys[]' "$i"
+    jq -r '.devDependencies|keys[]' "$i"
+done | sort | uniq -c | sort -n

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+prog='/mnt/c/Windows/System32/notepad.exe'
+if [[ ! -d /mnt/c/Windows ]] ; then
+    echo "not using WSL" >&2
+    exit 1
+fi
+if [[ ! -e "${prog}" ]] ; then
+    echo "${prog}: not found" >&2
+    exit 1
+fi
+if (( $# > 1 )) ; then
+    echo "too many arguments" >&2
+    exit 1
+fi
+if (( $# == 1 )) ; then
+    path="$1"
+    path="$(realpath "$path")"
+    path="${path/\/mnt\/c\//c:\\}"
+    path="${path//\//\\}"
+    exec "$prog" "$path"
+    exit 1
+fi
+exec "$prog"

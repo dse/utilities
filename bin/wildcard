@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use FindBin;
+
+use lib "${FindBin::Bin}/../lib/perl";
+use My::File::Wildcard qw(wildcard_to_regexp);
+
+while (<>) {
+    s{\R\z}{};
+    $_ = wildcard_to_regexp($_);
+    print("$_\n");
+}

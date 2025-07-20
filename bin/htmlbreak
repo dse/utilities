@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+my @tagname = qw(html head title body div h1 h2 h3 h4 h5 h6 p ul ol li);
+
+local $/ = undef;
+while (<>) {
+    foreach my $tagname (@tagname) {
+        s{^(?<prefix>(?<indent>[ \t]*)\S.*?)[ \t]*<${tagname}(?=>|\s)(?(<attrs>[^>]*)?)>\s*}
+         {$+{prefix}($tagname$+{attrs}}gxis;
+    }
+    print;
+}

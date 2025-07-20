@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+my @lines;
+while (<>) {
+    s{\R\z}{};
+    s{\s*\z}{};
+    if (/(?!^)(?!\/|\\)\.[^\.\/\\]+$/) {
+        push(@lines, [$_, $&, $.]);
+    }
+}
+@lines = sort { $a->[1] cmp $b->[1] || $a->[2] <=> $b->[2] } @lines;
+print($_->[0], "\n") for @lines;
+

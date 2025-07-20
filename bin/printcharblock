@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+for block in "$@" ; do
+    charblock "$block" |
+        enscript -o- \
+            --no-header \
+            --columns=2 \
+            --landscape \
+            --font='Courier@6/7' \
+            --baselineskip=0 \
+            |
+        ps2pdf - > "$block".pdf
+done

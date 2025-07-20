@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Text::Tabs qw(expand);
+use open qw(:locale);
+our $VSEP = '||';
+while (<>) {
+    s{\R\z}{};
+    $_ = expand($_);
+    if (length($_) > 79) {
+        $_ = substr($_, 0, 79) . $VSEP . substr($_, 79);
+    } else {
+        $_ = sprintf("%-79s", $_) . $VSEP;
+    }
+    print("$_\n");
+}

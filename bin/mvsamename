@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+if (( $# < 2 )) ; then
+    >&2 echo "mvsamename: not enough arguments"
+    exit 1
+fi
+
+target="${!#}"
+if [[ -e "${target}" ]] && [[ ! -d "${target}" ]] ; then
+    >&2 echo "${target} is not a directory"
+    exit 1
+fi
+if [[ ! -d "${target}" ]] ; then
+    mkdir -p "${target}"
+fi
+
+for (( i = 1; i < $#; i += 1 )) ; do
+    filename="${!i}"
+    basename="$(basename "${filename}")"
+    random="$(dd if=/dev/urandom count=1 ibs=16 2>/dev/null | sha1sum | awk '{print $1}')"
+    newfilename="${target}/${basename}.${random}"
+    mv -n "${filename}" "${newfilename}" || true
+done

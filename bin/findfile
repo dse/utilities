@@ -1,0 +1,41 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use File::Find qw();
+
+my $filename = shift(@ARGV);
+if (!defined $filename) {
+    warn("findfile <filename> [<dir> ...]\n");
+    exit(1);
+}
+
+find_file($filename, @ARGV);
+
+sub find_file {
+    my ($filename, @dirs) = @_;
+    if (!scalar @dirs) {
+        push(@dirs, '.');
+    }
+    my $wanted = sub {
+        my ($dev, $ino, $mode, $nlink, $uid, $gid) = lstat($_);
+        return if !defined $dev;
+        return if !-d _;
+        if ($_ eq 'node_modules') {
+            $File::Find::prune = 1;
+            return;
+        }
+        if ($_ eq 'vendor') {
+            $File::Find::prune = 1;
+            return;
+        }
+        if ($_ eq '.git') {
+            $File::Find::prune = 1;
+            return;
+        }
+        if (-e "$_/${filename}") {
+            print("${File::Find::name}/${filename}\n");
+            return;
+        }
+    };
+    File::Find::find({ wanted => $wanted }, @dirs);
+}

@@ -1,0 +1,31 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use JSON::XS;
+use Text::Wrap qw(wrap);
+use Text::Tabs qw(expand);
+
+my $json = JSON::XS->new();
+
+local $/ = undef;
+while (<>) {
+    my $cfn_template = $json->decode($_);
+    printf("%s:\n", $ARGV);
+    my $descr = $cfn_template->{Description};
+    printf("    %s\n", $descr) if defined $descr;
+    my @params = sort keys %{$cfn_template->{Parameters}};
+    if (scalar @params) {
+        print(expand(wrap("    Parameters: ",
+                          "                ",
+                          join(", ", @params))), "\n");
+    }
+    my @resources = map { [$_, $cfn_template->{Resources}->{$_}->{Type}] }
+      keys %{$cfn_template->{Resources}};
+    if (scalar @resources) {
+        print("    Resources:\n");
+        foreach my $resource (@resources) {
+            printf("        %-40s %s\n",
+                   $resource->[1], $resource->[0]);
+        }
+    }
+}

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+INOUT_FILE="${HOME}/.inout_history"
+
+if [[ ! -e "${INOUT_FILE}" ]] ; then
+    touch "${INOUT_FILE}"
+fi
+
+if [[ ! -v INOUT_LOCK ]] ; then
+    export INOUT_LOCK=1
+    exec flock --no-fork --exclusive "${INOUT_FILE}" "$0" "$@"
+fi
+
+PUNCH_TYPE="$(basename "$0")"
+if [[ "${PUNCH_TYPE}" == punch ]] ; then
+    if (( !$# )) ; then
+        echo "punch: must specify in, out, etc." >&2
+        exit 1
+    fi
+    PUNCH_TYPE="$1"
+    shift
+fi
+PUNCH_TYPE="${PUNCH_TYPE^^}"
+
+echo "[$(date +"%s %Y-%m-%d %H:%M:%S %z")]" "${PUNCH_TYPE}" "$@"

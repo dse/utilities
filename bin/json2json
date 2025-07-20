@@ -1,0 +1,44 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use JSON::XS;
+use Getopt::Long;
+
+our $pretty_print;
+our $recursive;
+
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    "p|pretty|pretty-print" => \$pretty_print,
+    "r|recursive"           => \$recursive,
+) or die(":-(");
+
+my $decoder = JSON::XS->new();
+my $encoder = JSON::XS->new();
+$encoder->pretty(1) if $pretty_print;
+
+local $/ = undef;
+while (<>) {
+    my $o = $decoder->decode($_);
+    $o = recursive($o) if $recursive;
+    print($encoder->encode($o));
+}
+
+sub recursive {
+    my $obj = shift;
+    if (ref $obj eq 'HASH') {
+        return { map { $_ => recursive($obj->{$_}) } keys %$obj };
+    }
+    if (ref $obj eq 'ARRAY') {
+        return [map { recursive($_) } @$obj];
+    }
+    if (ref $obj eq '') {
+        if ($obj =~ /^\{.*?\}$/) {
+            return $decoder->decode($obj);
+        }
+        if ($obj =~ /^\[.*?\]$/) {
+            return $decoder->decode($obj);
+        }
+    }
+    return $obj;
+}

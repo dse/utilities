@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+local $/ = undef;
+while (<>) {
+    s{<script(?=[ \t\r\n>])[^>]*>.*?</script>}{}gsm;
+    s{<!--.*?-->}{}gsm;
+    s{<[^>]*>}{}gsm;
+    s{^[ \t]*}{}gsm;
+    s{[ \t]*$}{}gsm;
+    s{\R\R\R+}{\n\n}gsm;
+    s{\R}{\n}gsm;
+    print("$_\n");
+}

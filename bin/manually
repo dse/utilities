@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    if ! type -p dpkg >&/dev/null ; then
+        echo "dpkg: command not found" >&2
+        exit 1
+    fi
+    temp1="$(mktemp)"
+    temp2="$(mktemp)"
+    temp3="$(mktemp)"
+    temp4="$(mktemp)"
+
+comm -23 <(apt-mark showmanual | sort -u) <(gzip -dc /var/log/installer/initial-status.gz | sed -n 's/^Package: //p' | sort -u)
+comm -23 <(aptitude search '~i !~M' -F '%p' | sed "s/ *$//" | sort -u) <(gzip -dc /var/log/installer/initial-status.gz | sed -n 's/^Package: //p' | sort -u)
+
+
+}
+
+trap at_exit EXIT
+at_exit () {
+    [[ -v temp1 ]] && [[ -e "${temp1}" ]] && { rm -fr "${temp1}" || true ; }
+    [[ -v temp2 ]] && [[ -e "${temp2}" ]] && { rm -fr "${temp2}" || true ; }
+    [[ -v temp3 ]] && [[ -e "${temp3}" ]] && { rm -fr "${temp3}" || true ; }
+    [[ -v temp4 ]] && [[ -e "${temp4}" ]] && { rm -fr "${temp4}" || true ; }
+}
+main "$@"

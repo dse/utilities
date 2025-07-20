@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use HTML::Valid::Tagset;
+use Data::Dumper;
+$Data::Dumper::Terse = 1;
+print('\\@HTML::Valid::Tagset::allTags = ', Dumper(\@HTML::Valid::Tagset::allTags));
+print('\\%HTML::Valid::Tagset::canTighten = ', Dumper(\%HTML::Valid::Tagset::canTighten));
+print('\\%HTML::Valid::Tagset::emptyElement = ', Dumper(\%HTML::Valid::Tagset::emptyElement));
+print('\\%HTML::Valid::Tagset::isBlock = ', Dumper(\%HTML::Valid::Tagset::isBlock));
+print('\\%HTML::Valid::Tagset::isBodyElement = ', Dumper(\%HTML::Valid::Tagset::isBodyElement));
+print('\\%HTML::Valid::Tagset::isCDATA_Parent = ', Dumper(\%HTML::Valid::Tagset::isCDATA_Parent));
+print('\\%HTML::Valid::Tagset::isFormElement = ', Dumper(\%HTML::Valid::Tagset::isFormElement));
+print('\\%HTML::Valid::Tagset::isHeadElement = ', Dumper(\%HTML::Valid::Tagset::isHeadElement));
+print('\\%HTML::Valid::Tagset::isHeadOrBodyElement = ', Dumper(\%HTML::Valid::Tagset::isHeadOrBodyElement));
+print('\\%HTML::Valid::Tagset::isHTML2 = ', Dumper(\%HTML::Valid::Tagset::isHTML2));
+print('\\%HTML::Valid::Tagset::isHTML3 = ', Dumper(\%HTML::Valid::Tagset::isHTML3));
+print('\\%HTML::Valid::Tagset::isHTML4 = ', Dumper(\%HTML::Valid::Tagset::isHTML4));
+print('\\%HTML::Valid::Tagset::isHTML5 = ', Dumper(\%HTML::Valid::Tagset::isHTML5));
+print('\\%HTML::Valid::Tagset::isKnown = ', Dumper(\%HTML::Valid::Tagset::isKnown));
+print('\\%HTML::Valid::Tagset::isList = ', Dumper(\%HTML::Valid::Tagset::isList));
+print('\\%HTML::Valid::Tagset::isInline = ', Dumper(\%HTML::Valid::Tagset::isInline));
+print('\\%HTML::Valid::Tagset::isObsolete = ', Dumper(\%HTML::Valid::Tagset::isObsolete));
+print('\\%HTML::Valid::Tagset::isPhraseMarkup = ', Dumper(\%HTML::Valid::Tagset::isPhraseMarkup));
+print('\\%HTML::Valid::Tagset::isProprietary = ', Dumper(\%HTML::Valid::Tagset::isProprietary));
+print('\\%HTML::Valid::Tagset::isTableElement = ', Dumper(\%HTML::Valid::Tagset::isTableElement));
+print('\\%HTML::Valid::Tagset::optionalEndTag = ', Dumper(\%HTML::Valid::Tagset::optionalEndTag));

@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+if (( $# < 2 )) ; then
+    >&2 echo "not enough arguments"
+    exit 1
+fi
+
+temp1="$(mktemp)"
+temp2="$(mktemp)"
+at_exit () {
+    if [[ -e "${temp1}" ]] ; then rm "${temp1}" || true ; else : ; fi
+    if [[ -e "${temp2}" ]] ; then rm "${temp2}" || true ; else : ; fi
+}
+trap at_exit EXIT
+
+(cd "$1" && find | sort) >"${temp1}"
+(cd "$2" && find | sort) >"${temp2}"
+
+diff -u "${temp1}" "${temp2}"

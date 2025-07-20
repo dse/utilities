@@ -1,0 +1,32 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+
+use List::Util qw(all);
+use Scalar::Util qw(looks_like_number);
+
+if (scalar @ARGV == 0) {
+    while (<>) {
+        my ($r1, $r2, $h) = split();
+        if (all { defined($_) && looks_like_number($_) } ($r1, $r2, $h)) {
+            my $w = w($r1, $r2, $h);
+            printf("%g\n", $w);
+        }
+    }
+} elsif (scalar @ARGV != 3) {
+    die;
+} else {
+    my $w = w(@ARGV);
+    printf("%g\n", $w);
+}
+
+sub w {
+    my ($r1, $r2, $h) = @_;
+    my $rr = $r1 - $r2;
+    my $hh = ($h - 2 * $r2) / 2;
+    my $ww = sqrt($rr ** 2 - $hh ** 2);
+    my $www = $r1 - $r2 - $ww;
+    my $wwww = $www + $r2;
+    return $wwww * 2;
+}

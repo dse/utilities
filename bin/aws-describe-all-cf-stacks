@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    declare -a profiles
+    list-aws-profiles | readarray -t profiles
+    declare -i count=${#profiles[@]}
+    declare -i exit=0
+    declare -i index=0
+    echo "["
+    for profile in "default" "${profiles[@]}" ; do
+        if [[ -t 2 ]] ; then
+            echo "// ${profile}" >&2
+        fi
+        if (( index )) ; then
+            echo "    ,"
+        fi
+        { aws cloudformation describe-stacks || true ; } | sed 's/^/    /'
+        index+=1
+    done
+    echo "]"
+}
+
+aws () {
+    run_aws_with "${profile}" "$@"
+}
+
+run_aws_with () {
+    local profile="$1"; shift
+    local -a opt_profile=(--profile "${profile}")
+    if [[ "${profile}" = "" ]] || [[ "${profile}" = "-" ]] || [[ "${profile}" = "default" ]] ; then
+        opt_profile=()
+    fi
+    command aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+
+main "$@"

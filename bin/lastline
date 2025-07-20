@@ -1,0 +1,36 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+
+# lastline
+#
+# print all lines except for lines matching the specified pattern.
+#
+# print only the last line in any contiguous sequence of lines
+# matching the specified pattern.
+
+my $pattern = shift(@ARGV);
+$pattern = qr{$pattern};
+
+STDOUT->autoflush(1);
+
+my $lastLine;
+while (<>) {
+    s{\R\z}{};
+    if ($_ =~ $pattern) {
+        $lastLine = $_;
+        if (-t 1) {
+            print("\r\e[K$_\r");
+        }
+    } else {
+        if (defined $lastLine) {
+            if (-t 1) {
+                print("\r\e[K");
+            }
+            print("$lastLine\n");
+            $lastLine = undef;
+        }
+        print("$_\n");
+    }
+}

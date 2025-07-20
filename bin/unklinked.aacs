@@ -1,0 +1,242 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Cwd qw(abs_path);
+use HTML::TreeBuilder;
+use File::Spec::Functions qw(abs2rel);
+use URI;
+use Getopt::Long;
+
+our %MODES = (
+    "r"  => "<",
+    "r+" => "+<",
+    "w"  => ">",
+    "w+" => "+>",
+    "a"  => ">>",
+    "a+" => "+>>",
+);
+
+our $linked = 0;
+our $GREP = 0;
+our $HREF = 1;
+our $verbose = 0;
+
+our @pages;
+our %pages;
+our %linked_reverse;
+our %linked;
+our %linked_to;
+our %linked_from;
+
+my $root = ".";
+
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    'v|verbose+' => \$verbose,
+    'linked' => \$linked,
+) or die(":-(\n");
+
+foreach my $filename (@ARGV) {
+    process_file($filename, $root);
+}
+
+sub process_file {
+    my ($pathname, $root) = @_;
+    if (-l $pathname) {
+        process_symlink($pathname, $root);
+    } elsif (-d $pathname) {
+        process_dir($pathname, $root);
+    } elsif (-f $pathname) {
+        process_regular_file($pathname, $root);
+    }
+}
+
+sub process_regular_file {
+    my ($pathname, $root) = @_;
+    if ($pathname !~ /\.x?html?$/i) {
+        return;
+    }
+    print("Finding links in $pathname\n") if $verbose;
+    process_html(file_get_contents($pathname, $root), $pathname, $root);
+}
+
+sub process_dir {
+    my ($pathname, $root) = @_;
+    my @dirnames = dir_get_contents($pathname, $root);
+    foreach my $dirname (@dirnames) {
+        my $sub_path = "${pathname}/${dirname}";
+        if ($verbose) {
+            print("sub_path: $sub_path\n");
+        }
+        process_file($sub_path, $root);
+    }
+}
+
+sub process_symlink {
+    my ($pathname, $root) = @_;
+    return;
+}
+
+sub process_html {
+    my ($html, $pathname, $root) = @_;
+    my $rel_url = "/" . abs2rel($pathname, $root);
+    $rel_url =~ s/(?<=\/)index\.x?html?$//i;
+    push(@pages, $rel_url);
+    $pages{$rel_url} = 1;
+    if ($verbose) {
+        print("$rel_url added to list of pages\n");
+    }
+    my $tree = HTML::TreeBuilder->new;
+    $tree->ignore_unknown(0);
+    $tree->parse($html);
+    $tree->eof();
+    my @elements = $tree->look_down(sub {
+                                        my $e = shift;
+                                        return $e->tag eq 'a' || $e->tag eq 'link';
+                                    });
+    foreach my $a (@elements) {
+        my $href = $a->attr('href');
+        if (!defined $href) {
+            next;
+        }
+        if ($rel_url =~ /headstart/) {
+            if ($verbose) {
+                print("$rel_url => $href\n");
+            }
+        }
+        if ($href =~ /^#/) {
+            next;
+        }
+        my $uri = URI->new($href, $rel_url);
+        if (defined $uri->scheme) {
+            next;
+        }
+        my $url = $uri->as_string;
+        $url =~ s/#.*$//;
+        $url =~ s/\?.*$//;
+        $url =~ s/(?<=\/)index\.x?html?$//i;
+
+        if ($url !~ /\/$/ && -e "." . $url . "/index.html") {
+            if ($rel_url =~ /headstart/) {
+                if ($verbose) {
+                    print("    $url redirects to ${url}/\n");
+                }
+            }
+            $url .= "/";
+        }
+        if ($url =~ /assistance|involved/ || $rel_url =~ /headstart/) {
+            if ($verbose) {
+                print("    $rel_url links to $url\n");
+            }
+        }
+        $linked{$rel_url}{$url} = 1;
+        $linked_reverse{$url}{$rel_url} = 1;
+        $linked_from{$rel_url} = 1;
+        $linked_to{$url} = 1;
+    }
+}
+
+foreach my $key (grep { !$pages{$_} } keys %linked) {
+    delete $linked{$key};
+}
+foreach my $key (grep { !$pages{$_} } keys %linked_from) {
+    delete $linked_from{$key};
+}
+foreach my $key (grep { !$pages{$_} } keys %linked_to) {
+    delete $linked_to{$key};
+}
+foreach my $key (keys %linked) {
+    foreach my $key2 (grep { !$pages{$_} } keys %{$linked{$key}}) {
+        delete $linked{$key}{$key2};
+    }
+}
+foreach my $key (keys %linked_reverse) {
+    foreach my $key2 (grep { !$pages{$_} } keys %{$linked_reverse{$key}}) {
+        delete $linked_reverse{$key}{$key2};
+    }
+}
+
+find_unlinked();
+
+sub find_unlinked {
+    my $unlinked_hash = { map { ($_ => 1) } @pages };
+    find_paths("/", $unlinked_hash);
+    find_paths("/about.html", $unlinked_hash);
+    find_paths("/board.html", $unlinked_hash);
+    find_paths("/leadership.html", $unlinked_hash);
+    find_paths("/annual.html", $unlinked_hash);
+    find_paths("/journals.html", $unlinked_hash);
+    find_paths("/communityforums/", $unlinked_hash);
+    find_paths("/audited-financials/", $unlinked_hash);
+    find_paths("/990s/", $unlinked_hash);
+    find_paths("/services.html", $unlinked_hash);
+    find_paths("/employment.html", $unlinked_hash);
+    find_paths("/donate.html", $unlinked_hash);
+    find_paths("/docs.html", $unlinked_hash);
+    find_paths("/community-services-offices/", $unlinked_hash);
+    find_paths("/workforce.html", $unlinked_hash);
+    find_paths("/social.html", $unlinked_hash);
+    find_paths("/housing.html", $unlinked_hash);
+    find_paths("/clinic.html", $unlinked_hash);
+    find_paths("/transportation.html", $unlinked_hash);
+    find_paths("/owensbororegionalrecovery.html", $unlinked_hash);
+    find_paths("/headstart/", $unlinked_hash);
+    find_paths("/americorps-seniors/", $unlinked_hash);
+    if ($linked) {
+        print("$_\n") foreach sort grep { !$unlinked_hash->{$_} } @pages;
+    } else {
+        print("$_\n") foreach sort grep { $unlinked_hash->{$_} } @pages;
+    }
+}
+
+sub find_paths {
+    my ($url, $unlinked_hash) = @_;
+    delete $unlinked_hash->{$url};
+    foreach my $dest (keys %{$linked{$url}}) {
+        if (!$unlinked_hash->{$dest}) {
+            if ($verbose) {
+                print("find_paths: $dest already good\n");
+            }
+            next;
+        }
+        delete $unlinked_hash->{$dest};
+        find_paths($dest, $unlinked_hash);
+    }
+}
+
+sub file_get_contents {
+    my ($filename, $bin) = @_;
+    my $fh = $bin ? fopen($filename, 'rb') : fopen($filename, 'r');
+    local $/ = undef;
+    local $. = undef;
+    my $val = <$fh>;
+    close($fh);
+    return $val;
+}
+
+sub dir_get_contents {
+    my ($dirname) = @_;
+    my $dh;
+    opendir($dh, $dirname) or return;
+    my @readdir = grep { $_ ne '.' && $_ ne '..' } readdir($dh);
+    closedir($dh);
+    return @readdir;
+}
+
+sub fopen {
+    my ($filename, $fopen_mode) = @_;
+    my $perl_mode = fopen_mode_to_perl_mode($fopen_mode);
+    my $fh;
+    return open($fh, $perl_mode, $filename) ? $fh : undef;
+}
+
+sub fopen_mode_to_perl_mode {
+    my ($str) = @_;
+    return 'r' if !defined $str || $str eq "";
+    die("invalid mode: $str\n") if $str !~ /^([rwa])(b)?(\+)?(b)?/;
+    my $mode = ($1 eq 'r') ? '<' : ($1 eq 'w') ? '>' : ($1 eq 'a') ? '>>' : undef;
+    die("ASSERTION FAILED: $str must start with [rwa]\n") if !defined $mode;
+    my $bin  = (defined $2 || defined $4) ? ":raw" : "";
+    my $plus = (defined $3) ? "+" : "";
+    return $plus . $mode . $bin;
+}

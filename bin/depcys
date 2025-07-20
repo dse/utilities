@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+find "$@" \
+     \! \( -type d -name .git -prune \) \
+     -type f -name package.json -exec jq -r '.dependencies,.devDependencies|select(. != null)|keys|.[]' {} + | sort | uniq -c | sort -rn

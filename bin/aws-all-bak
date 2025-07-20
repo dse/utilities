@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    declare -a profiles
+    list-aws-profiles | readarray -t profiles
+    declare -i count=${#profiles[@]}
+    declare -i exit=0
+    declare -a index=0
+    local profile
+    local close
+    echo "["
+    for profile in "default" "${profiles[@]}" ; do
+        index+=1
+        if (( index == count )) ; then
+            close="    }"
+        else
+            close="    },"
+        fi
+        echo "// ******* ${profile} *******" >&2
+        echo '    {'
+        echo -n '        "Account": '
+        if ! aws sts get-caller-identity | sed '2,${s/^/        /;}' ; then
+            echo "null"
+            echo "${close}"
+            exit=1
+            continue
+        fi
+        echo "        ,"
+        echo -n "        \"Resources\": "
+        if ! aws "$@" | sed '2,${s/^/        /;}' ; then
+            echo "null"
+            echo "${close}"
+            exit=1
+            continue
+        fi
+        echo "${close}"
+    done
+    echo "]"
+}
+
+aws () {
+    run_aws_with "${profile}" "$@"
+}
+
+run_aws_with () {
+    local profile="$1"; shift
+    local -a opt_profile=(--profile "${profile}")
+    if [[ "${profile}" = "" ]] || [[ "${profile}" = "-" ]] || [[ "${profile}" = "default" ]] ; then
+        opt_profile=()
+    fi
+    command aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+
+main "$@"

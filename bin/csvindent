@@ -1,0 +1,20 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Text::CSV_XS;
+use open IO => qw(:locale);
+my $csv = Text::CSV_XS->new({ binary => 1, auto_diag => 1 });
+while (defined (my $row = $csv->getline(\*ARGV))) {
+    my ($col1, @row) = map { norm($_) } @$row;
+    printf("-   [%s]\n", $col1);
+    foreach my $col (grep { /\S/ } @row) {
+        printf("    -   %s\n", $col);
+    }
+}
+sub norm {
+    my $str = shift;
+    $str =~ s{\A\s+}{};
+    $str =~ s{\s+\z}{};
+    $str =~ s{\s+}{ }g;
+    return $str;
+}

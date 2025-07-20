@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+if (( $# )) ; then
+    cd "$1"
+    shift
+fi
+
+jq -r '.dependencies|keys|.[]' package.json

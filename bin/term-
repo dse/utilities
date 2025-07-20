@@ -1,0 +1,342 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+
+esc=$'\e'                       # escape
+bel=$'\a'                       # bell
+tab=$'\t'                       # horizontal tab
+vt=$'\v'                        # vertical tab
+bs=$'\b'                        # backspace
+cr=$'\r'                        # carriage return
+lf=$'\n'                        # line feed
+ff=$'\f'                        # form feed
+enq=$'\x05'
+si=$'\x0f'
+so=$'\x0e'
+
+sp=' '                          # space
+
+csi=$'\e['                      # control sequence introducer
+osc=$'\e]'                      # operating system command
+st=$'\e\\'                      # string terminator
+pm=$'\e^'                       # privacy message
+apc=$'\e_'                      # application program command
+
+index=$'\eD'
+next_line=$'\eE'
+tab_set=$'\eH'
+reverse_index=$'\eM'
+single_shift_select_g2=$'\eN'
+single_shift_select_g3=$'\eO'
+device_control_string=$'\eP'
+start_of_guarded_area=$'\eV'
+end_of_guarded_area=$'\eW'
+start_of_string=$'\eX'
+return_terminal_id=$'\eZ'
+control_sequence_introducer=$'\e['
+string_terminator=$'\e\\'
+operating_system_command=$'\e]'
+privacy_message=$'\e^'
+application_program_command=$'\e_'
+
+S8C1T_IND=$'\x84'
+S8C1T_NEL=$'\x85'
+S8C1T_HTS=$'\x88'
+S8C1T_RI=$'\x8d'
+S8C1T_SS2=$'\x8e'
+S8C1T_SS3=$'\x8f'
+S8C1T_DCS=$'\x90'
+S8C1T_SPA=$'\x96'
+S8C1T_EPA=$'\x97'
+S8C1T_SOS=$'\x98'
+S8C1T_DECID=$'\x9a'
+S8C1T_CSI=$'\x9b'
+S8C1T_ST=$'\x9c'
+S8C1T_OSC=$'\x9d'
+S8C1T_PM=$'\x9e'
+S8C1T_APC=$'\x9f'
+
+main () {
+    if (( $# < 1 )) ; then
+        >&2 echo "term: no command specified.  Type 'term help' for help."
+        exit 1
+    fi
+    cmd="$1"; shift
+    cmd="${cmd//-/_}"
+    "cmd_${cmd}" "$@"
+}
+
+cmd_help () { cat <<EOF; }
+usage:
+    term icon|change-icon-name '<text>'
+    term title|change-window-title '<text>'
+    term font '<value>'
+    term font-size <value>
+    term x-property '<prop>=<value>'
+    term resize <rows> <columns>
+
+    term fg '<color>'               term reset-fg
+    term bg '<color>'               term reset-bg
+    term cursor '<color>'           term reset-cursor
+    term highlight-bg '<color>'     term reset-highlight-bg
+    term highlight-fg '<color>'     term reset-highlight-fg
+    term bold-fg '<color>'          term reset-bold-fg
+    term underline-fg '<color>'     term reset-underline-fg
+    term blink-fg '<color>'         term reset-blink-fg
+    term reverse-fg '<color>'       term reset-reverse-fg
+    term italic-fg '<color>'        term reset-italic-fg
+EOF
+
+cmd_request_device_attributes           () { echo -n "${csi}c"; }
+cmd_request_secondary_device_attributes () { echo -n "${csi}>c"; }
+cmd_request_tertiary_device_attributes  () { echo -n "${csi}=c"; }
+cmd_status_report                       () { echo -n "${csi}5n"; }
+cmd_report_cursor_position              () { echo -n "${csi}6n"; }
+
+# mintty --fn sets Font.
+# mintty --fs sets FontSize.
+
+# Set Text Parameters
+cmd_change_icon_name                    () { echo -n "${osc}1;${1}${st}"; }
+cmd_icon                                () { echo -n "${osc}1;${1}${st}"; }
+cmd_change_icon                         () { echo -n "${osc}1;${1}${st}"; }
+cmd_icon_name                           () { echo -n "${osc}1;${1}${st}"; }
+
+cmd_change_window_title                 () { echo -n "${osc}2;${1}${st}"; }
+cmd_title                               () { echo -n "${osc}2;${1}${st}"; }
+cmd_change_title                        () { echo -n "${osc}2;${1}${st}"; }
+cmd_window_title                        () { echo -n "${osc}2;${1}${st}"; }
+
+cmd_x_property                          () { echo -n "${osc}3;${1}${st}"; }
+
+cmd_font () {
+    if (( $# == 1 )) ; then
+        echo -n "${osc}50;${1}${st}";
+    elif (( $# >= 2 )) ; then
+        echo -n "${osc}7777;${2}${st}"; # mintty
+        echo -n "${osc}50;${1}${st}";
+    fi
+}
+cmd_font_size () {
+    echo -n "${osc}7777;${1}${st}"; # mintty
+}
+cmd_query_font                          () { echo -n "${osc}50;?${st}"; }
+cmd_enable_font_shifting                () { echo -n "${csi}?35h"; }
+cmd_disable_font_shifting               () { echo -n "${csi}?35l"; }
+
+cmd_change_color_number                 () { echo -n "${osc}4;${1};${2}${st}"; }
+cmd_ccn                                 () { echo -n "${osc}4;${1};${2}${st}"; }
+cmd_reset_color_number                  () { echo -n "${osc}4;${1};${2}${st}"; }
+cmd_rcn                                 () { echo -n "${osc}4;${1};${2}${st}"; }
+
+cmd_fg                                  () { echo -n "${osc}10;${1}${st}"; }
+cmd_bg                                  () { echo -n "${osc}11;${1}${st}"; }
+cmd_cursor                              () { echo -n "${osc}12;${1}${st}"; }
+cmd_highlight_bg                        () { echo -n "${osc}17;${1}${st}"; }
+cmd_highlight_fg                        () { echo -n "${osc}19;${1}${st}"; }
+
+cmd_reset_fg                            () { echo -n "${osc}110${st}"; }
+cmd_reset_bg                            () { echo -n "${osc}111${st}"; }
+cmd_reset_cursor                        () { echo -n "${osc}112${st}"; }
+cmd_reset_highlight_bg                  () { echo -n "${osc}117${st}"; }
+cmd_reset_highlight_fg                  () { echo -n "${osc}119${st}"; }
+
+cmd_bold_fg                             () { echo -n "${osc}5;0;${1}${st}"; }
+cmd_underline_fg                        () { echo -n "${osc}5;1;${1}${st}"; }
+cmd_blink_fg                            () { echo -n "${osc}5;2;${1}${st}"; }
+cmd_reverse_fg                          () { echo -n "${osc}5;3;${1}${st}"; }
+cmd_italic_fg                           () { echo -n "${osc}5;4;${1}${st}"; }
+
+cmd_reset_bold_fg                       () { echo -n "${osc}105;0${st}"; }
+cmd_reset_underline_fg                  () { echo -n "${osc}105;1${st}"; }
+cmd_reset_blink_fg                      () { echo -n "${osc}105;2${st}"; }
+cmd_reset_reverse_fg                    () { echo -n "${osc}105;3${st}"; }
+cmd_reset_italic_fg                     () { echo -n "${osc}105;4${st}"; }
+
+# Controls beginning with ESC
+cmd_reset                               () { echo -n "${esc}c"; }
+cmd_full_reset                          () { echo -n "${esc}c"; }
+
+# Functions using CSI
+cmd_soft_reset                          () { echo -n "${csi}!p"; }
+
+# DEC Private Mode Set/Reset
+cmd_rev                                 () { echo -n "${csi}?5h"; }
+cmd_norev                               () { echo -n "${csi}?5l"; }
+
+# Character Attributes
+cmd_sgr_default                         () { echo -n "${csi}0m"; }
+cmd_sgr_bold                            () { echo -n "${csi}1m"; }
+cmd_sgr_faint                           () { echo -n "${csi}2m"; }
+cmd_sgr_italic                          () { echo -n "${csi}3m"; }
+cmd_sgr_underlined                      () { echo -n "${csi}4m"; }
+cmd_sgr_blink                           () { echo -n "${csi}5m"; }
+cmd_sgr_inverse                         () { echo -n "${csi}7m"; }
+cmd_sgr_invisible                       () { echo -n "${csi}8m"; }
+cmd_sgr_crossed_out                     () { echo -n "${csi}9m"; }
+cmd_sgr_doubly_underlined               () { echo -n "${csi}21m"; }
+cmd_sgr_not_bold_not_faint              () { echo -n "${csi}22m"; }
+cmd_sgr_not_italicized                  () { echo -n "${csi}23m"; }
+cmd_sgr_not_underlined                  () { echo -n "${csi}24m"; }
+cmd_sgr_steady                          () { echo -n "${csi}25m"; } # not blinking
+cmd_sgr_positive                        () { echo -n "${csi}27m"; } # not inverse
+cmd_sgr_visible                         () { echo -n "${csi}28m"; }
+cmd_sgr_not_crossed_out                 () { echo -n "${csi}29m"; }
+cmd_sgr_fg_black                        () { echo -n "${csi}30m"; }
+cmd_sgr_fg_red                          () { echo -n "${csi}31m"; }
+cmd_sgr_fg_green                        () { echo -n "${csi}32m"; }
+cmd_sgr_fg_yellow                       () { echo -n "${csi}33m"; }
+cmd_sgr_fg_blue                         () { echo -n "${csi}34m"; }
+cmd_sgr_fg_magenta                      () { echo -n "${csi}35m"; }
+cmd_sgr_fg_cyan                         () { echo -n "${csi}36m"; }
+cmd_sgr_fg_white                        () { echo -n "${csi}37m"; }
+cmd_sgr_fg_default                      () { echo -n "${csi}39m"; }
+cmd_sgr_bg_black                        () { echo -n "${csi}40m"; }
+cmd_sgr_bg_red                          () { echo -n "${csi}41m"; }
+cmd_sgr_bg_green                        () { echo -n "${csi}42m"; }
+cmd_sgr_bg_yellow                       () { echo -n "${csi}43m"; }
+cmd_sgr_bg_blue                         () { echo -n "${csi}44m"; }
+cmd_sgr_bg_magenta                      () { echo -n "${csi}45m"; }
+cmd_sgr_bg_cyan                         () { echo -n "${csi}46m"; }
+cmd_sgr_bg_white                        () { echo -n "${csi}47m"; }
+cmd_sgr_bg_default                      () { echo -n "${csi}49m"; }
+cmd_sgr_fg_bright_black                 () { echo -n "${csi}90m"; } # aixterm bright colors
+cmd_sgr_fg_bright_red                   () { echo -n "${csi}91m"; }
+cmd_sgr_fg_bright_green                 () { echo -n "${csi}92m"; }
+cmd_sgr_fg_bright_yellow                () { echo -n "${csi}93m"; }
+cmd_sgr_fg_bright_blue                  () { echo -n "${csi}94m"; }
+cmd_sgr_fg_bright_magenta               () { echo -n "${csi}95m"; }
+cmd_sgr_fg_bright_cyan                  () { echo -n "${csi}96m"; }
+cmd_sgr_fg_bright_white                 () { echo -n "${csi}97m"; }
+cmd_sgr_bg_bright_black                 () { echo -n "${csi}100m"; }
+cmd_sgr_bg_bright_red                   () { echo -n "${csi}101m"; }
+cmd_sgr_bg_bright_green                 () { echo -n "${csi}102m"; }
+cmd_sgr_bg_bright_yellow                () { echo -n "${csi}103m"; }
+cmd_sgr_bg_bright_blue                  () { echo -n "${csi}104m"; }
+cmd_sgr_bg_bright_magenta               () { echo -n "${csi}105m"; }
+cmd_sgr_bg_bright_cyan                  () { echo -n "${csi}106m"; }
+cmd_sgr_bg_bright_white                 () { echo -n "${csi}107m"; }
+cmd_sgr_fg_indexed                      () { echo -n "${csi}38;5;${1}m"; } # set foreground to indexed color (0 to 255)
+cmd_sgr_bg_indexed                      () { echo -n "${csi}48;5;${1}m"; } # set foreground to indexed color (0 to 255)
+
+# Load LEDs
+cmd_clear_leds                          () { echo -n "${csi}0q"; }
+cmd_light_num_lock                      () { echo -n "${csi}1q"; }
+cmd_light_caps_lock                     () { echo -n "${csi}2q"; }
+cmd_light_scroll_lock                   () { echo -n "${csi}3q"; }
+cmd_extinguish_num_lock                 () { echo -n "${csi}21q"; }
+cmd_extinguish_caps_lock                () { echo -n "${csi}22q"; }
+cmd_extinguish_scroll_lock              () { echo -n "${csi}23q"; }
+
+# Set cursor style
+cmd_cursor_blinking_block               () { echo -n "${csi}0${sp}q"; }
+cmd_cursor_default                      () { echo -n "${csi}1${sp}q"; }
+cmd_cursor_steady_block                 () { echo -n "${csi}2${sp}q"; }
+cmd_cursor_blinking_underline           () { echo -n "${csi}3${sp}q"; }
+cmd_cursor_steady_underline             () { echo -n "${csi}4${sp}q"; }
+cmd_cursor_blinking_bar                 () { echo -n "${csi}5${sp}q"; }
+cmd_cursor_steady_bar                   () { echo -n "${csi}6${sp}q"; }
+
+# Window manipulation
+cmd_deiconify                           () { echo -n "${csi}1t"; }
+cmd_uniconify                           () { echo -n "${csi}1t"; }
+cmd_iconify                             () { echo -n "${csi}2t"; }
+cmd_raise                               () { echo -n "${csi}5t"; }
+cmd_lower                               () { echo -n "${csi}6t"; }
+cmd_refresh                             () { echo -n "${csi}7t"; }
+cmd_resize                              () { echo -n "${csi}8;${1};${2}t"; } # term resize <height> <width> (e.g., term resize 24 80)
+cmd_restore                             () { echo -n "${csi}9;0t"; }
+cmd_maximize                            () { echo -n "${csi}9;1t"; }
+cmd_maximize_vertically                 () { echo -n "${csi}9;2t"; }
+cmd_maximize_horizontally               () { echo -n "${csi}9;3t"; }
+cmd_fullscreen_off                      () { echo -n "${csi}10;0t"; }
+cmd_fullscreen_on                       () { echo -n "${csi}10;1t"; }
+cmd_fullscreen_toggle                   () { echo -n "${csi}10;2t"; }
+
+# Select columns per page
+cmd_80                                  () { echo -n "${csi}80\$|"; }
+cmd_132                                 () { echo -n "${csi}132\$|"; }
+
+# status line
+cmd_select_status_line_type             () { echo -n "${csi}${1:-0}\$~"; }
+cmd_decssdt                             () { echo -n "${csi}${1:-0}\$~"; }
+cmd_select_active_status_display        () { echo -n "${csi}${1:-0}\$}"; }
+cmd_decsasd                             () { echo -n "${csi}${1:-0}\$}"; }
+
+# "returns", by echoing, a #rrggbb color from whatever you provided
+color () {
+    color="$1"; shift
+    local r
+    local g
+    local b
+    # 12 hex digits, either rgb:rrrr/gggg/bbbb, #rrrrggggbbbb, or rrrrggggbbbb
+    if [[ "$color" =~ ^(\#|rgb:)?([0-9][0-9])[0-9][0-9]/?([0-9][0-9])[0-9][0-9]/?([0-9][0-9])[0-9][0-9]$ ]] ; then
+        r="${BASH_REMATCH[2]}"
+        g="${BASH_REMATCH[3]}"
+        b="${BASH_REMATCH[4]}"
+        echo "#${r}${g}${b}"
+        return
+    fi
+    # 6 hex digits
+    if [[ "$color" =~ ^(\#|rgb:)?([0-9][0-9])/?([0-9][0-9])/?([0-9][0-9])$ ]] ; then
+        r="${BASH_REMATCH[2]}"
+        g="${BASH_REMATCH[3]}"
+        b="${BASH_REMATCH[4]}"
+        echo "#${r}${g}${b}"
+        return
+    fi
+    # 3 hex digits
+    if [[ "$color" =~ ^(\#|rgb:)?([0-9])/?([0-9])/?([0-9])$ ]] ; then
+        r="${BASH_REMATCH[2]}"
+        g="${BASH_REMATCH[3]}"
+        b="${BASH_REMATCH[4]}"
+        echo "#${r}${r}${g}${g}${b}${b}"
+        return
+    fi
+    echo "${color}"
+}
+
+cmd_colors () {
+    local -a bolds=('' 1)
+    local -a fgs=('' 30 31 32 33 34 35 36 37)
+    local -a bgs=('' 40 41 42 43 44 45 46 47)
+    local fg bold bg
+    local seq row
+    echo "          40m     41m     42m     43m     44m     45m     46m     47m"
+    for fg in "${fgs[@]}" ; do
+        for bold in "${bolds[@]}" ; do
+            row=""
+            if [[ "$bold" != "" ]] ; then
+                row="$row;$bold"
+            fi
+            if [[ "$fg" != "" ]] ; then
+                row="$row;$fg"
+            fi
+            row="${row#;}"
+            printf "%7s" "${row}m"
+
+            for bg in "${bgs[@]}" ; do
+                seq=""
+                if [[ "$bold" != "" ]] ; then
+                    seq="$seq;$bold"
+                fi
+                if [[ "$fg" != "" ]] ; then
+                    seq="$seq;$fg"
+                fi
+                if [[ "$bg" != "" ]] ; then
+                    seq="$seq;$bg"
+                fi
+                seq="${seq#;}"
+                if [[ "$seq" = "" ]] ; then
+                    seq="0"
+                fi
+                seq="${csi}${seq}m"
+                echo -n " ${seq}  gYw  ${csi}0m"
+            done
+            echo ""
+        done
+    done
+}
+
+#------------------------------------------------------------------------------
+main "$@"

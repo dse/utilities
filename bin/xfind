@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+declare -a find_options=()
+while (( $# )) ; do
+    option="$1"
+    case "$option" in
+        -H|-L|-P) find_options+=("$option"); shift;;
+        -D|-O)    find_options+=("$option"); shift
+                  if (( !$# )) ; then echo "option requires argument - $option" ; exit 1 ; fi
+                  find_options+=("$1"); shift;;
+        -D*|-O*)  find_options+=("$1"); shift;;
+        *)        break;;
+    esac
+done
+declare -a starting_points=()
+while (( $# )) ; do
+    case "$1" in
+        -*|\?|\!) break;;
+        *)        starting_points+=("$1"); shift;;
+    esac
+done
+exec find "${find_options[@]}" "${starting_points[@]}" \
+     \! \( -type d -name node_modules -prune \) \
+     \! \( -type d -name .git -prune \) \
+     \! \( -samefile $HOME/git -prune \) \
+     \! \( -samefile $HOME/.npm/_cacache -prune \) \
+     \! \( -samefile $HOME/.cache -prune \) \
+     \! \( -samefile $HOME/Projects -prune \) \
+     "$@"

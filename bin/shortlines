@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+length="${1:-1024}"
+
+exec awk 'length($0) <= '"${length}"' { print }' "$@"

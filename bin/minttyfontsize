@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+if (( $# < 1 )) ; then
+    >&2 echo "minttyfont <fontspec>"
+    >&2 echo "mintty:  'Courier New' 'Courier New Bold'"
+    exit 1
+fi
+OSC=$'\e'']'
+ST=$'\e'\\
+echo -n "${OSC}7777;${1}${ST}"
+# https://github.com/mintty/mintty/wiki/CtrlSeqs
+# https://invisible-island.net/xterm/ctlseqs/ctlseqs.html

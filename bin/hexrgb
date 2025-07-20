@@ -1,0 +1,47 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+while (<>) {
+    s{\#([[:xdigit:]]{3,4}|[[:xdigit:]]{6}|[[:xdigit:]]{8})\b}
+     {join(", ", map { sprintf("%3d", $_) } hexrgb($1))}gex;
+    print;
+}
+sub hexrgb {
+    my $hex = shift;
+    $hex =~ s{^#}{};
+    if (length($hex) == 3 || length($hex) == 4) {
+        my $r_hex = substr($hex, 0, 1);
+        my $g_hex = substr($hex, 1, 1);
+        my $b_hex = substr($hex, 2, 1);
+        my $r = 17 * hex($r_hex);
+        my $g = 17 * hex($g_hex);
+        my $b = 17 * hex($b_hex);
+        if (length($hex) == 3) {
+            return ($r, $g, $b) if wantarray;
+            return [$r, $g, $b];
+        } else {
+            my $a_hex = substr($hex, 3, 1);
+            my $a = 17 * hex($a_hex);
+            return ($r, $g, $b, $a) if wantarray;
+            return [$r, $g, $b, $a];
+        }
+    } elsif (length($hex) == 6 || length($hex) == 8) {
+        my $r_hex = substr($hex, 0, 2);
+        my $g_hex = substr($hex, 2, 2);
+        my $b_hex = substr($hex, 4, 2);
+        my $r = hex($r_hex);
+        my $g = hex($g_hex);
+        my $b = hex($b_hex);
+        if (length($hex) == 6) {
+            return ($r, $g, $b) if wantarray;
+            return [$r, $g, $b];
+        } else {
+            my $a_hex = substr($hex, 6, 2);
+            my $a = hex($a_hex);
+            return ($r, $g, $b, $a) if wantarray;
+            return [$r, $g, $b, $a];
+        }
+    } else {
+        return $hex;
+    }
+}

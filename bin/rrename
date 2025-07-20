@@ -1,0 +1,87 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+use File::Spec;
+use POSIX qw(:signal_h);
+use Config qw(%Config);
+
+our $git;
+our @code;
+our $dry_run;
+our $verbose;
+
+use Getopt::Long;
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    'git' => \$git,
+    'c|code=s' => \@code,
+    'n|dry-run' => \$dry_run,
+    'v|verbose+' => \$verbose,
+) or die(":-(\n");
+
+$verbose += $dry_run ? 1 : 0;
+
+if (!scalar @code) {
+    if (!scalar @ARGV) {
+        die("not enough arguments\n");
+    }
+    my $code = shift(@ARGV);
+    push(@code, $code);
+}
+
+my @sig_names;
+@sig_names[split(' ', $Config{sig_num})] = split(' ', $Config{sig_name});
+
+@code = map { to_code($_) } @code;
+
+foreach my $filename (@ARGV) {
+    my ($vol, $dir, $file) = File::Spec->splitpath($filename);
+    foreach my $code (@code) {
+        $code->() for $file;
+    }
+    my $new_filename = File::Spec->catpath($vol, $dir, $file);
+    if ($filename eq $new_filename) {
+        printf("%s - filename not renamed\n", $filename) if $verbose;
+        next;
+    }
+    if (-e $new_filename) {
+        printf("%s - %s already exists; not renaming\n", $filename) if $verbose;
+        next;
+    }
+    if ($git) {
+        printf("git mv %s %s\n", $filename, $new_filename) if $verbose;
+        next if $dry_run;
+        my $result = system("git", "mv", $filename, $new_filename);
+        if ($result) {
+            if ($? == -1) {
+                warn("'git mv' failed to execute: $!\n");
+            }
+            if ($? & 127) {
+                warn("'git mv' died with signal %s (%d), %s coredump\n",
+                     $sig_names[$? & 127], ($? & 127), (($? & 128) ? 'with' : 'without'));
+            }
+            if ($? >> 8) {
+                warn("child exited with value %d\n", ($? >> 8));
+            }
+            warn("child exited with value %d\n", $result); # for good measure
+        }
+    } else {
+        printf("rename %s %s\n", $filename, $new_filename) if $verbose;
+        next if $dry_run;
+        if (!rename($filename, $new_filename)) {
+            printf STDERR ("cannot rename %s %s - %s\n", $filename, $new_filename, "$!");
+            next;
+        }
+        printf("%s was renamed %s\n", $filename, $new_filename) if $verbose;
+    }
+}
+
+sub to_code {
+    my ($code) = @_;
+    my $eval = eval "sub { $code }";
+    if (!defined $eval || !$eval) {
+        die($@);
+    }
+    return $eval;
+}

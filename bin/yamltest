@@ -1,0 +1,60 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+
+# use YAML::Old; # probably not yet
+# use YAML::LibYAML; # the DISTRIBUTION name for YAML::XS
+
+use YAML::Syck;
+use YAML::PP;
+use YAML::XS;
+use YAML::Tiny;
+use Data::Dumper;
+
+my @parsers = qw(YAML::Syck
+                 YAML::PP
+                 YAML::XS
+                 YAML::Tiny);
+foreach my $parser (@parsers) {
+    my $code = "use $parser qw();\n";
+    printf STDERR $code;
+    eval $code;
+}
+
+local $/ = undef;
+while (<>) {
+    printf STDERR ("=== Parsing a %d-byte document. ===\n", length($_));
+    eval {
+        my $data = YAML::Syck::Load($_);
+        my $dump = Data::Dumper::Dumper($data);
+        printf("YAML::Syck => Data::Dumper: %d bytes\n", length($dump));
+    };
+    if ($@) {
+        warn("YAML::Syck detected a failure: $!\n");
+    }
+    eval {
+        my $data = YAML::PP::Load($_);
+        my $dump = Data::Dumper::Dumper($data);
+        printf("YAML::PP => Data::Dumper: %d bytes\n", length($dump));
+    };
+    if ($@) {
+        warn("YAML::PP detected a failure: $!\n");
+    }
+    eval {
+        my $data = YAML::XS::Load($_);
+        my $dump = Data::Dumper::Dumper($data);
+        printf("YAML::XS => Data::Dumper: %d bytes\n", length($dump));
+    };
+    if ($@) {
+        warn("YAML::XS detected a failure: $!\n");
+    }
+    eval {
+        my $data = YAML::Tiny::Load($_);
+        my $dump = Data::Dumper::Dumper($data);
+        printf("YAML::Tiny => Data::Dumper: %d bytes\n", length($dump));
+    };
+    if ($@) {
+        warn("YAML::Tiny detected a failure: $!\n");
+    }
+}

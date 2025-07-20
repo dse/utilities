@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+grep \
+    --exclude-dir=.git \
+    --exclude-dir=node_modules \
+    -I -r \
+    -P -o -h \
+    'require\((?!'\''\.|"\.).*?\)' \
+    . | sort | uniq

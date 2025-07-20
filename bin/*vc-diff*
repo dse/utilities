@@ -1,0 +1,56 @@
+diff --git a/bin/kalk b/bin/kalk
+index 405cf3d9..c6616616 100755
+--- a/bin/kalk
++++ b/bin/kalk
+@@ -20,32 +20,35 @@ sub _ () {
+ #     { expr = text }
+ #     { expr = text | fmt }
+ while (<>) {
+-    s{(?<start>\{)
++    s{(?<start>\{)                  (?# { )
+       (?<sp1>\s*)
+-      (?<expr>\S.*?)
++      (?<expr>\S.*?)                (?# <expr> )
+       (?<sp2>\s*)
+       (?:
+-          (?<eq>=>?)
++          (?<eq>=>?)                (?# = )
+           (?<sp3>\s*)
+           (?:
+-              (?<repl>\S.*?)
++              (?<repl>S.*?)         (?# <repl> )
+               (?<sp4>\s*)
+           )?
+       )?
+       (?<pipe_fmt>
+-          (?<pipe>\|)
++          (?<pipe>\|)               (?# | )
+           (?<sp5>\s*)
+           (?:
+-              (?<fmt>\S.*?)
++              (?<fmt>\S.*?)         (?# <fmt> )
+               (?<sp6>\s*)
+           )?
+       )?
+-      (?<end>\})}
++      (?<end>\})                    (?# } )
++     }
+      { replace($&, %+) }gex;
+     print;
+ }
+ sub replace {
+     my ($match, %group) = @_;
++    my @keys = keys %group;
++    warn("@keys\n");
+     my $eval = evaluate($group{expr}, $group{fmt});
+     if ($@) {
+         warn($@);
+@@ -63,6 +66,8 @@ sub evaluate {
+     if (defined $result) {
+         $last_result = $result;
+     }
++    warn $result;
++    warn $fmt;
+     $result = sprintf($fmt, $result) if defined $result && defined $fmt;
+     return $result;
+ }

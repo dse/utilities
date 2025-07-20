@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use HTML::TreeBuilder;
+
+sub html_to_markdown {
+    my $html = shift;
+    my $tree = HTML::TreeBuilder->new();
+    $tree->parse($html);
+    $tree->eof();
+    return render($tree);
+}
+
+sub render {
+    my $elt = shift;
+    my $tag_name = $elt->tag;
+    if ($tag_name eq 'h1') {
+        return sprintf("# %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'h2') {
+        return sprintf("## %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'h3') {
+        return sprintf("### %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'h4') {
+        return sprintf("#### %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'h5') {
+        return sprintf("##### %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'h6') {
+        return sprintf("###### %s\n\n", $elt->as_trimmed_text());
+    }
+    if ($tag_name eq 'p') {
+        return sprintf("%s\n\n", join("", map { render($_) } $elt->content_list()));
+    }
+    if ($tag_name eq 'a') {
+        return sprintf("[%s](%s)", join("", map { render($_) } $elt->content_list()), $elt->attr('href'));
+    }
+    if ($tag_name eq 'b' || $tag_name eq 'strong') {
+        return sprintf("**%s**", join("", map { render($_) } $elt->content_list()));
+    }
+    if ($tag_name eq 'i' || $tag_name eq 'em') {
+        return sprintf("_%s_", join("", map { render($_) } $elt->content_list()));
+    }
+    if ($tag_name eq 'img') {
+        my $alt   = $elt->attr('alt');
+        my $title = $elt->attr('title');
+        my $src   = $elt->attr('src');
+        return '' if !defined $src;
+        if (defined $alt && defined $title) {
+            return sprintf("![%s](%s %s)", $alt, $src, $title);
+        }
+        if (defined $alt) {
+            return sprintf("![%s](%s)", $alt, $src);
+        }
+        if (defined $alt) {
+            return sprintf("![%s](%s %s)", $title, $src, $title);
+        }
+        return sprintf("![%s](%s)", $src, $src);
+    }
+    die("unsupported tag: $tag_name\n");
+    if ($tag_name eq 'ol') {
+    }
+    if ($tag_name eq 'ul') {
+    }
+    if ($tag_name eq 'li') {
+    }
+}
+
+sub norm_space {
+    my $text = shift;
+    $text =~ s{\A\s+}{};
+    $text =~ s{\s+\z}{};
+    $text =~ s{\s+}{ }g;
+    return $text;
+}

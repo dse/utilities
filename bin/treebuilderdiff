@@ -1,0 +1,101 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open IO => ':utf8';
+use open ':std' => ':utf8';
+
+use Carp::Always;
+use File::Basename qw(dirname);
+use HTML::TreeBuilder;
+use File::Temp qw(tempfile);
+use Getopt::Long;
+
+our $layers = ":encoding(UTF-8)";
+
+our @opt_exclude;
+
+Getopt::Long::Configure(qw(gnu_getopt));
+Getopt::Long::GetOptions(
+    "exclude=s@" => \@opt_exclude,
+) or die(":-(\n");
+
+local $/ = undef;
+while (<>) {
+    local $/ = "\n"; # "Use of uninitialized value $/ in string eq at /usr/lib/x86_64-linux-gnu/perl-base/Carp.pm line 603, <> chunk 1."
+    my $orig_html = $_;
+
+    my $tree = My::HTML::TreeBuilder->new();
+    $tree->implicit_tags(1);
+    $tree->implicit_body_p_tag(0);
+    $tree->no_expand_entities(0);
+    $tree->ignore_unknown(0);
+    $tree->ignore_text(0);
+    $tree->ignore_ignorable_whitespace(0);
+    $tree->no_space_compacting(1);
+    $tree->p_strict(0);
+    $tree->store_comments(1);
+    $tree->store_declarations(1);
+    $tree->store_pis(1);
+    $tree->parse_content($_);
+
+    if ($ARGV ne '-') {
+        my ($fh_1, $filename_1) = tempfile(DIR => dirname($ARGV));
+        my ($fh_2, $filename_2) = tempfile(DIR => dirname($ARGV));
+        print $fh_1 $orig_html;
+        print $fh_2 $tree->as_HTML;
+        close($fh_1);
+        close($fh_2);
+    } else {
+        print($tree->as_HTML);
+    }
+}
+
+package My::HTML::Element {
+    use base "HTML::Element";
+    sub new {
+        my ($class, @args) = @_;
+        my $self = $class->SUPER::new(@args);
+        return $self;
+    }
+    sub starttag {
+        my ($self) = @_;
+        return $self->{starttag} // $self->SUPER::starttag(@_);
+    }
+    sub endtag {
+        my ($self) = @_;
+        return $self->{endtag} // $self->SUPER::endtag(@_);
+    }
+};
+
+package My::HTML::TreeBuilder {
+    use base "HTML::TreeBuilder";
+    use base "My::HTML::Element";
+    sub element_class {
+        my ($self) = @_;
+        return "My::HTML::Element";
+    }
+    sub comment {
+        my ($self, $text) = @_;
+        $self->SUPER::comment($text);
+    }
+    sub declaration {
+        my ($self, $text) = @_;
+        $self->SUPER::declaration($text);
+    }
+    sub end {
+        my ($self, $tag, @stop) = @_;
+        my (undef, undef, $text) = @_;
+    }
+    sub process {
+        my ($self, $text) = @_;
+        $self->SUPER::process($text);
+    }
+    sub start {
+        my ($self, $tag, $attr, $attrseq, $text) = @_;
+        $self->SUPER::start($tag, $attr, $attrseq, $text);
+    }
+    sub text {
+        my ($self, $text, $is_cdata) = @_;
+        $self->SUPER::text($text, $is_cdata);
+    }
+};

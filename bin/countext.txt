@@ -1,0 +1,52 @@
+[A]               [B]              [C]            [D]
+
+start_dot !def  start_dot !def  start_dot !def   startdot def
+matched/ = 1    matched/ = 0    matched/ = 0     matched/ = 0
+pre_dot = 0     pre_dot = 0     pre_dot = -1     predot = -1
+
+     START
+       |
+       |                                        .-------.
+       V                                        |       V
+ .-> GETCH                    .----> GETCH <--. |     GETCH <-----.
+ |     |                      |        |      | |       |         |
+ |     |                      | DONE   |      | | DONE  |         |
+ |     V                      |  ^     V      | |  ^    V         |
+ |   "/" ?                    |  '-- "/" ?    | |  |  "/" ?       |
+ |   |   | NO                 |  YES   |      | |  |  |   | NO    |
+ '---'   '-------------.      |        | NO   | |  '--'   |       |
+   YES                 |      |        V      | |  YES    |       |
+                       V      |      "." ? ---' |       "." ? ----'
+                     "." ?    |   YES|     NO   |         |      NO
+                     |   |    |      |          |         |YES
+[E]             .----'   '----'      '----------'        /
+                | YES     NO                            /
+start_dot def   |                                  start_dot defd [F]
+matched/ = 0    |                                  matched/ = 0
+predot = 0      |                                  preddot = 1
+                |                                      |
+                |                                      |
+                |                                      V
+     GETCH<-----' .--------------------------------> GETCH <--.
+DONE   | ^        |                                    |      |
+ ^     | '----.   |                                    |      |
+ |     V      |   |                                    V      |
+ '---"/" ?    |   |                       DONE <---- "/" ?    |
+ YES   |      |   |                             YES    |      |
+       | NO   |   |                                    | NO   |
+       V      |   |                                    V      |
+     "." ? ---'   |                                  "." ? ---'
+ YES |     NO     |                                    |   Y  ^
+     |            |                                 NO |      |
+     '------------'                                    '------'
+
+
+
+
+
+              .--------.
+              |    .- "/"
+              V   /
+START ----> GETCH --- "."
+                  \
+                   .- [^./]

@@ -1,0 +1,189 @@
+if either
+    there are no '.'
+        implying either string is empty or there are only 'a' characters
+or
+    there is no path component
+or
+    there are fewer that two '.'
+    and
+    there are no 'a' characters after the last '.'
+or
+    there are multiple '.'
+    and the last character of the string is a '.'
+    and the last dot is the last character of the string
+    and the last dot is the second character of the string
+then
+    there is no filename extension
+
+the existence of a filename extension implies ALL of the following:
+1. there is at least one '.'
+2. there is a path component
+3. any of the following are true:
+   a. there are at least two '.'
+   b. there are 'a' characters after the last '.'
+4. any of the following are true:
+   a. there are fewer than two '.'
+   b. the last character of the string is not a '.'
+   c. the last dot occurs before the last character of the string
+   d. the last dot is NOT the second character of the string
+
+1 implies 2 so we can get rid of 2.
+4b is the same as 4c so we can get rid of 4c.
+3b and 4b are the same.
+
+3a implies 3b
+4a implies 3b || 4d
+
+(3a || 3b) && (4a || 3b || 4d)
+implies
+3b
+
+
+
+the existence of a filename extension implies ALL of the following:
+1. there is at least one '.'
+3. any of the following are true:
+   a. there are at least two '.'
+   b. there are 'a' characters after the last '.'
+4. any of the following are true:
+   a. there are fewer than two '.'
+   b. the last character of the string is not a '.'
+   d. the last dot is NOT the second character of the string
+
+
+    pre dot is 0            pre dot is -1           pre dot is 1
+                            implies                 implies
+                            start dot is not set    start dot is set
+
+    +-> chars left?         +-> chars left?         +-> chars left?
+    |   |       |           |   |       |           |   |       |
+    |   |      END          |   |      END          |   |      END
+    |   |     LOOP          |   |     LOOP          |   |     LOOP
+    |   chop                |   chop                |   chop
+    |   |                   |   |                   |   |
+    |   end ext?            |   |                   |   |
+    |   |Y  |N              |   |                   |   |
+    |   |   set end ext     |   |                   |   |
+    |   |   |               |   |                   |   |
+    |   period?             |   period?             |   period?
+    |   |Y      |N          |   |Y    \ N           |   |Y    \ N
+    |   |       |           |   |       |           |   |       \
+    |   start   start       |   |       |           |    \       \
+    |   dot     dot         |   |       |           |     \       \
+    |   set?    set?        |   |       |           |      \       \
+    |   |N  |Y  |N  |Y      |   |       |           |       |       |
+    |   |   |   |   |       |   |       |           |       |       |
+    |   set | GO TO |       |   set     |           |       |       |
+    |  start|  -1   |       |  start    |           |       |       |
+    |   dot |   |   |       |   dot     |           |       |       |
+    |___|___|___|___0       |___|_______|           |_______|_______|
+        |   |   |               |
+        |   |   |               |
+        0                       1
+            1   -1
+
+
+no dot => return ''
+no non-dot => return ''
+
+if after the last character we encountered or before we encounter any character:
+    pre-dot is -1:
+        we've taken one of the following pathways:
+            encountering non-dot then 0+ non-dots then BOS
+            <s>encountering dot then 1+ dots means IMPOSSIBLE TO GET TO -1</s>
+            <s>encountering dot then non-dot IMPOSSIBLE TO GET TO -1</s>
+        we've encountered non-dot then 0+ non-dots and never got to a dot
+        which means format is 'abcde'
+    pre-dot is 1:
+        we've taken one of the following pathways:
+            0 -> -1 -> 1:
+                encountering non-dot then 0+ non-dots then dot then 0+ characters
+                '<antyhing>.abcde'
+            0 -> 1:
+                encountering dot then dot then 0+ chars
+                encountering dot then 1+ non-dots then dot then 0+ chars
+                <s>encountering non-dot IMPOSSIBLE</s>
+                '<anything>..'
+                '<anything>.abcde.'
+    pre-dot is zero
+        we've taken one of the following pathways:
+            encountering empty string
+            encountering non-period first is NOPE
+            encountering period then EOS
+            encountering period then non-period+ then EOS
+            encountering period then period NOPE
+        so... either:
+            empty string
+            or '.'
+            or 'xxx.'
+
+'abcde' => -1
+    return ''
+'<anything>.abcde' => 1
+    return '
+'<anything>..' => 1
+'<anything>.abcde.' => 1
+'' => 0
+'.' => 0
+'xxx.' => 0
+
+    '' => ''
+    '.' => ''
+    '..' => ''
+    x+ => ''
+    .x+ => ''
+
+    .abcde      ''
+    ..abcde     ''
+    ...abcde    ''
+    x.          '.'
+    x.x         '.x'
+    ...         .
+    ....        .
+
+    ..a         .a
+    ...a        .a
+    ....a       .a
+    x.a         .a
+    x..a        .a
+    x...a       .a
+
+    .
+    ..
+    .x
+    .aa
+    .aaa
+
+    x
+    xx
+    aaa
+    aaaa
+
+    x.          .
+    ...         .
+    .a.         .
+    a..         .
+    aa.         .
+    ....        .
+    ..a.        .
+    .a..        .
+    .aa.        .
+    a...        .
+    a.a.        .
+    aa..        .
+    aaa.        .
+
+    ..a         .a
+    a.a         .a
+    ...a        .a
+    ..aa        .aa
+    .a.a        .a
+    a..a        .a
+    a.aa        .aa
+    aa.a        .a
+
+
+ends in . and not . and not ..      => .
+a*                                  => empty
+
+<one or more chars>.a+              => .a+

@@ -1,0 +1,239 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use LWP::UserAgent;
+use HTTP::Request;
+use URI;
+use JSON::XS;
+use feature 'state';
+
+our $JSON = JSON::XS->new()->canonical(1)->pretty(1)->allow_blessed(1);
+our $ua = LWP::UserAgent->new(agent => "Mozilla/5.0");
+
+foreach my $url (@ARGV) {
+    crawl($url);
+}
+
+STDERR->autoflush(1) if -t 2;
+
+sub crawl {
+    state %crawled;
+    my (@urls) = @_;
+    my @queue = @urls;
+    while (scalar @queue) {
+        my $url = shift @queue;
+        if ($crawled{$url}++) {
+            warn("$url: already crawled\n");
+            next;
+        }
+        my $host = eval { URI->new($url)->host };
+        if (!defined $host) {
+            warn("$url: no parsable host\n");
+        }
+        my $path = eval { URI->new($url)->path };
+        if (defined $path && $path =~
+            m{\.(jpg|jpeg|png|bmp|gif|js|css|xlsx?|pptx?|docx?|
+                  ttf|otf|woff2?|eot|pdf|swf|mp3|mp4|aac|qt|webm|zip|svg|less|scss)$}xi) {
+            warn("$url: non-crawlable resource\n");
+            next;
+        }
+        my $head_req = HTTP::Request->new('HEAD', $url);
+        printf STDERR ("HEAD $url...\e[K") if -t 2;
+        my $head_resp = $ua->request($head_req);
+        printf STDERR ("\r\e[K") if -t 2;
+        my $head_type = $head_resp->content_type;
+        if (known_not_html($head_type)) {
+            warn("$url: $head_type is not HTML\n");
+            next;
+        }
+        my $req = HTTP::Request->new('GET', $url);
+        printf STDERR ("GET $url...\e[K") if -t 2;
+        my $resp = $ua->request($req);
+        printf STDERR ("\r\e[K") if -t 2;
+        my $code = $resp->code;
+        my $type = $resp->content_type;
+        my $base = $resp->base->as_string;
+        printf("%d %s GET %s\n", $code, $type, $base);
+        if (known_not_html($type)) {
+            warn("$url: $type is not HTML\n");
+            next;
+        }
+        if (!$resp->is_success()) {
+            warn("$url: ", $resp->status_line, "\n");
+            next;
+        }
+        my $extor = My::LinkExtor->new(
+            uri => $url,
+            base => $base,
+        );
+        $extor->parse($resp->decoded_content);
+        $extor->eof();
+        push(@queue, grep { !$crawled{$_} } @{$extor->{urls}});
+    }
+}
+
+sub known_not_html {
+    my ($head_type) = @_;
+    return if !defined $head_type;
+    return 1 if $head_type =~ m{^image/};
+    return 1 if $head_type =~ m{^audio/};
+    return 1 if $head_type =~ m{^video/};
+    return 1 if $head_type =~ m{^text/css\b};
+    return 1 if $head_type =~ m{^text/javascript\b};
+    return 1 if $head_type =~ m{^application/pdf\b};
+    return;
+}
+
+package My::LinkExtor {
+    our %TAGS;
+    our %ATTRS;
+    our %TAG_ATTRS;
+    use constant ATTR_INLINE => "inline";
+    use constant ATTR_HTML => "html";
+    BEGIN {
+        %TAGS = (
+            a       => \&tag_find_urls,
+            applet  => \&tag_find_urls,
+            area    => \&tag_find_urls,
+            base    => \&tag_handle_base,
+            bgsound => \&tag_find_urls,
+            body    => \&tag_find_urls,
+            embed   => \&tag_find_urls,
+            fig     => \&tag_find_urls,
+            form    => \&tag_handle_form,
+            frame   => \&tag_find_urls,
+            iframe  => \&tag_find_urls,
+            img     => \&tag_handle_img,
+            input   => \&tag_find_urls,
+            layer   => \&tag_find_urls,
+            link    => \&tag_handle_link,
+            meta    => \&tag_handle_meta,
+            object  => \&tag_find_urls,
+            overlay => \&tag_find_urls,
+            script  => \&tag_find_urls,
+            table   => \&tag_find_urls,
+            td      => \&tag_find_urls,
+            th      => \&tag_find_urls,
+            video   => \&tag_find_urls,
+            audio   => \&tag_find_urls,
+            source  => \&tag_handle_img,
+        );
+        %TAG_ATTRS = (
+            a       => { "href"       => { html   => 1 } },
+            applet  => { "code"       => { inline => 1 } },
+            area    => { "href"       => { html   => 1 } },
+            bgsound => { "src"        => { inline => 1 } },
+            body    => { "background" => { inline => 1 } },
+            embed   => { "href"       => { html   => 1 },
+                         "src"        => { inline => 1, html => 1 } },
+            fig     => { "src"        => { inline => 1 } },
+            frame   => { "src"        => { inline => 1, html => 1 } },
+            iframe  => { "src"        => { inline => 1, html => 1 } },
+            img     => { "href"       => { inline => 1 },
+                         "lowsrc"     => { inline => 1 },
+                         "src"        => { inline => 1 } },
+            input   => { "src"        => { inline => 1 } },
+            layer   => { "src"        => { inline => 1, html => 1 } },
+            object  => { "data"       => { inline => 1 } },
+            overlay => { "src"        => { inline => 1, html => 1 } },
+            script  => { "src"        => { inline => 1 } },
+            table   => { "background" => { inline => 1 } },
+            td      => { "background" => { inline => 1 } },
+            th      => { "background" => { inline => 1 } },
+            video   => { "src"        => { inline => 1 },
+                         "poster"     => { inline => 1 } },
+            audio   => { "src"        => { inline => 1 },
+                         "poster"     => { inline => 1 } },
+            source  => { "src"        => { inline => 1 } },
+        );
+        %ATTRS = (
+            "rel"        => 1,  # /* used by tag_handle_link  */
+            "type"       => 1,  # /* used by tag_handle_link  */
+            "http-equiv" => 1,  # /* used by tag_handle_meta  */
+            "name"       => 1,  # /* used by tag_handle_meta  */
+            "content"    => 1,  # /* used by tag_handle_meta  */
+            # "action"     => 1,  # /* used by tag_handle_form  */
+            # "style"      => 1,  # /* used by check_style_attr */
+            # "srcset"     => 1,  # /* used by tag_handle_img */
+        );
+    }
+    use base "HTML::Parser";
+    sub new {
+        my ($class, %args) = @_;
+        my $base = delete $args{base};
+        my $uri = delete $args{uri};
+        my $self = $class->SUPER::new(
+            api_version => 3,
+            start_h => [ \&start, 'self, tagname, attr' ],
+            %args,
+        );
+        bless($self, $class);
+        if (defined $base) {
+            $self->{base} = eval { URI->new($base) };
+            $self->{base_host} = eval { $self->{base}->host };
+        }
+        if (defined $uri) {
+            $self->{uri} = eval { URI->new($uri) };
+            $self->{uri_host} = eval { $self->{uri}->host };
+        }
+        return $self;
+    }
+    sub start {
+        my ($self, $tag_name, $attr) = @_;
+        my %attr = %$attr;
+        my %attr_checked;
+        foreach my $attr_name (grep { eval { $TAG_ATTRS{$tag_name}->{$_}->{html} } } keys %attr) {
+            $attr_checked{$attr_name} = 1;
+            my $attr_value = $attr{$attr_name};
+            if (!defined $attr_value) {
+                next;
+            }
+            my $uri = eval { URI->new($attr_value) };
+            if (!defined $uri) {
+                warn("$attr_value: not a parseable URL\n");
+                next;
+            }
+            if (defined $self->{base}) {
+                $uri = $uri->abs($self->{base});
+            }
+            $self->ooh_a_url($tag_name, $attr_name, $uri);
+        }
+        foreach my $attr_name (grep { !$attr_checked{$_} && defined $attr{$_} } keys %ATTRS) {
+            my $attr_value = $attr{$attr_name};
+            if (!defined $attr_value) {
+                next;
+            }
+            if ($attr_name eq 'http-equiv') {
+                $attr_value =~ s{^.*url=}{}i;
+            }
+            if ($attr_value =~ m{^(https?:)?//} || $attr_name eq 'http-equiv') {
+                my $uri = eval { URI->new($attr_value) };
+                if (!defined $uri) {
+                    warn("$attr_value: not a parseable URL\n");
+                    next;
+                }
+                $self->ooh_a_url($tag_name, $attr_name, $attr_value, $uri);
+            }
+        }
+    }
+    sub ooh_a_url {
+        my ($self, $tag_name, $attr_name, $uri) = @_;
+        return if !defined $self->{uri};
+        return if !defined $self->{base_host};
+
+        my $host = eval { URI->new($uri)->host };
+        if (!defined $host) {
+            warn("$uri: cannot find hostname\n");
+            return;
+        }
+        if ($host ne $self->{base_host}) {
+            warn("$uri: off site\n");
+            return;
+        }
+        if ($attr_name eq 'srcset') {
+            push(@{$self->{urls}}, map { (split(' ', $_))[0] } split(qr{\s*,\s*}, $uri));
+        } else {
+            push(@{$self->{urls}}, $uri);
+        }
+    }
+}

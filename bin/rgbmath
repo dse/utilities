@@ -1,0 +1,81 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(round);
+use List::Util qw(min max);
+
+my $cmd = shift(@ARGV);
+
+if ($cmd eq 'mix') {
+    if (scalar @ARGV < 2) {
+        die("rgbmath mix: not enough arguments\n");
+    }
+    my $color_1 = parse_color(shift(@ARGV));
+    my $color_2 = parse_color(shift(@ARGV));
+    my $mix = shift(@ARGV) // 0.5;
+    print("@$color_1\n");
+    print("@$color_2\n");
+    print("$mix\n");
+    my $color = mix_colors($color_1, $color_2, $mix);
+    print(color_to_str($color), "\n");
+}
+
+sub mix_colors {
+    my ($color_1, $color_2, $mix) = @_;
+    $mix //= 0.5;
+    my $r = clamp($color_1->[0] + $mix * ($color_2->[0] - $color_1->[0]));
+    my $g = clamp($color_1->[1] + $mix * ($color_2->[1] - $color_1->[1]));
+    my $b = clamp($color_1->[2] + $mix * ($color_2->[2] - $color_1->[2]));
+    return ($r, $g, $b) if wantarray;
+    return [$r, $g, $b];
+}
+
+sub parse_color {
+    my ($color) = @_;
+    if ($color =~ /^#?([[:xdigit:]]{2})([[:xdigit:]]{2})([[:xdigit:]]{2})$/) {
+        my ($r, $g, $b) = map { hex($_) / 255 } ($1, $2, $3);
+        return ($r, $g, $b) if wantarray;
+        return [$r, $g, $b];
+    }
+    if (lc $color eq 'black') {
+        return [0, 0, 0];
+    }
+    if (lc $color eq 'white') {
+        return [1, 1, 1];
+    }
+    die("invalid color: $color\n");
+}
+
+sub color_to_str {
+    my ($r, $g, $b) = @_;
+    if (ref $r eq 'ARRAY' && scalar @_ == 1) {
+        ($r, $g, $b) = @$r;
+    }
+    ($r, $g, $b) = map { round(255 * clamp($_)) } ($r, $g, $b);
+    return sprintf("#%02x%02x%02x", $r, $g, $b);
+}
+
+sub clamp {
+    my ($x, $min, $max) = @_;
+    if (!defined $min && !defined $max) {
+        ($min, $max) = (0, 1);
+    } elsif (!defined $max) {
+        if ($min < 0) {
+            ($min, $max) = ($min, 0);
+        } else {
+            ($min, $max) = (0, $min);
+        }
+    } elsif (!defined $min) {
+        if ($max < 0) {
+            ($min, $max) = ($max, 0);
+        } else {
+            ($min, $max) = (0, $max);
+        }
+    }
+    if ($min > $max) {
+        ($min, $max) = ($max, $min);
+    }
+    return $min if $x < $min;
+    return $max if $x > $max;
+    return $x;
+}

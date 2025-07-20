@@ -1,0 +1,130 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use List::Util qw(any);
+use List::MoreUtils qw(firstidx);
+
+# - U+2500    ─  BOX DRAWINGS LIGHT HORIZONTAL
+# | U+2502    │  BOX DRAWINGS LIGHT VERTICAL
+
+# .- U+250C    ┌  BOX DRAWINGS LIGHT DOWN AND RIGHT
+# -. U+2510    ┐  BOX DRAWINGS LIGHT DOWN AND LEFT
+# '- U+2514    └  BOX DRAWINGS LIGHT UP AND RIGHT
+# -' U+2518    ┘  BOX DRAWINGS LIGHT UP AND LEFT
+
+#  |- U+251C    ├  BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+# -|  U+2524    ┤  BOX DRAWINGS LIGHT VERTICAL AND LEFT
+# -.- U+252C    ┬  BOX DRAWINGS LIGHT DOWN AND HORIZONTAL
+# -'- U+2534    ┴  BOX DRAWINGS LIGHT UP AND HORIZONTAL
+# -|- -+- U+253C    ┼  BOX DRAWINGS LIGHT VERTICAL AND HORIZONTAL
+
+# - U+2574    ╴  BOX DRAWINGS LIGHT LEFT
+# ' U+2575    ╵  BOX DRAWINGS LIGHT UP
+# - U+2576    ╶  BOX DRAWINGS LIGHT RIGHT
+# , U+2577    ╷  BOX DRAWINGS LIGHT DOWN
+
+# ,- U+256D    ╭  BOX DRAWINGS LIGHT ARC DOWN AND RIGHT
+# -, U+256E    ╮  BOX DRAWINGS LIGHT ARC DOWN AND LEFT
+# -' U+256F    ╯  BOX DRAWINGS LIGHT ARC UP AND LEFT
+# '- U+2570    ╰  BOX DRAWINGS LIGHT ARC UP AND RIGHT
+
+# / U+2571    ╱  BOX DRAWINGS LIGHT DIAGONAL UPPER RIGHT TO LOWER LEFT
+# \ U+2572    ╲  BOX DRAWINGS LIGHT DIAGONAL UPPER LEFT TO LOWER RIGHT
+# X U+2573    ╳  BOX DRAWINGS LIGHT DIAGONAL CROSS
+
+local $/ = undef;
+while (<>) {
+    my @lines = split(/\R/, $_);
+    my $boxdraw = My::Boxdrawify->new(@lines);
+}
+
+package My::Boxdrawify {
+    use warnings;
+    use strict;
+    sub new {
+        my ($class, @lines) = @_;
+        my $self = bless({}, $class);
+        $self->{lines} = [@lines];
+        return $self;
+    }
+    sub diagonals {
+    }
+    sub count_diagonals {
+        my ($self, $line_idx, $col_idx, $lines, $chrs) = @_;
+        if (!defined $lines) {
+            $lines = [$self->{lines}];
+        }
+        my @lines = @$lines;
+        if ($line_idx < 0 || $line_idx >= scalar @lines) {
+            return [0] if wantarray;
+            return 0;
+        }
+        if ($col_idx < 0 || $col_idx >= length($lines[$line_idx])) {
+            return [0] if wantarray;
+            return 0;
+        }
+        my $chr = substr($lines[$line_idx], $col_idx, 1);
+        if (defined $chrs && index($chrs, $chr) < 0) {
+            return [0] if wantarray;
+            return 0;
+        }
+        if ($chr eq 'X') {
+            my $restore_line = $lines[$line_idx];
+            substr($lines[$line_idx], $col_idx, 1) = "\x{2573}";
+
+            my $count = 1;
+            $count += $self->count_diagonals($line_idx - 1, $col_idx - 1, [@lines], "\\X");
+            $count += $self->count_diagonals($line_idx - 1, $col_idx + 1, [@lines], "/X");
+            $count += $self->count_diagonals($line_idx + 1, $col_idx - 1, [@lines], "/X");
+            $count += $self->count_diagonals($line_idx + 1, $col_idx + 1, [@lines], "\\X");
+        }
+        if ($chr eq '/') {
+            my $restore_line = $lines[$line_idx];
+            substr($lines[$line_idx], $col_idx, 1) = "\x{2571}";
+
+            my $count = 1;
+            $count += $self->count_diagonals($line_idx - 1, $col_idx + 1, [@lines], "/X");
+            $count += $self->count_diagonals($line_idx + 1, $col_idx - 1, [@lines], "/X");
+        }
+        if ($chr eq "\\") {
+            my $restore_line = $lines[$line_idx];
+            substr($lines[$line_idx], $col_idx, 1) = "\x{2572}";
+
+            my $count = 1;
+            $count += $self->count_diagonals($line_idx - 1, $col_idx - 1, [@lines], "\\X");
+            $count += $self->count_diagonals($line_idx + 1, $col_idx + 1, [@lines], "\\X");
+        }
+        return [0] if wantarray;
+        return 0;
+    }
+    sub first_line_col_idx {
+        my ($self, $rx) = @_;
+        my $is_str = ref $rx eq '';
+        my $is_rx  = ref $rx eq 'REGEXP';
+        return if !$is_str && !$is_rx;
+        my $line_idx;
+        if ($is_str) {
+            $line_idx = firstidx { index($_, $rx) >= 0 } @{$self->{lines}};
+        } else {
+            $line_idx = firstidx { $_ =~ $rx } @{$self->{lines}};
+        }
+        return if $line_idx < 0;
+        my $line = $self->{lines}->[$line_idx];
+        my $col_idx;
+        if ($is_str) {
+            $col_idx = index($line, $rx);
+            return if $col_idx < 0;
+        } else {
+            return unless $line =~ $rx;
+            $col_idx = $-[0];
+        }
+        return ($line_idx, $col_idx) if wantarray;
+        return [$line_idx, $col_idx];
+    }
+}
+
+# my $boxdraw = My::Boxdrawify->new(@lines)
+#
+# my ($line_idx, $col_idx) = $boxdraw->first_line_col_idx($regexp);
+# my $scalar = $boxdraw->first_line_col_idx($regexp);
+#     returns [$line_idx, $col_idx]

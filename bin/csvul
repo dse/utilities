@@ -1,0 +1,51 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Text::Wrap;
+use Text::CSV_XS;
+use IO::File;
+use open IO => qw(:locale);
+$Text::Wrap::columns = 76;
+
+push(@ARGV, "-") if !scalar @ARGV;
+foreach my $filename (@ARGV) {
+    my $csv = Text::CSV_XS->new({ binary => 1, auto_diag => 1 });
+    my $fh = IO::File->new($filename);
+    if (!$fh) {
+        warn("$filename: $!\n");
+        next;
+    }
+    my $row = $csv->getline($fh);
+    next if !defined $row;
+    my @column_names = @$row;
+    while (my $row = $csv->getline($fh)) {
+        my @row = map { trimnorm($_) } @$row;
+        printf("## %s\n\n", trimnorm($row[0] // '<empty>'));
+        my $printed = 0;
+        for (my $i = 1; $i < scalar @row || $i < scalar @column_names; $i += 1) {
+            my $value = $row[$i];
+            if (!defined $value || $value !~ /\S/) {
+                next;
+            }
+            $value = trimnorm($value);
+            my $name = $column_names[$i];
+            if (defined $name) {
+                print(Text::Wrap::wrap("-   ", "    ", "**$name**: $value"), "\n");
+            } else {
+                print(Text::Wrap::wrap("-   ", "    ", $value), "\n");
+            }
+            $printed = 1;
+        }
+        if ($printed) {
+            print("\n");
+        }
+    }
+}
+
+sub trimnorm {
+    my ($str) = shift;
+    $str =~ s{\A\s+}{};
+    $str =~ s{\s+\z}{};
+    $str =~ s{\s+}{ }g;
+    return $str;
+}

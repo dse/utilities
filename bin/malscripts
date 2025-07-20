@@ -1,0 +1,13 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+local $/ = undef;
+while (<>) {
+    while (m{<\s*script(?=\s|>)[^<>]*>(?<code>.*?)<\s*/\s*script\s*>}gs) {
+        my $code = $+{code};
+        if ($code =~ m{[<>]}) {
+            printf("%s: %d\n", $ARGV, length($code));
+        }
+    }
+}

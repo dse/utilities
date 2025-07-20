@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Getopt::Long;
+use File::Rename;
+
+our $opt_verbosity = 0;
+our $opt_null = 0;
+our $opt_dry_run = 0;
+our $opt_force;
+our $opt_path;
+our $opt_unicode;
+our @opt_execute;
+
+main();
+
+sub main {
+    Getopt::Long::Configure(qw(gnu_getopt));
+    Getopt::Long::GetOptions(
+        'v|verbose+'                   => \$opt_verbosity,
+        'n|nono|dry-run'               => \$opt_dry_run,
+        'f|force'                      => \$opt_force,
+        'h|help'                       => sub { usage(); exit(0); },
+        'e|execute=s'                  => \@opt_execute,
+        'k|kebab'                      => sub { push(@opt_execute, sub { $_ = kebab_filename($_); }); },
+        'E=s'                          => sub { push(@opt_execute, $_[1] . ';') },
+    ) or die(":-(\n");
+    die("no renaming specified\n") if !scalar @opt_execute;
+    die("not enough arguments\n") if !scalar @ARGV;
+    my @filenames = @ARGV;
+    rename_files(@filenames);
+}
+
+sub rename_files {
+    my (@filenames) = @_;
+    my %renames;
+    foreach my $filename (@filenames) {
+        my $new_filename = execute_code($filename);
+        if ($filename ne $new_filename) {
+            $renames{$filename} = $new_filename;
+        }
+    }
+}
+
+sub execute_code {
+    my $filename = shift;
+    for ($filename) {
+        foreach my $code (@opt_execute) {
+            if (ref $code eq '') {
+                eval($code);
+            } elsif (ref $code eq 'CODE') {
+                &$code();
+            } else {
+                die(sprintf("neither string nor code: %s\n", ref $code));
+            }
+        }
+    }
+    return $filename;
+}
+
+sub kebab_string {
+    my $str = shift;
+    $str =~ s{[^0-9A-Za-z]+}{-}g;
+    $str =~ s{^-+}{};
+    $str =~ s{-+$}{};
+    $str = lc($str);
+    return $str;
+}
+
+sub kebab_filenames {
+    my $filename = shift;
+    my $ext = $filename =~ s/\.([^.]+)$// ? $1 : undef;
+    $filename = kebab_string($filename);
+    if (defined $ext) {
+        $filename .= "." . kebab_string($ext);
+    }
+    return $filename;
+}

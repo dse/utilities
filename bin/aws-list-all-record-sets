@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    declare -a profiles
+    list-aws-profiles | readarray -t profiles
+    declare -i count=${#profiles[@]}
+    declare -i exit=0
+    declare -a index=0
+    local temp="$(mktemp)"
+
+    for profile in "default" "${profiles[@]}" ; do
+        if [[ -t 2 ]] ; then
+            echo "// ${profile}" >&2
+        fi
+        list_hosted_zones "${profile}"
+    done
+}
+
+list_hosted_zones () {
+    local profile="$1"; shift
+    local -a hosted_zones=()
+    { aws route53 list-hosted-zones || true ; } | jq -r '.HostedZones[]|.Name + " " + .Id' | readarray -t hosted_zones
+    local hosted_zone
+    local hosted_zone_id
+    local hosted_zone_name
+    local -a records
+    local record
+    local record_name
+    local record_type
+    for hosted_zone in "${hosted_zones[@]}" ; do
+        hosted_zone_name="${hosted_zone% *}"
+        hosted_zone_id="${hosted_zone#* }"
+        { aws route53 list-resource-record-sets --hosted-zone-id "${hosted_zone_id}" || true ; } >"${temp}"
+        jq -r '.ResourceRecordSets[]|.Name + " " + .Type' "${temp}" | readarray -t records
+        for record in "${records[@]}" ; do
+            record_name="${record% *}"
+            record_type="${record#* }"
+            # echo "${profile} ${record_name} ${record_type}"
+            if [[ "${record_name}" != *_* ]] && [[ "${record_name}" = *.*.*.*. ]] ; then
+                jq -r ".ResourceRecordSets[]|select(.Name == \"${record_name}\" and .Type == \"${record_type}\")" "${temp}"
+            fi
+        done
+    done
+}
+
+aws () {
+    run_aws_with "${profile}" "$@"
+}
+
+run_aws_with () {
+    local profile="$1"; shift
+    local -a opt_profile=(--profile "${profile}")
+    if [[ "${profile}" = "" ]] || [[ "${profile}" = "-" ]] || [[ "${profile}" = "default" ]] ; then
+        opt_profile=()
+    fi
+    command aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+
+at_exit () {
+    [[ -v temp ]] && [[ -e "${temp}" ]] && { rm -f -r "${temp}" || true ; }
+}
+
+trap at_exit EXIT
+
+main "$@"

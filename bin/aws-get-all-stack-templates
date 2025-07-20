@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+main () {
+    declare -a profiles
+    list-aws-profiles | readarray -t profiles
+    declare -i count=${#profiles[@]}
+    declare -i exit=0
+    declare -i index=0
+    temp="$(mktemp)"
+    temp2="$(mktemp)"
+
+    declare -a stacks
+
+    echo "["
+    for profile in "default" "${profiles[@]}" ; do
+        if [[ -t 2 ]] ; then
+            echo "// ${profile}" >&2
+        fi
+        { aws cloudformation list-stacks || true ; } | jq -r '.StackSummaries[]|.StackName + "" + .StackId' >"${temp}"
+        cat "${temp}" | readarray -t stacks
+        for stack in "${stacks[@]}" ; do
+            if (( index )) ; then
+                echo "    ,"
+            fi
+            stack_id="${stack#*}"
+            stack_name="${stack%*}"
+            if [[ -t 2 ]] ; then
+                echo "// ${profile} // ${stack_name}" >&2
+            fi
+            # echo "name ${stack_name} id ${stack_id}"
+            echo "    {"
+            echo "        \"AwsProfileName\": \"${profile}\","
+            echo "        \"StackName\": \"${stack_name}\","
+            echo "        \"StackId\": \"${stack_id}\","
+            echo "        \"Template\":"
+            { aws cloudformation get-template --stack-name "${stack_name}" || true ; } >"${temp2}"
+            if grep -q '[^ ]' "${temp2}" ; then
+                sed 's/^/            /' "${temp2}"
+            else
+                echo "            null"
+            fi
+            echo "    }"
+            index=$((index + 1))
+        done
+    done
+    echo "]"
+}
+
+aws () {
+    run_aws_with "${profile}" "$@"
+}
+
+run_aws_with () {
+    local profile="$1"; shift
+    local -a opt_profile=(--profile "${profile}")
+    if [[ "${profile}" = "" ]] || [[ "${profile}" = "-" ]] || [[ "${profile}" = "default" ]] ; then
+        opt_profile=()
+    fi
+    command aws "${opt_profile[@]}" --output json --color off --no-cli-pager --no-cli-auto-prompt "$@"
+}
+
+at_exit () {
+    [[ -v temp ]] && [[ -e "${temp}" ]] && { /bin/rm -f -r "${temp}" || true ; }
+}
+
+main "$@"

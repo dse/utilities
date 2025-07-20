@@ -1,0 +1,49 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+print(create_regexp(@ARGV), "\n");
+
+sub create_regexp {
+    my @str = grep { defined $_ } @_;
+    if (!scalar @str) {
+        return;
+    }
+    if (scalar @str == 1) {
+        return quotemeta($str[0]);
+    }
+    my %first_char;
+    my @regexp;
+    my $optional = scalar grep { $_ eq '' } @str;
+    foreach my $str (grep { $_ ne '' } @str) {
+        my $chr = substr($str, 0, 1);
+        push(@{$first_char{$chr}}, substr($str, 1));
+    }
+    foreach my $char (sort { scalar @{$first_char{$b}} <=> scalar @{$first_char{$a}} } keys %first_char) {
+        my @str = @{$first_char{$char}};
+        my $rest_regexp = create_regexp(@str);
+        next if !defined $rest_regexp;
+        push(@regexp, quotemeta($char) . $rest_regexp);
+    }
+    return if !scalar @regexp;
+    return $regexp[0] if scalar @regexp == 1 && !$optional;
+    my $alts = join('|', @regexp);
+    return $alts . '?' if length($alts) == 1 && $optional;
+    return $alts if length($alts) == 1;
+    return '(?:' . $alts . ')' . ($optional ? '?' : '');
+}
+
+# (t(w(e(lve|           twelve
+#        nty)|          twenty
+#      o)|              two
+#    h(ree|             three
+#      irteen)|         thirteen
+#    en)|               ten
+#  f(our(teen)?|        four     fourteen
+#    i(ve|              five
+#      fteen))|         fifteen
+#  s(even(teen)?|       seven    seventeen
+#    ix(teen)?)|        six      sixteen
+#  e(ight(een)?|        eight    eighteen
+#    leven)|            eleven
+#  nine(teen)?|         nine     nineteen
+#  one)                 one

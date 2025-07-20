@@ -1,0 +1,20 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use Text::Tabs qw(expand);
+while (<>) {
+    s{\R\z}{};
+    $_ = expand($_);
+    if (/^\s*([[:xdigit:]]+)\s*$/) {
+        my $binary = unpack('B*', pack('H*', $1));
+        $binary =~ s{0}{ }g;
+        $binary =~ s{1}{#}g;
+        printf("|%s|\n", $binary);
+    } elsif (/^\s*\|(.*)\|\s*$/) {
+        my $binary = $1;
+        $binary =~ s{.}{ord($&) == 32 ? '0' : '1'}ge;
+        printf("%s\n", unpack('H*', pack('B*', $binary)));
+    } else {
+        print("$_\n");
+    }
+}

@@ -1,0 +1,86 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+local $/ = undef;
+while (<>) {
+    my $parser = My::HTML::Parser->new();
+    $parser->parse($_);
+    $parser->eof();
+}
+package My::HTML::Parser {
+    use base "HTML::Parser";
+    use HTML::Tagset;
+    use HTML::Valid::Tagset;
+    sub new {
+        my ($class, @args) = @_;
+        my $self = $class->SUPER::new(
+            @args,
+            api_version   => 3,
+            text_h        => [\&text,        'self, text, is_cdata'],
+            end_h         => [\&end,         'self, tagname, text'],
+            process_h     => [\&process,     'self, token0, text'],
+            start_h       => [\&start,       'self, tagname, attr, attrseq, text'],
+            comment_h     => [\&comment,     'self, tokens, text'],
+            declaration_h => [\&declaration, 'self, text'],
+        );
+        $self->{text} = '';
+        $self->{indent_level} = 0;
+        $self->{tagnames} = [];
+        return $self;
+    }
+    sub text {
+        my ($self, $text, $is_cdata) = @_;
+        $self->push_token("text", text => $text, is_cdata => $is_cdata);
+    }
+    sub end {
+        my ($self, $tagname, $text) = @_;
+        $self->push_token("end", text => $text, tagname => $tagname);
+    }
+    sub process {
+        my ($self, $token0, $text) = @_;
+        $self->push_token("process", text => $text, token0 => $token0);
+    }
+    sub start {
+        my ($self, $tagname, $attr, $attrseq, $text) = @_;
+        $self->push_token("start", text => $text, tagname => $tagname, attr => $attr, attrseq => $attrseq);
+        if (!$HTML::Tagset::emptyElement{$tagname}) {
+            push(@{$self->{tagnames}}, $tagname);
+            $self->{indent_level} += 1;
+        }
+    }
+    sub comment {
+        my ($self, $tokens, $text) = @_;
+        $self->push_token("comment", text => $text, tokens => $tokens);
+    }
+    sub declaration {
+        my ($self, $text) = @_;
+        $self->push_token("declaration", text => $text);
+    }
+    sub reconstitute_start {
+        my ($self, $tagname, $attr, $attrseq) = @_;
+        my $text = '<' . $tagname;
+        foreach my $attrname (@$attrseq) {
+            if ($self->is_bool($tagname, $attrname)) {
+                $text .= sprintf(' %s', $attrname);
+            } else {
+                $text .= sprintf(' %s="%s"', $attrname, encode_entities($attr->{$attrname}));
+            }
+        }
+        return $text . '>';
+    }
+    sub is_bool {
+        my ($self, $tagname, $attrname) = @_;
+        my $bool = HTML::Tagset::boolean_attr{$tagname};
+        return if !defined $bool;
+        return 1 if ref $bool eq '' && $bool eq $attrname;
+        return 1 if ref $bool eq 'HASH' && $bool->{$attrname};
+        return;
+    }
+    sub push_token {
+        my ($self, $type, %args) = @_;
+        my $token = { type => $type, %args };
+        $self->{last_token} = $self->{token};
+        $self->{token} = $token;
+        push(@{$self->{tokens}}, $token);
+    }
+}

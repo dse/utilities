@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+
+# trim
+#
+# trim leading and trailing whitespace from each line
+
+while (<>) {
+    s{\s*\z}{};
+    s{\A\s*}{};
+    print("$_\n");
+}

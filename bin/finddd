@@ -1,0 +1,68 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use open qw(:locale);
+
+STDOUT->autoflush(1);
+
+use File::Find;
+use Time::Local qw(timelocal_posix);
+use POSIX qw(strftime);
+
+my $start = timelocal_posix(0, 0, 0, 9, 12 - 1, 2022 - 1900);
+my $end   = timelocal_posix(0, 0, 0, 24, 12 - 1, 2022 - 1900);
+
+my @dir = findGitRepositories();
+foreach my $dir (@dir) {
+    chdir($dir) or die("$dir: $!\n");
+}
+
+sub findModifiedFiles {
+    my (@dir) = @_;
+    @dir = ('.') if !scalar @dir;
+    use vars qw($name $dir $prune);
+    local *name  = *File::Find::name;
+    local *dir   = *File::Find::dir;
+    local *prune = *File::Find::prune;
+    my $wanted = sub {
+        do { $prune = 1; return; } if $_ eq '.git';
+        do { $prune = 1; return; } if $_ eq '.cache';
+        do { $prune = 1; return; } if $_ eq '.cpan';
+        do { $prune = 1; return; } if $_ eq '.svn';
+        do { $prune = 1; return; } if $_ eq 'node_modules';
+        my @lstat = lstat($_);
+        do { return; } if !scalar @lstat;
+        my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+        return unless -f _;
+        return if $mtime < $start || $mtime >= $end;
+        printf("%s %s\n",
+               strftime('%m/%d %H:%M', localtime($mtime)),
+               $name);
+    };
+    File::Find::find({ wanted => $wanted }, @dir);
+}
+
+sub findGitRepositories {
+    my (@dir) = @_;
+    @dir = ('.') if !scalar @dir;
+    my @git;
+    use vars qw($name $dir $prune);
+    local *name  = *File::Find::name;
+    local *dir   = *File::Find::dir;
+    local *prune = *File::Find::prune;
+    my $wanted = sub {
+        do { push(@git, $dir); $prune = 1; return; } if $_ eq '.git';
+        do { $prune = 1; return; } if $_ eq '.cache';
+        do { $prune = 1; return; } if $_ eq '.cpan';
+        do { $prune = 1; return; } if $_ eq '.svn';
+        do { $prune = 1; return; } if $_ eq 'node_modules';
+        my @lstat = lstat($_);
+        return if !scalar @lstat;
+        # my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+        return unless -d _;
+        do { push(@git, $name); $prune = 1; return; } if -d "$name/.git";
+        push(@git, $name);
+    };
+    File::Find::find({ wanted => $wanted }, @dir);
+    return @git;
+}

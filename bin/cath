@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o nounset
+shopt -s lastpipe
+
+declare file
+
+for file ; do
+    echo "==> $file <=="
+    cat "$file"
+done

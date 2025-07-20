@@ -1,0 +1,20 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use FindBin;
+
+use lib "${FindBin::Bin}/../lib";
+use My::Color qw($RX_RGB_STRING rgb_str_to_hsl_str);
+
+our $verbose = 0;
+
+use Getopt::Long;
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    'v|verbose+' => \$verbose
+) or die(":-(\n");
+
+while (<>) {
+    s/${RX_RGB_STRING}/rgb_str_to_hsl_str($&)/ge;
+    print;
+}

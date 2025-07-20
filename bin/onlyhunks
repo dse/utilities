@@ -1,0 +1,87 @@
+#!/usr/bin/env perl
+#
+# Takes a patch (a la git diff) as input, only prints the hunks (and
+# their file headers) matching any of the specified patterns.
+# Patterns are interpreted as Perl regular expressions.
+#
+# Patterns of the following form:
+#
+#     /pattern/i
+#
+# have the flags applied to them.
+use warnings;
+use strict;
+use List::Util qw(none);
+
+our @pattern;
+
+use Getopt::Long;
+Getopt::Long::Configure('gnu_getopt');
+Getopt::Long::GetOptions(
+    'e|pattern=s' => \@pattern,
+) or die(':-(');
+
+if (!scalar @pattern) {
+    if (!scalar @ARGV) {
+        die("no pattern specified\n");
+    }
+    push(@pattern, shift(@ARGV));
+}
+
+@pattern = map { pattern_to_re($_) } @pattern;
+
+our $stage;
+our $file_header;
+our $hunk;
+
+while (<>) {
+    if (/^diff --git /) {
+        process_hunk();
+        $stage = 'file';
+        $file_header = $_;
+        next;
+    }
+    if (/^@@ /) {
+        process_hunk();
+        $stage = 'hunk';
+        $hunk = $_;
+        next;
+    }
+    if ($stage eq 'file') {
+        $file_header .= $_;
+        next;
+    }
+    if ($stage eq 'hunk') {
+        $hunk .= $_;
+        next;
+    }
+}
+process_hunk();
+
+sub process_hunk {
+    if (!defined $hunk) {
+        return;
+    }
+    if (scalar @pattern) {
+        if (none { $hunk =~ $_ } @pattern) {
+            $hunk = undef;
+            return;
+        }
+    }
+    if (defined $file_header) {
+        print $file_header;
+        $file_header = undef;
+    }
+    print $hunk;
+    $hunk = undef;
+}
+
+sub pattern_to_re {
+    my ($pattern) = @_;
+    my $flags = '';
+    if ($pattern =~ m{^/(.*)/([ism]+)?$}) {
+        $pattern = $1;
+        $flags .= $2 if defined $2;
+    }
+    return qr{(?$flags:$pattern)};
+}
