@@ -9,8 +9,8 @@ use FindBin;
 use lib "${FindBin::Bin}/../lib/perl";
 use My::File::Wildcard qw(wildcard_to_regexp);
 
-our $RX_HAS_EXT = qr{\.[^/]+$};
-our $RX_IS_EXT = qr{^\.[^/]+$};
+our $RX_HAS_EXT = qr{\.(?:tar\.)?[^/.]+$};
+our $RX_IS_EXT = qr{^\.(?:tar\.)?[^/.]+$};
 
 our $run_as = (fileparse($0))[0];
 our $cvs_exclude;
