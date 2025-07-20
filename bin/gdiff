@@ -114,6 +114,10 @@ main () {
                 get_required_arg "$@"
                 git_diff_options+=("${OPTARG}")
                 ;;
+            exclude)
+                get_required_arg "$@"
+                gdiff_pp_options+=(--exclude "${OPTARG}")
+                ;;
             *)
                 if (( dashdash )) ; then
                     echo "$0: illegal option -- ${OPTION}"
