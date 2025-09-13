@@ -1,6 +1,14 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use Getopt::Long;
+
+our $opt_trim;
+
+Getopt::Long::Configure("gnu_getopt");
+Getopt::Long::GetOptions(
+    "t|trim" => \$opt_trim,
+) or die(":-(\n");
 
 my $lastFilename;
 while (<>) {
@@ -30,6 +38,10 @@ sub processLine {
     }
     print('    ');
     printf("%6d:", $lineNumber) if defined $lineNumber;
+    if ($opt_trim) {
+        s{^\s+}{};
+        s{\s+$}{};
+    }
     print("$_\n");
 }
 
