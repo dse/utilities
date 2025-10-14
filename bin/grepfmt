@@ -2,6 +2,9 @@
 use warnings;
 use strict;
 
+my $GREEN = (-t 1) ? "\e[0;32m" : "";
+my $RESET = (-t 1) ? "\e[m"     : "";
+
 my $lastFilename;
 while (<>) {
     s{\R\z}{};                  # safer chomp
@@ -21,7 +24,7 @@ sub processLine {
     if (s{^(?!\d+:)(?<filename>.*?):}{}x) {
         $filename = $+{filename};
         if ((!defined $lastFilename) || ($lastFilename ne $filename)) {
-            printf("%s\n", $filename);
+            printf("%s%s%s\n", $GREEN, $filename, $RESET);
             $lastFilename = $filename;
         }
     }
