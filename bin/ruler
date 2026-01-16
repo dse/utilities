@@ -10,7 +10,7 @@ my $zero;
 
 Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions("w|width|columns=i" => \$columns,
-                         "z|zero|emacs" => \$zero) or die(":-(");
+                         "z|0|zero|emacs" => \$zero) or die(":-(");
 
 if (!$columns) {                # not specified in CLI
     eval {
