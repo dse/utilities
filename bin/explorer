@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+explorer_exe='c:\windows\explorer.exe'
+explorer="$(wslpath -u "${explorer_exe}")"
+if (( $# )) ; then
+    exec "${explorer}" "$(wslpath -w "$1")"
+else
+    exec "${explorer}"
+fi
