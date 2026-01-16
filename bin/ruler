@@ -53,14 +53,14 @@ foreach my $col_idx (0 .. $columns - 1) {              # 0..171
 print($line_1 . "\n");
 print($line_2 . "\n");
 
-my %GOTTEN;
+my %HAS;
 BEGIN {
-    eval { require "sys/ioctl.ph"; $GOTTEN{ioctl} = 1;    };
-    eval { require Term::Size;     $GOTTEN{TermSize} = 1; };
+    eval { require "sys/ioctl.ph"; $HAS{ioctl} = 1;    };
+    eval { require Term::Size;     $HAS{TermSize} = 1; };
 }
 sub get_screen_size {
     my $tty;
-    if ($GOTTEN{ioctl}) {
+    if ($HAS{ioctl}) {
         my $winsize;
         my ($row, $col, $xpixel, $ypixel);
         eval {
@@ -76,7 +76,7 @@ sub get_screen_size {
             return ($row, $col);
         }
     }
-    if ($GOTTEN{TermSize}) {
+    if ($HAS{TermSize}) {
         open($tty, "+</dev/tty") or die "No tty: $!";
         my ($columns, $rows) = Term::Size::chars $tty;
         return ($rows, $columns);
