@@ -12,17 +12,12 @@ Getopt::Long::Configure("bundling", "gnu_compat");
 Getopt::Long::GetOptions("w|width|columns=i" => \$columns,
                          "z|zero|emacs" => \$zero) or die(":-(");
 
-if (!$columns) {
-    if ($ENV{COLUMNS}) {
-        $columns = $ENV{COLUMNS};
-    } else {
-        eval {
-            my $junk;
-            ($junk, $columns) = get_screen_size();
-        };
-        if (!$columns) {
-            $columns = 80;
-        }
+if (!$columns) {                # not specified in CLI
+    eval {
+        (undef, $columns) = get_screen_size();
+    };
+    if (!$columns) {
+        $columns = 80;
     }
 }
 
@@ -59,31 +54,33 @@ BEGIN {
     eval { require Term::Size;     $HAS{TermSize} = 1; };
 }
 sub get_screen_size {
-    my $tty;
     if ($HAS{ioctl}) {
-        my $winsize;
-        my ($row, $col, $xpixel, $ypixel);
         eval {
             die "no TIOCGWINSZ\n" unless defined &TIOCGWINSZ;
+            my $tty;
             open($tty, "+</dev/tty") or die "No tty: $!";
+            my $winsize;
             unless (ioctl($tty, &TIOCGWINSZ, $winsize='')) {
                 die sprintf("$0: ioctl TIOCGWINSZ (%08x: $!)\n",
                             &TIOCGWINSZ);
             }
-            ($row, $col, $xpixel, $ypixel) = unpack('S4', $winsize);
-        };
-        if (!$@) {
+            my ($row, $col) = unpack('S2', $winsize);
             return ($row, $col);
-        }
+        };
     }
     if ($HAS{TermSize}) {
-        open($tty, "+</dev/tty") or die "No tty: $!";
-        my ($columns, $rows) = Term::Size::chars $tty;
-        return ($rows, $columns);
+        eval {
+            my $tty;
+            open($tty, "+</dev/tty") or die "No tty: $!";
+            my ($columns, $rows) = Term::Size::chars $tty;
+            return ($rows, $columns);
+        };
     }
-    my $rows = `tput lines`;
-    my $columns = `tput cols`;
-    $rows =~ s{\R\z}{};
-    $columns =~ s{\R\z}{};
-    return ($rows, $columns);
+    eval {
+        my $rows = `tput lines`;
+        my $columns = `tput cols`;
+        $rows =~ s{\R\z}{};
+        $columns =~ s{\R\z}{};
+        return ($rows, $columns);
+    };
 }
