@@ -26,36 +26,32 @@ if (!$columns) {
     }
 }
 
-ruler2();
-
-sub ruler2 {
-    my $line_1 = " " x $columns;
-    my $line_2 = "-" x $columns;
-    my $start_disp_col_num = 1;
-    my $end_disp_col_num   = $columns;
-    my $start_col_idx = 0;
-    my $end_col_idx = $columns - 1;
-    if ($zero) {
-        $start_disp_col_num -= 1; # e.g., 0
-        $end_disp_col_num -= 1;   # e.g., 171
-    }
-    foreach my $col_idx (0 .. $columns - 1) { # 0..171
-        my $disp_col_num = $col_idx + ($zero ? 0 : 1); # 0..171 or 1..172
-        if ($disp_col_num % 10 == 0) {
-            substr($line_2, $col_idx, 1) = "|";
-            my $len = length("$disp_col_num");
-            my $end_idx = $col_idx + 1;
-            my $start_idx = $end_idx - $len;
-            if ($start_idx >= 0 && $end_idx <= $columns) {
-                substr($line_1, $start_idx, $len) = "$disp_col_num";
-            }
-        } elsif ($disp_col_num % 5 == 0) {
-            substr($line_2, $col_idx, 1) = ":";
-        }
-    }
-    print($line_1 . "\n");
-    print($line_2 . "\n");
+my $line_1 = " " x $columns;
+my $line_2 = "-" x $columns;
+my $start_disp_col_num = 1;
+my $end_disp_col_num   = $columns;
+my $start_col_idx = 0;
+my $end_col_idx = $columns - 1;
+if ($zero) {
+    $start_disp_col_num -= 1;   # e.g., 0
+    $end_disp_col_num -= 1;     # e.g., 171
 }
+foreach my $col_idx (0 .. $columns - 1) {              # 0..171
+    my $disp_col_num = $col_idx + ($zero ? 0 : 1); # 0..171 or 1..172
+    if ($disp_col_num % 10 == 0) {
+        substr($line_2, $col_idx, 1) = "|";
+        my $len = length("$disp_col_num");
+        my $end_idx = $col_idx + 1;
+        my $start_idx = $end_idx - $len;
+        if ($start_idx >= 0 && $end_idx <= $columns) {
+            substr($line_1, $start_idx, $len) = "$disp_col_num";
+        }
+    } elsif ($disp_col_num % 5 == 0) {
+        substr($line_2, $col_idx, 1) = ":";
+    }
+}
+print($line_1 . "\n");
+print($line_2 . "\n");
 
 my %GOTTEN;
 BEGIN {
@@ -87,7 +83,7 @@ sub get_screen_size {
     }
     my $rows = `tput lines`;
     my $columns = `tput cols`;
-    chomp($rows);
-    chomp($columns);
+    $rows =~ s{\R\z}{};
+    $columns =~ s{\R\z}{};
     return ($rows, $columns);
 }
