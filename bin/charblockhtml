@@ -7,13 +7,18 @@ use POSIX qw(floor);
 use open IO => qw(:locale);
 
 our %NON_PRINTING = (
-    Cc => 1,
-    Cf => 1,
-    Co => 1,
-    Cs => 1,
-    Zl => 1,
-    Zp => 1,
-    Zs => 1,
+    Cc => 1,                    # Control
+    Cf => 1,                    # Format
+    Co => 1,                    # Private Use
+    Cs => 1,                    # Surrogate
+    Zl => 1,                    # Line Separator
+    Zp => 1,                    # Paragraph Separator
+    Zs => 1,                    # Space Separator
+);
+our %COMBINING = (
+    Mc => 1,                    # Spacing Mark
+    Me => 1,                    # Enclosing Mark
+    Mn => 1,                    # Nonspacing Mark
 );
 our %NO_CHAR_GRID = (
     'High Surrogates' => 1,
@@ -68,7 +73,6 @@ our %CHAR_GRID = (
     'Miscellaneous Mathematical Symbols-B' => 1,    # U+2980 - U+29FF
     'Supplemental Mathematical Operators' => 1,     # U+2A00 - U+2AFF
     'Miscellaneous Symbols and Arrows' => 1,        # U+2B00 - U+2BFF
-
 );
 
 my $charblocks = charblocks();
@@ -77,57 +81,8 @@ print(<<"END");
 <html>
 <head>
 <meta charset="utf-8">
+<link rel="stylesheet" href="charblocks.css">
 <style>
-    .container {
-        max-width: 800px;
-        margin: 0 auto;
-    }
-    .block-table {
-        width: 100%;
-        margin-bottom: 1rem;
-        border-spacing: 0;
-        border-collapse: collapse;
-        table-layout: fixed;
-    }
-    .block-table > thead {
-        border-bottom: 1px solid black;
-    }
-    .block-table > thead > tr {
-        vertical-align: bottom;
-    }
-    .block-table > thead > tr > th {
-        text-align: left;
-        padding: 0.25em 1em 0.25em 0;
-        border-bottom: 1px solid black;
-    }
-    .block-table > thead > tr > th:nth-child(1),
-    .block-table > thead > tr > th:nth-child(2) {
-        width: 4em;
-    }
-    .block-table > thead > tr > th:nth-child(3) {
-        width: 3em;
-    }
-    .block-table > tbody {
-    }
-    .block-table > tbody > tr {
-        vertical-align: baseline;
-    }
-    .block-table > tbody > tr > td {
-        text-align: left;
-        padding: 0.25em 1em 0.25em 0;
-        border-bottom: 1px solid black;
-    }
-    .char-table {
-        width: 100%;
-        border-spacing: 0;
-        border-collapse: collapse;
-        table-layout: fixed;
-        font-size: 150%;
-    }
-    .char-table > tbody > tr > td {
-        padding: 0.125em 0;
-        text-align: center;
-    }
 </style>
 </head>
 <body>
@@ -137,6 +92,7 @@ print(<<"END");
         <tr>
             <th>Start</th>
             <th>End</th>
+            <th>Size</th>
             <th>Block Name</th>
         </tr>
     </thead>
@@ -180,29 +136,32 @@ END
 sub print_char_table {
     my ($start, $end) = @_;
     print(<<"END");
-<table class="char-table">
-    <tbody>
+<div class="char-grid">
 END
     foreach my $row (floor($start / 16) .. floor($end / 16)) {
-        print("<tr>\n");
         foreach my $col (0 .. 15) {
             my $codepoint = $row * 16 + $col;
             my $charinfo = charinfo($codepoint);
             if (!defined $charinfo) {
-                printf("<td title=\"U+%04X (no character)\"></td>\n", $codepoint);
+                printf("<span title=\"U+%04X (no character)\"></span>\n", $codepoint);
                 next;
             }
             my $category = $charinfo->{category};
             if ($NON_PRINTING{$category}) {
-                printf("<td title=\"U+%04X %s\"></td>\n", $codepoint, $charinfo->{name});
+                printf("<span title=\"U+%04X %s\"></span>\n", $codepoint, $charinfo->{name});
                 next;
             }
-            printf("<td title=\"U+%04X %s\">%s</td>\n", $codepoint, $charinfo->{name}, chr($codepoint));
+            my $charname = $charinfo->{name} // "(no name)";
+            if (defined $charinfo->{unicode10} && $charinfo->{unicode10} =~ /\S/) {
+                $charname .= sprintf(" {%s}", $charinfo->{unicode10});
+            }
+            printf("<span title=\"U+%04X %s [%s]\"><span class=\"char\">%s%s</span></span>\n",
+                   $codepoint, $charinfo->{name}, $category,
+                   $COMBINING{$category} ? " " : "",
+                   chr($codepoint));
         }
-        print("</tr>\n");
     }
     print(<<"END");
-    </tbody>
-</table>
+</div>
 END
 }
