@@ -1,102 +1,141 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
-use File::Basename qw(basename dirname fileparse);
-use File::Find qw(find);
-use List::Util qw(any);
-use FindBin;
+use File::Basename qw(basename);
 
-use lib "${FindBin::Bin}/../lib/perl";
-use My::File::Wildcard qw(wildcard_to_regexp);
+our %ext;
 
-our $RX_HAS_EXT = qr{\.(?:tar\.)?[^/.]+$};
-our $RX_IS_EXT = qr{^\.(?:tar\.)?[^/.]+$};
+while (<>) {
+    s{\R\z}{};
+    process_file($_);
+}
 
-our $run_as = (fileparse($0))[0];
-our $cvs_exclude;
-our @exclude;
-our @include;
+print_counts();
 
-use Getopt::Long;
-Getopt::Long::Configure(qw(gnu_getopt));
-Getopt::Long::GetOptions(
-    "C|cvs-exclude" => \$cvs_exclude,
-    "x|exclude=s" => \@exclude,
-    "i|include=s" => \@include,
-) or die(":-(\n");
-
-my %count;
-my %size;
-my %blocks;
-
-my @targets;
-my @extensions;
-
-@exclude = map { wildcard_to_regexp($_) } @exclude;
-@include = map { wildcard_to_regexp($_) } @include;
-
-foreach my $arg (@ARGV) {
-    if ($arg =~ $RX_IS_EXT) {
-        push(@extensions, $arg);
+sub process_file {
+    my ($filename) = @_;
+    my $basename = basename($filename);
+    if ($filename =~ /(\.tar)?\.[^.\/]+$/) {
+        $ext{$&} += 1;
     } else {
-        push(@targets, $arg);
+        $ext{"(none)"} += 1;
     }
 }
 
-if (!scalar @targets) {
-    push(@targets, '.');
+sub print_counts {
+    foreach my $ext (sort { $ext{$b} <=> $ext{$a} } keys %ext) {
+        printf("%8d  %s\n", $ext{$ext}, $ext);
+    }
 }
 
-find({ wanted => \&process }, @targets);
+# use File::Basename qw(basename dirname fileparse);
+# use File::Find qw(find);
+# use List::Util qw(any);
+# use FindBin;
 
-sub process {
-    my @lstat = lstat($_);
-    return if !scalar @lstat;
-    my ($dev, $ino, $mode, $nlink, $uid, $gid,
-        $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
-    if ($cvs_exclude) {
-        if (-d _) {
-            return ($File::Find::prune = 1) if $_ eq '.git';
-            return ($File::Find::prune = 1) if $_ eq 'node_modules';
-        }
-        return ($File::Find::prune = 1) if $_ =~ /~$/;      #   *~ .*~
-        return ($File::Find::prune = 1) if $_ =~ /^#.*#$/;  #   #*#
-        return ($File::Find::prune = 1) if $_ =~ /^\..*#$/; #   .*#
-    }
-    return if -d _;             # only counting files
-    my $basename = $_;
-    if (scalar @include) {
-        return if !any { $basename =~ $_ } @include;
-    }
-    if (scalar @exclude) {
-        return if any { $basename =~ $_ } @exclude;
-    }
-    my $value;
-    my $ext = (fileparse($File::Find::name, $RX_HAS_EXT))[2];
-    if ($run_as eq 'countext') {
-        $value = $ext;
-    } else {
-        $value = $_;
-    }
-    if (scalar @extensions) {
-        return if !any { $ext eq $_ } @extensions;
-    }
-    $count{$value} += 1;
-    $size{$value} += $size if defined $size;
-    $blocks{$value} += $blocks if defined $blocks;
-}
+# use lib "${FindBin::Bin}/../lib/perl";
 
-if (-t 1) {
-    printf("%8s  %12s  %10s  %12s  %s\n",
-           "COUNT", "SIZE", "BLOCKS", "AVGSIZE", "EXT");
-}
+# our $RX_HAS_EXT = qr{\.(?:tar\.)?[^/.]+$};
+# our $RX_IS_EXT = qr{^\.(?:tar\.)?[^/.]+$};
 
-foreach my $value (sort keys %count) {
-    my $avg = defined $size{$value} ? ($size{$value} / $count{$value}) : -1;
-    printf("%8d  %12d  %10d  %12d  %s\n",
-           $count{$value} // -1,
-           $size{$value} // -1,
-           $blocks{$value} // -1,
-           $avg // -1,
-           $value);
-}
+# our $run_as = (fileparse($0))[0];
+# our $cvs_exclude;
+# our @exclude;
+# our @include;
+# our $stdin;
+
+# use Getopt::Long;
+# Getopt::Long::Configure(qw(gnu_getopt));
+# Getopt::Long::GetOptions(
+#     "C|cvs-exclude" => \$cvs_exclude,
+#     "x|exclude=s" => \@exclude,
+#     "i|include=s" => \@include,
+#     "stdin" => \$stdin,
+# ) or die(":-(\n");
+
+# my %count;
+# my %size;
+# my %blocks;
+
+# my @targets;
+# my @extensions;
+
+# @exclude = map { wildcard_to_regexp($_) } @exclude;
+# @include = map { wildcard_to_regexp($_) } @include;
+
+# if ($stdin) {
+#     while (<>) {
+#         s{\R\z}{};
+#         process($_);
+#     }
+# } else {
+#     foreach my $arg (@ARGV) {
+#         if ($arg =~ $RX_IS_EXT) {
+#             push(@extensions, $arg);
+#         } else {
+#             push(@targets, $arg);
+#         }
+#     }
+#     if (!scalar @targets) {
+#         push(@targets, '.');
+#     }
+#     find({ wanted => \&process }, @targets);
+# }
+
+# sub process {
+#     my @lstat = lstat($_);
+#     return if !scalar @lstat;
+#     my ($dev, $ino, $mode, $nlink, $uid, $gid,
+#         $rdev, $size, $atime, $mtime, $ctime, $blksize, $blocks) = @lstat;
+#     if ($cvs_exclude) {
+#         if (-d _) {
+#             return ($File::Find::prune = 1) if $_ eq '.git';
+#             return ($File::Find::prune = 1) if $_ eq 'node_modules';
+#         }
+#         return ($File::Find::prune = 1) if $_ =~ /~$/;      #   *~ .*~
+#         return ($File::Find::prune = 1) if $_ =~ /^#.*#$/;  #   #*#
+#         return ($File::Find::prune = 1) if $_ =~ /^\..*#$/; #   .*#
+#     }
+#     return if -d _;             # only counting files
+#     my $basename = $_;
+#     if (scalar @include) {
+#         return if !any { $basename =~ $_ } @include;
+#     }
+#     if (scalar @exclude) {
+#         return if any { $basename =~ $_ } @exclude;
+#     }
+#     my $value;
+#     my $ext = (fileparse($File::Find::name, $RX_HAS_EXT))[2];
+#     if ($run_as eq 'countext') {
+#         $value = $ext;
+#     } else {
+#         $value = $_;
+#     }
+#     if (scalar @extensions) {
+#         return if !any { $ext eq $_ } @extensions;
+#     }
+#     $count{$value} += 1;
+#     $size{$value} += $size if defined $size;
+#     $blocks{$value} += $blocks if defined $blocks;
+# }
+
+# if (-t 1) {
+#     printf("%8s  %12s  %10s  %12s  %s\n",
+#            "COUNT", "SIZE", "BLOCKS", "AVGSIZE", "EXT");
+# }
+
+# foreach my $value (sort keys %count) {
+#     my $avg = defined $size{$value} ? ($size{$value} / $count{$value}) : -1;
+#     printf("%8d  %12d  %10d  %12d  %s\n",
+#            $count{$value} // -1,
+#            $size{$value} // -1,
+#            $blocks{$value} // -1,
+#            $avg // -1,
+#            $value);
+# }
+
+# sub wildcard_to_regexp {
+#     my ($expr) = @_;
+#     $expr =~ s{\[.*?\]|[^\[\]]}{$& eq "*" ? ".*" : $& eq "?" ? "." : $&};
+#     return $expr;
+# }
