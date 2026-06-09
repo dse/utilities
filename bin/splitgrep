@@ -19,6 +19,7 @@ main () {
     local opt_h=0
     local opt_n=0
     local opt_w=0
+    local opt_v=0
     while getopts 'wEFHhine:' OPTION ; do
         case "${OPTION}" in
             w)
@@ -48,6 +49,9 @@ main () {
                 ;;
             e)
                 patterns+=("${OPTARG}")
+                ;;
+            v)
+                opt_v=1
                 ;;
             '?')
                 exit 1
@@ -104,10 +108,40 @@ main () {
         grep_patterns+=(-e "${pattern}")
     done
 
-    echo "---"
-    grep "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
-    echo "---"
-    grep -v "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
+    fd3=0
+    if { true >&3; } 2>/dev/null ; then
+        fd3=1
+    fi
+
+    grep_obverse () {
+        grep "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
+    }
+
+    grep_reverse () {
+        grep -v "${grep_opts[@]}" "${grep_patterns[@]}" "${files[@]}" || true
+    }
+
+    if (( opt_v )) ; then
+        if (( fd3 )) ; then
+            grep_reverse
+            grep_obverse >&3
+        else
+            echo "---"
+            grep_reverse
+            echo "---"
+            grep_obverse
+        fi
+    else
+        if (( fd3 )) ; then
+            grep_obverse
+            grep_reverse >&3
+        else
+            echo "---"
+            grep_obverse
+            echo "---"
+            grep_reverse
+        fi
+    fi
 }
 
 at_exit () {
