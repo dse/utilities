@@ -11,17 +11,17 @@ Getopt::Long::GetOptions(
 ) or die(":-(");
 
 while (<>) {
-    s{\R\z}{};
+    my $nl = s{\R\z}{} ? $& : "";
     s{['\x{2019}]}{}g;
     if ($line) {
         kebab($_);
-        print("$_\n");
+        print($_, $nl);
     } else {
         my @words = split(qr{(\s*\t\s*| {2,})}, $_);
         for (my $i = 0; $i <= $#words; $i += 2) {
             kebab($words[$i]);
         }
-        print(join("", @words), "\n");
+        print(join("", @words), $nl);
     }
 }
 
