@@ -1,0 +1,181 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use POSIX qw(dup2);
+STDOUT->autoflush(1);
+STDERR->autoflush(1);
+
+# Track line terminators to keep output consistent
+my %nl;
+
+my $is_echoing = 1;
+my $prefix = "";
+
+while (<>) {
+    my $nl;
+    if (m{\R\z}) {
+        $nl = $&;
+        $nl{$nl} = 1;
+    }
+
+    # Get predominant line terminator in this file
+    my $get_nl = sub {
+        my ($nl) = sort { $nl{$b} <=> $nl{$a} } keys %nl;
+        return $nl // "\n";
+    };
+
+    if (/%%%\s*START\s+RERUN:\s*(.*?)\s*%%%/ && $1 ne "<command>") {
+        my $cmd = $1;
+        if (/%%%\s*PREFIX:\s*(?:\"(.*?)\"|\'(.*?)\')\s*%%%/) {
+            $prefix = $1 // $2;
+        } else {
+            $prefix = "";
+        }
+        print($_);
+        if (!defined $nl) {
+            print(&$get_nl());
+        }
+        if ($prefix eq "") {
+            system($cmd);
+        } else {
+            run_cmd($cmd, prefix => $prefix);
+        }
+        $is_echoing = 0;
+        next;
+    } elsif (/%%%\s*END\s+RERUN\s*%%%/) {
+        $is_echoing = 1;
+        print($_);
+        if (!defined $nl) {
+            print_nl();
+        }
+        next;
+    } else {
+        if ($is_echoing) {
+            print($_);
+            if (!defined $nl) {
+                print_nl();
+            }
+        }
+    }
+} continue {
+    if (eof) {
+        # check for EOF before "END RERUN" line
+        if (!$is_echoing) {
+            print($prefix);
+            print("%%%" . " " . "END RERUN" . " " . "%%%\n");
+        }
+        %nl = ();          # each file might have different CRLF/CR/LF
+        $is_echoing = 1;
+        $prefix = "";
+    }
+}
+
+sub run_cmd {
+    my ($cmd, %args) = @_;
+    my $prefix = $args{prefix}; 
+
+    my ($pipe_read, $pipe_write);
+    pipe($pipe_read, $pipe_write) or die("FATAL: pipe: $!\n");
+    my $pid = fork();
+    if (!defined $pid) {
+        die("FATAL: fork: $!\n");
+    }
+    if (!$pid) {
+        close(STDIN);
+        close($pipe_read);
+        dup2(fileno($pipe_write), fileno(STDOUT));
+        exec($cmd) or die("FATAL: exec: $!\n");
+    }
+    close($pipe_write);
+    my %nl;
+    my $get_nl = sub {
+        my ($nl) = sort { $nl{$b} <=> $nl{$a} } keys %nl;
+        return $nl // "\n";
+    };
+    while (<$pipe_read>) {
+        my $nl = m{\R\z} ? $& : undef;
+        if (defined $nl) {
+            $nl{$nl}++;
+        }
+        print($prefix . $_);
+        if (!defined $nl) {
+            print(&$get_nl());
+        }
+    }
+    close($pipe_read);
+    waitpid($pid, 0);
+    my ($exit, $signal, $core) = (($? >> 8), ($? & 127), ($? & 128));
+}
+
+=head1 NAME
+
+return - pipe that runs embedded commands and inserts output
+
+=head1 SYNOPSIS
+
+    rerun [<filename> ...] | sponge <filename>
+
+=head1 DESCRIPTION
+
+During normal operation, rerun reads lines from each filename, or
+stdin if no filenames are specified, and prints them one by one.
+
+When specially marked **rerun blocks** are encountered, rerun outputs
+their start and end delimiters and replaces the contents between with
+the output from a supplied command.
+
+=head1 RERUN BLOCKS
+
+A rerun block is a series of lines starting with:
+
+    %%% START RERUN: <command> %%%
+
+and ending with:
+
+    %%% END RERUN %%%
+
+The supplied <command> is supplied to "/bin/sh -c" on Unix platforms.
+On other platforms the command to invoke the shell varies.
+
+The contents of the file between the "START RERUN" and "END RERUN"
+lines are replaced with the output of the supplied <command>.  Any
+diagnostic messages remain written to stderr and are not part of
+rerun's output.
+
+An optional prefix can be specified that will be prepended to each
+line of the command's output, in order to protect the output from
+being executed in a script or source code file.
+
+    %%% START RERUN: <command> %%% PREFIX: "# " %%%
+
+If no "END RERUN" line is found while reading a rerun block, the
+entire contents of the file after the "START RERUN" line are replaced
+with the command's output and a new "END RERUN" line is printed.
+
+=head1 EXAMPLES
+
+Example 1, a basic example:
+
+    %%% START RERUN: ls -l %%%
+    total 8
+    -rwxr-xr-x 1 dse dse 44 Jan 14  2026 file1.txt
+    -rwxr-xr-x 1 dse dse 43 Jan 29  2026 file2.txt
+    %%% END RERUN %%%
+
+Example 2, in a comment:
+
+    # %%% START RERUN: ls -l %%% PREFIX: "# " %%%
+    # total 8
+    # -rwxr-xr-x 1 dse dse 44 Jan 14  2026 file1.txt
+    # -rwxr-xr-x 1 dse dse 43 Jan 29  2026 file2.txt
+    # %%% END RERUN %%%
+
+Example 3, with four spaces of indentation:
+
+        # %%% START RERUN: ls -l %%% PREFIX: "    # " %%%
+        # total 8
+        # -rwxr-xr-x 1 dse dse 44 Jan 14  2026 file1.txt
+        # -rwxr-xr-x 1 dse dse 43 Jan 29  2026 file2.txt
+        # %%% END RERUN %%%
+
+=cut
