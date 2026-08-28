@@ -24,7 +24,7 @@ while (<>) {
         return $nl // "\n";
     };
 
-    if (/%%%\s*START\s+RERUN:\s*(.*?)\s*%%%/ && $1 ne "<command>") {
+    if (/%%%\s*START\s+RERUN:\s*(.*?)\s*%%%/ && $1 ne "<command>" && $1 ne "COMMAND") {
         my $cmd = $1;
         if (/%%%\s*PREFIX:\s*(?:\"(.*?)\"|\'(.*?)\')\s*%%%/) {
             $prefix = $1 // $2;
@@ -148,6 +148,13 @@ being executed in a script or source code file.
 
     %%% START RERUN: <command> %%% PREFIX: "# " %%%
 
+If the command string is literally "<command>" or "COMMAND", the rerun
+block is not modified.  This allows example rerun blocks to be
+preserved while other rerun blocks are actually updated.  The two
+strings are common indications of metasyntactic variables used in man
+pages and --help messages.  Suggestions on additional types of those
+strings are welcome.
+
 If no "END RERUN" line is found while reading a rerun block, the
 entire contents of the file after the "START RERUN" line are replaced
 with the command's output and a new "END RERUN" line is printed.
@@ -177,5 +184,9 @@ Example 3, with four spaces of indentation:
         # -rwxr-xr-x 1 dse dse 44 Jan 14  2026 file1.txt
         # -rwxr-xr-x 1 dse dse 43 Jan 29  2026 file2.txt
         # %%% END RERUN %%%
+
+=head1 AUTHOR
+
+Darren Embry (dsembry@gmail.com).
 
 =cut
