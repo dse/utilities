@@ -3,6 +3,17 @@ use warnings;
 use strict;
 use Getopt::Long;
 
+# TODO: does not work well with grep -C<n> output:
+#     --
+#     ./server/migrations/23-noname.js-/**
+#     ./server/migrations/23-noname.js- * Actions summary:
+#     ./server/migrations/23-noname.js- *
+#     ./server/migrations/23-noname.js: * changeColumn "status" on table "Reports" to add 'AWAITING_STUDENT_SOLUTION'
+#     ./server/migrations/23-noname.js- *
+#     ./server/migrations/23-noname.js- **/
+#     ./server/migrations/23-noname.js-
+#     --
+
 our $opt_trim;
 
 Getopt::Long::Configure("gnu_getopt");
