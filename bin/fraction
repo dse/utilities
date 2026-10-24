@@ -3,68 +3,82 @@ use warnings;
 use strict;
 use open qw(:locale);
 
-use Getopt::Long;
-use POSIX qw(floor);
+use Getopt::Long qw();
+use Data::Dumper qw();
+use POSIX qw(round);
 
 our $two;
+our $max;
+our $verbose = 0;
+our $pow;
 
-Getopt::Long::Configure('gnu_compat', 'bundling', 'no_ignore_case');
+Getopt::Long::Configure('gnu_getopt');
 Getopt::Long::GetOptions(
-    "2" => \$two,
+    "2|two" => \$two,
+    "m|max=s" => \$max,
+    "v|verbose+" => \$verbose,
 ) or die();
+
+if (defined $max) {
+    $max = eval($max);
+} else {
+    if ($two) {
+        $max = 2 ** 64;
+    } else {
+        $max = 10000;
+    }
+}
 
 if (!scalar @ARGV) {
     exit(0);
 }
 foreach my $arg (@ARGV) {
-    if ($two) {
-        approximate($arg, 2);
-    } else {
-        approximate($arg);
-    }
+    $arg = eval($arg);
+    approximate($arg);
 }
 
 sub approximate {
-    my ($x, $scheme) = @_;
-    $x = eval $x;
-    print("$x - successive closer fractional approximations\n");
-    my $mindiff;
-    my $denom;
-    my $compute = sub {
-        my $numer = floor($x * $denom);
-        my $approx = $numer / $denom;
-        my $diff = abs($approx - $x);
-        if (!defined $mindiff) {
-            $mindiff = $diff;
-            printf("    %8d / %-8d = %10.4g (%.4e)\n", $numer, $denom, $approx, $diff);
-        } elsif ($diff < $mindiff) {
-            $mindiff = $diff;
-            printf("    %8d / %-8d = %10.4g (%.4e)\n", $numer, $denom, $approx, $diff);
-        }
-    };
-    if ($scheme == 2) {
-        for ($denom = 2; $denom <= 65536; $denom *= 2) {
-            &$compute();
-        }
+    my ($value) = @_;
+
+    my $min_diff;
+    my $min_abs_diff;
+    my $denom = 2;
+    my $pow = 1;
+
+    my $step;
+    if ($two) {
+        $step = sub {
+            $denom *= 2;
+            $pow += 1;
+        };
     } else {
-        for ($denom = 2; $denom <= 4096; $denom += 1) {
-            &$compute();
+        $step = sub {
+            $denom += 1;
+        };
+    }
+
+    for (; $denom <= $max; &$step()) {
+        my $numer = $value * $denom;
+        my $round_numer = round($numer);
+        my $diff = ($numer - $round_numer);
+        my $abs_diff = abs($diff);
+        my $is_hit = !defined $min_abs_diff || $abs_diff < $min_abs_diff;
+        if ($verbose) {
+            print($is_hit ? "* " : "  ");
+        }
+        if ($is_hit) {
+            $min_diff = $diff;
+            $min_abs_diff = $abs_diff;
+        }
+        if ($verbose || $is_hit) {
+            if ($two) {
+                printf("%20d/2**%-20d (%g)\n", $round_numer, $pow, $diff);
+            } else {
+                printf("%20d/%-20d (%g)\n", $round_numer, $denom, $diff);
+            }
+        }
+        if (!$diff) {
+            return;
         }
     }
 }
-
-# === previous code where $x is the original value
-# my $golden = (1 + sqrt(5)) / 2;
-# my $diff;
-# if (($diff = abs($x - sqrt(2))) < 0.01) {
-#     printf("%g = sqrt(2) [%g]\n", $x, $diff);
-# }
-# if (($diff = abs($x - sqrt(0.5))) < 0.01) {
-#     printf("%g = sqrt(0.5) [%g]\n", $x, $diff);
-# }
-# if (($diff = abs($x - $golden)) < 0.01) {
-#     printf("%g = golden [%g]\n", $x, $diff);
-# }
-# if (($diff = abs($x - 1/$golden)) < 0.01) {
-#     printf("%g = 1/golden [%g]\n", $x, $diff);
-# }
