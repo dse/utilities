@@ -70,11 +70,16 @@ sub approximate {
             $min_diff = $diff;
             $min_abs_diff = $abs_diff;
         }
+
+        my $diff3 = $numer ? (($numer - $round_numer) / $numer) : 0;
+        my $diff4 = $round_numer ? (($numer - $round_numer) / $round_numer) : 0;
+        my $diff2 = ($diff3 && $diff4) ? sqrt($diff3 * $diff4) : ($diff3 + $diff4);
+
         if ($verbose || $is_hit) {
             if ($two) {
-                printf("%20d/2**%-20d (%g)\n", $round_numer, $pow, $diff);
+                printf("%20d/2**%-20d (%g) [%g]\n", $round_numer, $pow, $diff, $diff2);
             } else {
-                printf("%20d/%-20d (%g)\n", $round_numer, $denom, $diff);
+                printf("%20d/%-20d (%g) [%g]\n", $round_numer, $denom, $diff, $diff2);
             }
         }
         if (!$diff) {
