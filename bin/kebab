@@ -1,6 +1,11 @@
 #!/usr/bin/env perl
 use warnings;
 use strict;
+use open IO  => ":utf8";
+use open IN  => ":utf8";
+use open OUT => ":utf8";
+
+use Unicode::Normalize qw(NFKC);
 
 my $line = 0;
 
@@ -12,30 +17,29 @@ Getopt::Long::GetOptions(
 
 while (<>) {
     my $nl = s{\R\z}{} ? $& : "";
-    s{['\x{2019}]}{}g;
     if ($line) {
-        kebab($_);
+        $_ = kebab($_);
         print($_, $nl);
     } else {
         my @words = split(qr{(\s*\t\s*| {2,})}, $_);
         for (my $i = 0; $i <= $#words; $i += 2) {
-            kebab($words[$i]);
+            $words[$i] = kebab($words[$i]);
         }
         print(join("", @words), $nl);
     }
 }
 
 sub kebab {
-    if (!defined wantarray) {
-        for (@_) {
-            s{[^0-9A-Za-z]+}{-}g;
-            s{^-+}{};
-            s{-+$}{};
-            $_ = lc($_);
-        }
-    } else {
-        my @words = @_;
-        kebab(@words);
-        return @words;
-    }
+    my ($str) = @_;
+    local $_ = $str;
+    s{['’]}{}g;                 # tom's => toms
+    $_ = NFKC($_);
+    s{\p{Mark}}{}g;             # remove accents
+    s{(\p{Letter}\.)+\p{Letter}[^\p{Digit}\p{Letter}]+}
+     {unperiod($&)}ge;              # acronyms ("N.A.S.A." => "nasa")
+    s{[^\p{Digit}\p{Letter}]+}{-}g; # replace punctuation with "-"
+    s{(\p{Lowercase_Letter})(\p{Uppercase_Letter})}{$1-$2}g; # word-splitting
+    s{^-+}{}; s{-+$}{}; s{-+}{-}g;                           # cleanup
+    $_ = lc($_);
+    return $_;
 }
